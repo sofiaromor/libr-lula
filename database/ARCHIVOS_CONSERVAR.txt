@@ -1,0 +1,8 @@
+Esta carpeta no contiene la base SQLite ni las migraciones porque no estaban en los paquetes de código recibidos.
+
+Conserva desde tu instalación actual:
+- librelula.db
+- .htaccess
+- migrate_security.php
+- migrate_profile_activity.php
+- migrate_hero_colors.php

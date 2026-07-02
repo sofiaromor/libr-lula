@@ -1,0 +1,28 @@
+﻿LIBRÉLULA - COPIA DEL 2026-06-22_1442
+
+Esta copia contiene:
+- Código PHP
+- API
+- Base de datos SQLite
+- Imágenes y portadas
+- PDF y EPUB
+- Frontend React editable
+- Catálogo compilado
+- Configuración local
+
+PARA ABRIR LA WEB:
+
+1. Descomprimir el ZIP.
+2. Abrir PowerShell dentro de la carpeta.
+3. Ejecutar:
+
+& "C:\xampp\php\php.exe" -S 127.0.0.1:8000
+
+4. Abrir en el navegador:
+
+http://127.0.0.1:8000
+
+La ventana de PowerShell debe permanecer abierta.
+Para apagar el servidor: Ctrl + C.
+
+No publicar config.php ni librelula.db en GitHub.

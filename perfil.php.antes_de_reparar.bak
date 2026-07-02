@@ -1,0 +1,1443 @@
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/genre_helpers.php';
+require_once __DIR__ . '/includes/profile_favorites.php';
+require_once __DIR__ . '/includes/reading_timeline.php';
+librelulaStartSession();
+
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit;
+}
+
+$userId = (int) $_SESSION['user_id'];
+librelulaReadingEnsureSchema($db);
+
+function profileEscape(mixed $value): string
+{
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+
+function profileInitial(string $username): string
+{
+    $username = trim($username);
+
+    if ($username === '') {
+        return 'L';
+    }
+
+    return function_exists('mb_substr')
+        ? mb_strtoupper(mb_substr($username, 0, 1, 'UTF-8'), 'UTF-8')
+        : strtoupper(substr($username, 0, 1));
+}
+
+function profileMemberSince(?string $createdAt): string
+{
+    if (!$createdAt) {
+        return 'lectora desde hace poco';
+    }
+
+    try {
+        $date = new DateTimeImmutable($createdAt);
+    } catch (Throwable) {
+        return 'lectora desde hace poco';
+    }
+
+    $months = [
+        1 => 'enero',
+        2 => 'febrero',
+        3 => 'marzo',
+        4 => 'abril',
+        5 => 'mayo',
+        6 => 'junio',
+        7 => 'julio',
+        8 => 'agosto',
+        9 => 'septiembre',
+        10 => 'octubre',
+        11 => 'noviembre',
+        12 => 'diciembre',
+    ];
+
+    return sprintf(
+        'lectora desde %s de %s',
+        $months[(int) $date->format('n')] ?? '',
+        $date->format('Y')
+    );
+}
+
+function profileAsset(?string $path, string $fallback = ''): string
+{
+    $path = trim((string) $path);
+
+    if ($path === '') {
+        return $fallback;
+    }
+
+    if (preg_match('~^(?:https?:)?//|^data:~i', $path)) {
+        return $path;
+    }
+
+    $normalized = ltrim(str_replace('\\', '/', $path), '/');
+    $normalized = preg_replace('~^(?:\./|\.\./)*(?:librelula/)+~i', '', $normalized) ?? $normalized;
+
+    return $normalized !== '' ? $normalized : $fallback;
+}
+
+function profileCover(?string $cover): string
+{
+    return profileAsset($cover);
+}
+
+/** @return list<string> */
+function profileParseGenres(?string $value): array
+{
+    $value = trim((string) $value);
+
+    if ($value === '' || $value === '[]') {
+        return [];
+    }
+
+    if (str_starts_with($value, '[')) {
+        $decoded = json_decode($value, true);
+
+        if (is_array($decoded)) {
+            $genres = [];
+
+            foreach ($decoded as $genre) {
+                $genre = trim((string) $genre);
+                if ($genre !== '') {
+                    $genres[] = $genre;
+                }
+            }
+
+            return array_values(array_unique($genres));
+        }
+    }
+
+    $genres = preg_split('/[,;|]+/u', $value) ?: [];
+    $genres = array_map(static fn (string $genre): string => trim($genre), $genres);
+    $genres = array_filter($genres, static fn (string $genre): bool => $genre !== '');
+
+    return array_values(array_unique($genres));
+}
+
+function profileActivityLevel(int $points): int
+{
+    return match (true) {
+        $points <= 0 => 0,
+        $points === 1 => 1,
+        $points <= 3 => 2,
+        default => 3,
+    };
+}
+
+function profileDateLabel(?string $value): string
+{
+    $value = trim((string) $value);
+
+    if ($value === '') {
+        return 'Sin fecha';
+    }
+
+    try {
+        $date = new DateTimeImmutable($value);
+        $today = new DateTimeImmutable('today');
+        $day = $date->setTime(0, 0);
+
+        if ($day == $today) {
+            return 'Hoy';
+        }
+
+        if ($day == $today->sub(new DateInterval('P1D'))) {
+            return 'Ayer';
+        }
+
+        return $date->format('d/m/Y');
+    } catch (Throwable) {
+        return 'Sin fecha';
+    }
+}
+
+function profileActivityAction(string $status, int $progress): string
+{
+    return match ($status) {
+        'completed' => 'Terminaste',
+        'reading' => $progress > 0 ? 'Actualizaste tu progreso en' : 'Empezaste a leer',
+        'rereading' => $progress > 0 ? 'Actualizaste tu relectura de' : 'Empezaste a releer',
+        'paused' => 'Pausaste',
+        'planned' => 'Añadiste a pendientes',
+        'dropped' => 'Marcaste como abandonado',
+        default => 'Actualizaste',
+    };
+}
+
+function profileActivityDate(array $row): ?string
+{
+    return (string) match ((string) ($row['status'] ?? '')) {
+        'completed' => $row['finished_at'] ?? $row['started_at'] ?? '',
+        'paused' => $row['paused_at'] ?? $row['started_at'] ?? '',
+        'dropped' => $row['dropped_at'] ?? $row['started_at'] ?? '',
+        default => $row['started_at'] ?? $row['finished_at'] ?? '',
+    };
+}
+
+$userStmt = $db->prepare('SELECT username, avatar, bio, created_at FROM users WHERE id = :id LIMIT 1');
+$userStmt->execute([':id' => $userId]);
+$user = $userStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+$username = trim((string) ($user['username'] ?? $_SESSION['username'] ?? 'Lectora'));
+$avatar = profileAsset($user['avatar'] ?? $_SESSION['avatar'] ?? '', 'images/avatar/avatar1.png');
+
+if ($avatar === 'default.jpg' || str_ends_with($avatar, '/default.jpg')) {
+    $avatar = 'images/avatar/avatar1.png';
+}
+
+$_SESSION['username'] = $username;
+$_SESSION['avatar'] = $avatar;
+$_SESSION['bio'] = $user['bio'] ?? null;
+
+$statsStmt = $db->prepare(<<<'SQL'
+    SELECT
+        SUM(CASE WHEN ub.status = 'completed' THEN 1 ELSE 0 END) AS completed,
+        SUM(CASE WHEN ub.score = 5 THEN 1 ELSE 0 END) AS favorites,
+        SUM(CASE WHEN ub.status = 'completed' THEN COALESCE(b.pages, 0) ELSE 0 END) AS pages_read
+    FROM user_books ub
+    INNER JOIN books b ON b.id = ub.book_id
+    WHERE ub.user_id = :user_id
+SQL);
+$statsStmt->execute([':user_id' => $userId]);
+$stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+try {
+    librelulaInitializeProfileFavorites($db, $userId);
+} catch (Throwable) {
+    // El perfil sigue siendo usable aunque la base de datos aún no permita crear las tablas.
+}
+
+$favoriteBooks = [];
+$favoriteAuthors = [];
+
+try {
+    $favoriteStmt = $db->prepare(<<<'SQL'
+        SELECT b.id, b.title, b.author, b.cover
+        FROM profile_favorite_books pf
+        INNER JOIN books b ON b.id = pf.book_id
+        WHERE pf.user_id = :user_id
+        ORDER BY pf.sort_order ASC, pf.created_at ASC
+        LIMIT 6
+    SQL);
+    $favoriteStmt->execute([':user_id' => $userId]);
+    $favoriteBooks = $favoriteStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $favoriteAuthorStmt = $db->prepare(<<<'SQL'
+        SELECT author_name
+        FROM profile_favorite_authors
+        WHERE user_id = :user_id
+        ORDER BY sort_order ASC, created_at ASC
+        LIMIT 6
+    SQL);
+    $favoriteAuthorStmt->execute([':user_id' => $userId]);
+    $favoriteAuthors = array_map(
+        static fn (mixed $value): string => trim((string) $value),
+        $favoriteAuthorStmt->fetchAll(PDO::FETCH_COLUMN)
+    );
+} catch (PDOException) {
+    // Las tablas se crean automáticamente al volver a cargar o ejecutar la migración.
+}
+
+
+$currentReadingStmt = $db->prepare(<<<'SQL'
+    SELECT
+        b.id,
+        b.title,
+        b.author,
+        b.cover,
+        b.pages,
+        ub.progress,
+        ub.score,
+        ub.notes,
+        ub.started_at,
+        ub.status,
+        ub.read_count
+    FROM user_books ub
+    INNER JOIN books b ON b.id = ub.book_id
+    WHERE ub.user_id = :user_id
+      AND ub.status IN ('reading', 'rereading')
+    ORDER BY COALESCE(ub.started_at, '0000-00-00') DESC, ub.id DESC
+    LIMIT 4
+SQL);
+$currentReadingStmt->execute([':user_id' => $userId]);
+$currentReadingBooks = $currentReadingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$recentActivityStmt = $db->prepare(<<<'SQL'
+    SELECT
+        b.id,
+        b.title,
+        b.author,
+        b.cover,
+        ub.status,
+        ub.progress,
+        ub.started_at,
+        ub.finished_at,
+        ub.paused_at,
+        ub.dropped_at
+    FROM user_books ub
+    INNER JOIN books b ON b.id = ub.book_id
+    WHERE ub.user_id = :user_id
+    ORDER BY
+        CASE
+            WHEN ub.status = 'completed' THEN COALESCE(ub.finished_at, ub.started_at, '0000-00-00')
+            WHEN ub.status = 'paused' THEN COALESCE(ub.paused_at, ub.started_at, '0000-00-00')
+            WHEN ub.status = 'dropped' THEN COALESCE(ub.dropped_at, ub.started_at, '0000-00-00')
+            ELSE COALESCE(ub.started_at, ub.finished_at, '0000-00-00')
+        END DESC,
+        ub.id DESC
+    LIMIT 7
+SQL);
+$recentActivityStmt->execute([':user_id' => $userId]);
+$recentActivity = $recentActivityStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$recentCoverPreloads = [];
+$recentCoverOrigins = [];
+
+foreach (array_slice($recentActivity, 0, 6) as $activityRow) {
+    $coverUrl = profileCover($activityRow['cover'] ?? '');
+
+    if ($coverUrl === '' || in_array($coverUrl, $recentCoverPreloads, true)) {
+        continue;
+    }
+
+    $recentCoverPreloads[] = $coverUrl;
+
+    if (preg_match('~^https?://~i', $coverUrl)) {
+        $parts = parse_url($coverUrl);
+        $scheme = (string) ($parts['scheme'] ?? '');
+        $host = (string) ($parts['host'] ?? '');
+
+        if ($scheme !== '' && $host !== '') {
+            $origin = $scheme . '://' . $host;
+
+            if (!in_array($origin, $recentCoverOrigins, true)) {
+                $recentCoverOrigins[] = $origin;
+            }
+        }
+    }
+}
+
+$genreStmt = $db->prepare(<<<'SQL'
+    SELECT b.genre
+    FROM user_books ub
+    INNER JOIN books b ON b.id = ub.book_id
+    WHERE ub.user_id = :user_id
+SQL);
+$genreStmt->execute([':user_id' => $userId]);
+$genreCounts = [];
+
+foreach ($genreStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    $genre = librelulaNormalizeGenre($row['genre'] ?? '');
+
+    if ($genre === '') {
+        continue;
+    }
+
+    $key = function_exists('mb_strtolower')
+        ? mb_strtolower($genre, 'UTF-8')
+        : strtolower($genre);
+
+    if (!isset($genreCounts[$key])) {
+        $genreCounts[$key] = ['name' => $genre, 'count' => 0];
+    }
+
+    $genreCounts[$key]['count']++;
+}
+
+uasort(
+    $genreCounts,
+    static fn (array $left, array $right): int =>
+        ($right['count'] <=> $left['count']) ?: strcasecmp((string) $left['name'], (string) $right['name'])
+);
+$favoriteGenres = array_slice(array_values($genreCounts), 0, 5);
+$genreTotal = array_sum(array_map(static fn (array $genre): int => (int) $genre['count'], $favoriteGenres));
+
+$today = new DateTimeImmutable('today');
+$activityStart = $today->sub(new DateInterval('P181D'));
+$activityPoints = [];
+
+try {
+    $activityStmt = $db->prepare(<<<'SQL'
+        SELECT activity_date, points
+        FROM reading_activity
+        WHERE user_id = :user_id
+          AND activity_date BETWEEN :start_date AND :end_date
+        ORDER BY activity_date ASC
+    SQL);
+    $activityStmt->execute([
+        ':user_id' => $userId,
+        ':start_date' => $activityStart->format('Y-m-d'),
+        ':end_date' => $today->format('Y-m-d'),
+    ]);
+
+    foreach ($activityStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $activityPoints[(string) $row['activity_date']] = max(0, (int) $row['points']);
+    }
+} catch (PDOException) {
+    // El instalador crea reading_activity. Este fallback mantiene el perfil usable
+    // incluso si la migración todavía no se ha ejecutado.
+    $fallbackStmt = $db->prepare(<<<'SQL'
+        SELECT started_at, finished_at
+        FROM user_books
+        WHERE user_id = :user_id
+    SQL);
+    $fallbackStmt->execute([':user_id' => $userId]);
+
+    foreach ($fallbackStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        foreach ([['started_at', 1], ['finished_at', 3]] as [$field, $points]) {
+            $date = trim((string) ($row[$field] ?? ''));
+            if ($date !== '') {
+                $activityPoints[$date] = ($activityPoints[$date] ?? 0) + $points;
+            }
+        }
+    }
+}
+
+$activityDays = [];
+$cursor = $activityStart;
+while ($cursor <= $today) {
+    $dateKey = $cursor->format('Y-m-d');
+    $points = (int) ($activityPoints[$dateKey] ?? 0);
+    $activityDays[] = [
+        'date' => $dateKey,
+        'label' => $cursor->format('d/m/Y'),
+        'points' => $points,
+        'level' => profileActivityLevel($points),
+    ];
+    $cursor = $cursor->add(new DateInterval('P1D'));
+}
+
+$activeDateKeys = array_keys(array_filter($activityPoints, static fn (int $points): bool => $points > 0));
+sort($activeDateKeys);
+$streak = 0;
+
+if ($activeDateKeys !== []) {
+    $latest = new DateTimeImmutable(end($activeDateKeys));
+    $yesterday = $today->sub(new DateInterval('P1D'));
+
+    if ($latest == $today || $latest == $yesterday) {
+        $streakCursor = $latest;
+
+        while (($activityPoints[$streakCursor->format('Y-m-d')] ?? 0) > 0) {
+            $streak++;
+            $streakCursor = $streakCursor->sub(new DateInterval('P1D'));
+        }
+    }
+}
+
+$genreColors = ['#66C23A', '#20A8E8', '#8955E8', '#ED6D93', '#F59E42'];
+$csrfToken = librelulaCsrfToken();
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perfil de <?= profileEscape($username) ?> — Librélula</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=Inter:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="images/librelula.png">
+  <?php foreach ($recentCoverOrigins as $coverOrigin): ?>
+    <link rel="preconnect" href="<?= profileEscape($coverOrigin) ?>" crossorigin>
+    <link rel="dns-prefetch" href="<?= profileEscape($coverOrigin) ?>">
+  <?php endforeach; ?>
+  <?php foreach (array_slice($recentCoverPreloads, 0, 4) as $coverPreload): ?>
+    <link rel="preload" as="image" href="<?= profileEscape($coverPreload) ?>" fetchpriority="high">
+  <?php endforeach; ?>
+  <link rel="stylesheet" href="css/nav.css?v=20260620">
+  <link rel="stylesheet" href="css/profile-anilist.css?v=20260622-5">
+</head>
+<body>
+
+<?php include __DIR__ . '/includes/navbar.php'; ?>
+
+<main class="reader-profile">
+  <section class="profile-shell" aria-labelledby="profile-name">
+    <div class="profile-banner" aria-hidden="true"></div>
+
+    <div class="profile-heading">
+      <div class="profile-avatar-large" aria-label="Avatar de <?= profileEscape($username) ?>">
+        <span aria-hidden="true"><?= profileEscape(profileInitial($username)) ?></span>
+        <img
+          src="<?= profileEscape($avatar) ?>"
+          alt="Avatar de <?= profileEscape($username) ?>"
+          loading="eager"
+          fetchpriority="high"
+          decoding="sync"
+          width="84"
+          height="84"
+          onerror="this.remove()"
+        >
+      </div>
+      <div class="profile-heading-copy">
+        <h1 id="profile-name"><?= profileEscape($username) ?></h1>
+        <p><?= profileEscape(profileMemberSince($user['created_at'] ?? null)) ?></p>
+      </div>
+    </div>
+
+    <nav class="profile-tabs" aria-label="Secciones del perfil">
+      <a class="is-active" href="perfil.php" aria-current="page">Resumen</a>
+      <a href="#leyendo">Leyendo ahora</a>
+      <a href="#actividad">Actividad</a>
+      <a href="biblioteca.php">Biblioteca</a>
+      <a href="mis_resenas.php">Reseñas</a>
+      <a href="#favoritos">Favoritos</a>
+      <a href="#estadisticas">Estadísticas</a>
+    </nav>
+
+    <div class="profile-overview-strip" id="estadisticas" aria-label="Resumen de lectura">
+      <article class="overview-stat overview-streak">
+        <span class="overview-stat-icon" aria-hidden="true">🔥</span>
+        <div>
+          <strong><?= $streak ?></strong>
+          <span><?= $streak === 1 ? 'día seguido leyendo' : 'días seguidos leyendo' ?></span>
+        </div>
+      </article>
+      <article class="overview-stat">
+        <strong><?= (int) ($stats['completed'] ?? 0) ?></strong>
+        <span>Libros leídos</span>
+      </article>
+      <article class="overview-stat">
+        <strong><?= count($currentReadingBooks) ?></strong>
+        <span>Leyendo ahora</span>
+      </article>
+      <article class="overview-stat">
+        <strong><?= profileEscape(number_format((int) ($stats['pages_read'] ?? 0), 0, ',', ' ')) ?></strong>
+        <span>Páginas leídas</span>
+      </article>
+    </div>
+
+    <div class="anilist-profile-grid">
+      <div class="anilist-left-column">
+        <section class="profile-panel activity-history-panel" aria-labelledby="history-title">
+          <div class="panel-heading-row">
+            <div>
+              <p class="panel-eyebrow">Últimos seis meses</p>
+              <h2 id="history-title">Historial de actividad</h2>
+            </div>
+            <span class="panel-count"><?= count($activeDateKeys) ?> días activos</span>
+          </div>
+
+          <div class="heatmap-scroll" tabindex="0" aria-label="Actividad de lectura de los últimos 182 días">
+            <div class="reading-heatmap">
+              <?php foreach ($activityDays as $day): ?>
+                <span
+                  class="heatmap-cell level-<?= (int) $day['level'] ?>"
+                  title="<?= profileEscape($day['label']) ?> · <?= (int) $day['points'] ?> <?= (int) $day['points'] === 1 ? 'actividad' : 'actividades' ?>"
+                  aria-label="<?= profileEscape($day['label']) ?>: <?= (int) $day['points'] ?>"
+                ></span>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <div class="heatmap-legend" aria-hidden="true">
+            <span>menos</span>
+            <i class="level-0"></i>
+            <i class="level-1"></i>
+            <i class="level-2"></i>
+            <i class="level-3"></i>
+            <span>más</span>
+          </div>
+        </section>
+
+        <section class="profile-panel genre-overview-panel" aria-labelledby="genres-title">
+          <div class="panel-heading-row">
+            <div>
+              <p class="panel-eyebrow">Tus lecturas</p>
+              <h2 id="genres-title">Géneros más leídos</h2>
+            </div>
+          </div>
+
+          <?php if ($favoriteGenres !== [] && $genreTotal > 0): ?>
+            <div class="genre-overview-grid">
+              <?php foreach ($favoriteGenres as $index => $genre): ?>
+                <?php $genreColor = $genreColors[$index % count($genreColors)]; ?>
+                <article class="genre-overview-item" style="--genre-color: <?= profileEscape($genreColor) ?>">
+                  <span class="genre-overview-badge"><?= profileEscape($genre['name']) ?></span>
+                  <p><strong><?= (int) $genre['count'] ?></strong> <?= (int) $genre['count'] === 1 ? 'libro' : 'libros' ?></p>
+                </article>
+              <?php endforeach; ?>
+            </div>
+            <div class="genre-segmented-bar" aria-label="Distribución de géneros">
+              <?php foreach ($favoriteGenres as $index => $genre): ?>
+                <?php
+                  $genreColor = $genreColors[$index % count($genreColors)];
+                  $genrePercent = max(1, ((int) $genre['count'] / $genreTotal) * 100);
+                ?>
+                <span
+                  style="--genre-color: <?= profileEscape($genreColor) ?>; --genre-width: <?= profileEscape(number_format($genrePercent, 3, '.', '')) ?>%"
+                  title="<?= profileEscape($genre['name']) ?>: <?= (int) $genre['count'] ?>"
+                ></span>
+              <?php endforeach; ?>
+            </div>
+          <?php else: ?>
+            <div class="profile-section-empty compact-empty">
+              <p>Añade libros a tu biblioteca para descubrir tus géneros más leídos.</p>
+            </div>
+          <?php endif; ?>
+        </section>
+
+        <section class="profile-panel profile-favorites-panel" id="favoritos" aria-labelledby="favorites-title">
+          <div class="panel-heading-row">
+            <div>
+              <p class="panel-eyebrow">Tu selección personal</p>
+              <h2 id="favorites-title">Mis favoritos</h2>
+            </div>
+            <button class="panel-edit-button js-edit-favorites" type="button">Editar</button>
+          </div>
+
+          <div class="favorite-subsection">
+            <h3>Libros favoritos</h3>
+            <?php if ($favoriteBooks !== []): ?>
+              <div class="profile-favorite-books-grid">
+                <?php foreach ($favoriteBooks as $book): ?>
+                  <?php $cover = profileCover($book['cover'] ?? ''); ?>
+                  <a
+                    class="profile-favorite-book"
+                    href="catalogo/?book=<?= rawurlencode((string) $book['id']) ?>"
+                    title="<?= profileEscape($book['title']) ?> — <?= profileEscape($book['author']) ?>"
+                    aria-label="Abrir <?= profileEscape($book['title']) ?>"
+                  >
+                    <span><?= profileEscape(profileInitial((string) $book['title'])) ?></span>
+                    <?php if ($cover !== ''): ?>
+                      <img src="<?= profileEscape($cover) ?>" alt="Portada de <?= profileEscape($book['title']) ?>" loading="lazy" fetchpriority="low" decoding="async" width="120" height="180" onerror="this.remove()">
+                    <?php endif; ?>
+                  </a>
+                <?php endforeach; ?>
+              </div>
+            <?php else: ?>
+              <p class="favorites-empty-copy">Todavía no has elegido libros favoritos.</p>
+            <?php endif; ?>
+          </div>
+
+          <div class="favorite-subsection favorite-authors-subsection">
+            <h3>Autores favoritos</h3>
+            <?php if ($favoriteAuthors !== []): ?>
+              <div class="favorite-author-list">
+                <?php foreach ($favoriteAuthors as $author): ?>
+                  <span class="favorite-author-chip">
+                    <i aria-hidden="true"><?= profileEscape(profileInitial($author)) ?></i>
+                    <span><?= profileEscape($author) ?></span>
+                  </span>
+                <?php endforeach; ?>
+              </div>
+            <?php else: ?>
+              <p class="favorites-empty-copy">Todavía no has elegido autores favoritos.</p>
+            <?php endif; ?>
+          </div>
+        </section>
+      </div>
+
+      <div class="anilist-right-column">
+        <section class="profile-panel current-reading-section" id="leyendo" aria-labelledby="current-reading-title">
+          <div class="panel-heading-row">
+            <div>
+              <p class="panel-eyebrow">En curso</p>
+              <h2 id="current-reading-title">Leyendo ahora</h2>
+            </div>
+            <a class="panel-link" href="biblioteca.php?estado=reading">Ver biblioteca</a>
+          </div>
+
+          <?php if ($currentReadingBooks !== []): ?>
+            <div class="current-reading-grid">
+              <?php foreach ($currentReadingBooks as $book): ?>
+                <?php
+                  $cover = profileCover($book['cover'] ?? '');
+                  $progress = max(0, min(100, (int) ($book['progress'] ?? 0)));
+                  $pages = max(0, (int) ($book['pages'] ?? 0));
+                  $readPages = $pages > 0 ? (int) round($pages * $progress / 100) : 0;
+                  $bookId = (string) $book['id'];
+                  $progressInputId = 'progress-' . (preg_replace('/[^A-Za-z0-9_-]+/', '-', $bookId) ?: 'book');
+                  $bookScore = $book['score'] === null ? '' : (string) (int) $book['score'];
+                  $bookNotesEncoded = rawurlencode((string) ($book['notes'] ?? ''));
+                ?>
+                <article
+                  class="current-reading-card js-reading-card"
+                  data-book-id="<?= profileEscape($bookId) ?>"
+                  data-book-title="<?= profileEscape($book['title']) ?>"
+                  data-book-author="<?= profileEscape($book['author']) ?>"
+                  data-progress="<?= $progress ?>"
+                  data-status="<?= profileEscape((string) ($book['status'] ?? 'reading')) ?>"
+                  data-pages="<?= $pages ?>"
+                  data-score="<?= profileEscape($bookScore) ?>"
+                  data-notes-encoded="<?= profileEscape($bookNotesEncoded) ?>"
+                >
+                  <a class="current-reading-cover" href="catalogo/?book=<?= rawurlencode($bookId) ?>" aria-label="Abrir <?= profileEscape($book['title']) ?>">
+                    <span><?= profileEscape(profileInitial((string) $book['title'])) ?></span>
+                    <?php if ($cover !== ''): ?>
+                      <img src="<?= profileEscape($cover) ?>" alt="Portada de <?= profileEscape($book['title']) ?>" loading="eager" fetchpriority="high" decoding="async" onerror="this.remove()">
+                    <?php endif; ?>
+                  </a>
+
+                  <div class="current-reading-copy">
+                    <div class="current-reading-title-row">
+                      <div>
+                        <h3><?= profileEscape($book['title']) ?></h3>
+                        <p><?= profileEscape($book['author']) ?></p>
+                      </div>
+                      <span class="reading-state-chip state-<?= profileEscape((string) ($book['status'] ?? 'reading')) ?>">
+                        <?= ($book['status'] ?? 'reading') === 'rereading' ? 'Releyendo' : 'Leyendo' ?>
+                      </span>
+                    </div>
+                    <?php if ((int) ($book['read_count'] ?? 0) > 0): ?>
+                      <small class="reading-times-copy">Leído <?= (int) $book['read_count'] ?> <?= (int) $book['read_count'] === 1 ? 'vez' : 'veces' ?></small>
+                    <?php endif; ?>
+                    <div class="reading-progress-copy">
+                      <label for="<?= profileEscape($progressInputId) ?>">Progreso</label>
+                      <strong class="js-progress-value"><?= $progress ?> %</strong>
+                    </div>
+                    <input
+                      class="reading-progress-range js-progress-range"
+                      id="<?= profileEscape($progressInputId) ?>"
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value="<?= $progress ?>"
+                      aria-label="Progreso de <?= profileEscape($book['title']) ?>"
+                      style="--progress: <?= $progress ?>%"
+                    >
+                    <div class="reading-progress-actions">
+                      <button class="progress-step-button js-progress-step" type="button" data-step="-5" aria-label="Restar 5 por ciento">−5</button>
+                      <label class="progress-number-wrap">
+                        <span class="sr-only">Porcentaje exacto</span>
+                        <input class="reading-progress-number js-progress-number" type="number" min="0" max="100" step="1" value="<?= $progress ?>">
+                        <span>%</span>
+                      </label>
+                      <button class="progress-step-button js-progress-step" type="button" data-step="5" aria-label="Sumar 5 por ciento">+5</button>
+                      <button class="progress-save-button js-progress-save" type="button">Guardar</button>
+                    </div>
+                    <small class="js-progress-pages">
+                      <?php if ($pages > 0): ?>
+                        <?= $readPages ?> de <?= $pages ?> páginas
+                      <?php else: ?>
+                        Desde <?= profileEscape(profileDateLabel($book['started_at'] ?? null)) ?>
+                      <?php endif; ?>
+                    </small>
+                    <p class="reading-progress-status js-progress-status" role="status" aria-live="polite"></p>
+                    <a class="reading-timeline-link" href="lectura.php?book_id=<?= rawurlencode($bookId) ?>">Editar estado, fechas y timeline →</a>
+                  </div>
+                </article>
+              <?php endforeach; ?>
+            </div>
+          <?php else: ?>
+            <div class="profile-section-empty">
+              <p>No tienes ningún libro marcado como «Leyendo».</p>
+              <a href="catalogo/">Buscar mi próxima lectura →</a>
+            </div>
+          <?php endif; ?>
+        </section>
+
+        <section class="profile-panel recent-activity-section" id="actividad" aria-labelledby="recent-activity-title">
+          <div class="panel-heading-row">
+            <div>
+              <p class="panel-eyebrow">Tu recorrido lector</p>
+              <h2 id="recent-activity-title">Actividad reciente</h2>
+            </div>
+            <a class="panel-link" href="biblioteca.php">Ver biblioteca</a>
+          </div>
+
+          <?php if ($recentActivity !== []): ?>
+            <ol class="recent-activity-list">
+              <?php foreach ($recentActivity as $activityIndex => $activity): ?>
+                <?php
+                  $activityCover = profileCover($activity['cover'] ?? '');
+                  $activityProgress = max(0, min(100, (int) ($activity['progress'] ?? 0)));
+                  $activityDate = profileActivityDate($activity);
+                ?>
+                <li class="recent-activity-item">
+                  <a class="activity-cover" href="catalogo/?book=<?= rawurlencode((string) $activity['id']) ?>" aria-label="Abrir <?= profileEscape($activity['title']) ?>">
+                    <span><?= profileEscape(profileInitial((string) $activity['title'])) ?></span>
+                    <?php if ($activityCover !== ''): ?>
+                      <img
+                        src="<?= profileEscape($activityCover) ?>"
+                        alt=""
+                        loading="<?= $activityIndex < 6 ? 'eager' : 'lazy' ?>"
+                        fetchpriority="<?= $activityIndex < 4 ? 'high' : 'auto' ?>"
+                        decoding="<?= $activityIndex < 4 ? 'sync' : 'async' ?>"
+                        width="38"
+                        height="57"
+                        onload="this.classList.add('is-loaded')"
+                        onerror="this.remove()"
+                      >
+                    <?php endif; ?>
+                  </a>
+                  <div class="activity-copy">
+                    <p>
+                      <?= profileEscape(profileActivityAction((string) $activity['status'], $activityProgress)) ?>
+                      <strong><?= profileEscape($activity['title']) ?></strong>
+                    </p>
+                    <small>
+                      <?= profileEscape(profileDateLabel($activityDate)) ?>
+                      <?php if (in_array(($activity['status'] ?? ''), ['reading', 'rereading', 'paused'], true)): ?>
+                        · <?= $activityProgress ?> % leído
+                      <?php endif; ?>
+                    </small>
+                  </div>
+                  <span class="activity-status-pill status-<?= profileEscape((string) ($activity['status'] ?? 'planned')) ?>">
+                    <?= profileEscape(match ((string) ($activity['status'] ?? '')) {
+                      'completed' => 'Leído',
+                      'reading' => 'Leyendo',
+                      'rereading' => 'Releyendo',
+                      'paused' => 'Pausado',
+                      'dropped' => 'Abandonado',
+                      default => 'Pendiente',
+                    }) ?>
+                  </span>
+                </li>
+              <?php endforeach; ?>
+            </ol>
+          <?php else: ?>
+            <div class="profile-section-empty">
+              <p>Tu actividad aparecerá aquí al añadir o actualizar libros.</p>
+            </div>
+          <?php endif; ?>
+        </section>
+      </div>
+    </div>
+  </section>
+</main>
+
+
+
+<div class="profile-favorites-modal" id="profile-favorites-modal" hidden>
+  <button class="favorites-modal-backdrop" type="button" data-favorites-close aria-label="Cerrar editor"></button>
+  <section class="favorites-modal-card" role="dialog" aria-modal="true" aria-labelledby="favorites-modal-title">
+    <div class="favorites-modal-header">
+      <div>
+        <p class="panel-eyebrow">Personaliza tu perfil</p>
+        <h2 id="favorites-modal-title">Editar libros y autores favoritos</h2>
+        <p>Elige hasta 6 libros y 6 autores de tu catálogo.</p>
+      </div>
+      <button class="favorites-modal-close" type="button" data-favorites-close aria-label="Cerrar">×</button>
+    </div>
+
+    <div class="favorites-editor-grid">
+      <section class="favorites-editor-section">
+        <div class="favorites-editor-title">
+          <h3>Libros favoritos</h3>
+          <span class="js-selected-books-count">0/6</span>
+        </div>
+        <label class="favorites-search-label">
+          <span>Buscar por título o autor</span>
+          <input class="js-favorite-book-search" type="search" autocomplete="off" placeholder="Ej. El imperio final">
+        </label>
+        <div class="favorites-search-results js-favorite-book-results" aria-live="polite"></div>
+        <div class="favorites-selected-list js-selected-books"></div>
+      </section>
+
+      <section class="favorites-editor-section">
+        <div class="favorites-editor-title">
+          <h3>Autores favoritos</h3>
+          <span class="js-selected-authors-count">0/6</span>
+        </div>
+        <label class="favorites-search-label">
+          <span>Buscar autor</span>
+          <input class="js-favorite-author-search" type="search" autocomplete="off" placeholder="Ej. Brandon Sanderson">
+        </label>
+        <div class="favorites-search-results js-favorite-author-results" aria-live="polite"></div>
+        <div class="favorites-selected-list js-selected-authors"></div>
+      </section>
+    </div>
+
+    <p class="favorites-modal-status js-favorites-modal-status" role="status" aria-live="polite"></p>
+    <div class="favorites-modal-actions">
+      <button class="completion-secondary" type="button" data-favorites-close>Cancelar</button>
+      <button class="completion-primary js-save-favorites" type="button">Guardar favoritos</button>
+    </div>
+  </section>
+</div>
+
+<div class="reading-completion-modal" id="reading-completion-modal" hidden>
+  <button class="completion-modal-backdrop" type="button" data-completion-close aria-label="Cerrar ventana"></button>
+  <section class="completion-modal-card" role="dialog" aria-modal="true" aria-labelledby="completion-title" aria-describedby="completion-copy">
+    <div class="completion-celebration" aria-hidden="true">✦</div>
+    <p class="completion-kicker">Lectura completada</p>
+    <h2 id="completion-title">¡Enhorabuena!</h2>
+    <p id="completion-copy">Has terminado <strong class="js-completion-book-title"></strong>. ¿Quieres puntuarlo y dejar una reseña?</p>
+
+    <fieldset class="completion-rating">
+      <legend>Tu puntuación</legend>
+      <div class="completion-stars" role="group" aria-label="Puntuación de una a cinco estrellas">
+        <?php for ($star = 1; $star <= 5; $star++): ?>
+          <button type="button" class="completion-star js-completion-star" data-score="<?= $star ?>" aria-label="<?= $star ?> <?= $star === 1 ? 'estrella' : 'estrellas' ?>" aria-pressed="false">★</button>
+        <?php endfor; ?>
+      </div>
+      <span class="completion-rating-label js-completion-rating-label">Sin puntuación</span>
+    </fieldset>
+
+    <label class="completion-review">
+      <span>Tu reseña <small>(opcional)</small></span>
+      <textarea class="js-completion-review" maxlength="5000" rows="5" placeholder="¿Qué te ha parecido?"></textarea>
+    </label>
+
+    <p class="completion-error js-completion-error" role="alert"></p>
+
+    <div class="completion-actions">
+      <button class="completion-secondary js-completion-later" type="button">Ahora no</button>
+      <button class="completion-primary js-completion-save" type="button">Guardar valoración</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const csrfToken = <?= json_encode($csrfToken, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+  const endpoint = 'API/user_book.php';
+  const cards = [...document.querySelectorAll('.js-reading-card')];
+  const modal = document.getElementById('reading-completion-modal');
+  const modalTitle = modal?.querySelector('.js-completion-book-title');
+  const modalReview = modal?.querySelector('.js-completion-review');
+  const modalError = modal?.querySelector('.js-completion-error');
+  const modalSave = modal?.querySelector('.js-completion-save');
+  const modalLater = modal?.querySelector('.js-completion-later');
+  const ratingLabel = modal?.querySelector('.js-completion-rating-label');
+  const starButtons = [...(modal?.querySelectorAll('.js-completion-star') ?? [])];
+  let activeCard = null;
+  let selectedScore = null;
+  let lastFocusedElement = null;
+
+  const clamp = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+
+  function decodeNotes(card) {
+    try {
+      return decodeURIComponent(card.dataset.notesEncoded || '');
+    } catch {
+      return '';
+    }
+  }
+
+  function setStatus(card, message = '', type = '') {
+    const status = card.querySelector('.js-progress-status');
+    if (!status) return;
+    status.textContent = message;
+    status.className = `reading-progress-status js-progress-status${type ? ` is-${type}` : ''}`;
+  }
+
+  function updateProgressUI(card, value, markDirty = true) {
+    const progress = clamp(value);
+    const range = card.querySelector('.js-progress-range');
+    const number = card.querySelector('.js-progress-number');
+    const valueLabel = card.querySelector('.js-progress-value');
+    const pagesLabel = card.querySelector('.js-progress-pages');
+    const saveButton = card.querySelector('.js-progress-save');
+    const pages = Number(card.dataset.pages || 0);
+
+    if (range) {
+      range.value = String(progress);
+      range.style.setProperty('--progress', `${progress}%`);
+      range.setAttribute('aria-valuenow', String(progress));
+    }
+    if (number) number.value = String(progress);
+    if (valueLabel) valueLabel.textContent = `${progress} %`;
+
+    if (pagesLabel && pages > 0) {
+      const readPages = Math.round((pages * progress) / 100);
+      pagesLabel.textContent = `${readPages} de ${pages} páginas`;
+    }
+
+    if (saveButton && markDirty) {
+      saveButton.disabled = false;
+      saveButton.textContent = progress === 100 ? 'Terminar libro' : 'Guardar';
+    }
+
+    card.classList.toggle('is-completing', progress === 100);
+    setStatus(card, progress === 100 ? 'Al guardar se marcará como leído.' : '');
+  }
+
+  async function postUserBook(payload) {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const text = await response.text();
+    let data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error('El servidor no devolvió una respuesta válida.');
+    }
+
+    if (!response.ok || data.error) {
+      throw new Error(data.error || 'No se pudo guardar el progreso.');
+    }
+
+    return data;
+  }
+
+  function currentPayload(card, progress) {
+    const scoreValue = card.dataset.score;
+
+    return {
+      book_id: card.dataset.bookId,
+      status: progress >= 100
+        ? 'completed'
+        : (card.dataset.status === 'rereading' ? 'rereading' : 'reading'),
+      progress,
+      score: scoreValue === '' || scoreValue === undefined ? null : Number(scoreValue),
+      notes: decodeNotes(card) || null,
+    };
+  }
+
+  function setRating(score) {
+    selectedScore = score;
+    starButtons.forEach((button) => {
+      const buttonScore = Number(button.dataset.score);
+      button.classList.toggle('is-filled', score !== null && buttonScore <= score);
+      button.setAttribute('aria-pressed', String(score === buttonScore));
+    });
+    if (ratingLabel) {
+      ratingLabel.textContent = score === null
+        ? 'Sin puntuación'
+        : `${score} ${score === 1 ? 'estrella' : 'estrellas'}`;
+    }
+  }
+
+  function openCompletionModal(card) {
+    if (!modal) return;
+    activeCard = card;
+    lastFocusedElement = document.activeElement;
+    const existingScore = card.dataset.score === '' ? null : Number(card.dataset.score);
+    setRating(Number.isFinite(existingScore) ? existingScore : null);
+    if (modalTitle) modalTitle.textContent = card.dataset.bookTitle || 'este libro';
+    if (modalReview) modalReview.value = decodeNotes(card);
+    if (modalError) modalError.textContent = '';
+    modal.hidden = false;
+    document.body.classList.add('completion-modal-open');
+    window.requestAnimationFrame(() => {
+      modal.classList.add('is-open');
+      (starButtons[0] || modalReview || modalLater)?.focus();
+    });
+  }
+
+  function closeCompletionModal({ reload = true } = {}) {
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    document.body.classList.remove('completion-modal-open');
+    window.setTimeout(() => {
+      modal.hidden = true;
+      activeCard = null;
+      if (reload) {
+        window.location.reload();
+      } else if (lastFocusedElement instanceof HTMLElement) {
+        lastFocusedElement.focus();
+      }
+    }, 160);
+  }
+
+  async function saveProgress(card) {
+    const progress = clamp(card.querySelector('.js-progress-number')?.value ?? card.dataset.progress);
+    const saveButton = card.querySelector('.js-progress-save');
+    const oldLabel = saveButton?.textContent || 'Guardar';
+
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.textContent = 'Guardando…';
+    }
+    setStatus(card, 'Guardando progreso…');
+
+    try {
+      const data = await postUserBook(currentPayload(card, progress));
+      const saved = data.user || {};
+      card.dataset.progress = String(saved.progress ?? progress);
+      card.dataset.score = saved.score === null || saved.score === undefined ? '' : String(saved.score);
+      card.dataset.notesEncoded = encodeURIComponent(saved.notes || '');
+      updateProgressUI(card, saved.progress ?? progress, false);
+
+      if (progress >= 100) {
+        setStatus(card, '¡Libro terminado!', 'success');
+        openCompletionModal(card);
+      } else {
+        setStatus(card, 'Progreso guardado.', 'success');
+        if (saveButton) saveButton.textContent = 'Guardado ✓';
+        window.setTimeout(() => {
+          if (saveButton) {
+            saveButton.textContent = 'Guardar';
+            saveButton.disabled = true;
+          }
+          setStatus(card, '');
+        }, 1500);
+      }
+    } catch (error) {
+      setStatus(card, error instanceof Error ? error.message : 'No se pudo guardar.', 'error');
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.textContent = oldLabel;
+      }
+    }
+  }
+
+  cards.forEach((card) => {
+    const range = card.querySelector('.js-progress-range');
+    const number = card.querySelector('.js-progress-number');
+    const saveButton = card.querySelector('.js-progress-save');
+
+    updateProgressUI(card, card.dataset.progress || 0, false);
+    if (saveButton) saveButton.disabled = true;
+
+    range?.addEventListener('input', () => updateProgressUI(card, range.value));
+    number?.addEventListener('input', () => updateProgressUI(card, number.value));
+    number?.addEventListener('blur', () => updateProgressUI(card, number.value));
+
+    card.querySelectorAll('.js-progress-step').forEach((button) => {
+      button.addEventListener('click', () => {
+        const current = Number(number?.value ?? range?.value ?? 0);
+        updateProgressUI(card, current + Number(button.dataset.step || 0));
+      });
+    });
+
+    saveButton?.addEventListener('click', () => saveProgress(card));
+  });
+
+  starButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const score = Number(button.dataset.score);
+      setRating(selectedScore === score ? null : score);
+    });
+  });
+
+  modalSave?.addEventListener('click', async () => {
+    if (!activeCard) return;
+    modalSave.disabled = true;
+    modalSave.textContent = 'Guardando…';
+    if (modalError) modalError.textContent = '';
+
+    try {
+      const payload = currentPayload(activeCard, 100);
+      payload.status = 'completed';
+      payload.progress = 100;
+      payload.score = selectedScore;
+      payload.notes = modalReview?.value.trim() || null;
+      const data = await postUserBook(payload);
+      const saved = data.user || {};
+      activeCard.dataset.score = saved.score === null || saved.score === undefined ? '' : String(saved.score);
+      activeCard.dataset.notesEncoded = encodeURIComponent(saved.notes || '');
+      modalSave.textContent = '¡Guardado!';
+      window.setTimeout(() => closeCompletionModal({ reload: true }), 450);
+    } catch (error) {
+      modalSave.disabled = false;
+      modalSave.textContent = 'Guardar valoración';
+      if (modalError) modalError.textContent = error instanceof Error ? error.message : 'No se pudo guardar la valoración.';
+    }
+  });
+
+  modalLater?.addEventListener('click', () => closeCompletionModal({ reload: true }));
+  modal?.querySelectorAll('[data-completion-close]').forEach((button) => {
+    button.addEventListener('click', () => closeCompletionModal({ reload: true }));
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && modal && !modal.hidden) {
+      closeCompletionModal({ reload: true });
+    }
+  });
+})();
+</script>
+
+
+<script>
+(() => {
+  'use strict';
+
+  const modal = document.getElementById('profile-favorites-modal');
+  const openButtons = [...document.querySelectorAll('.js-edit-favorites')];
+  const closeButtons = [...(modal?.querySelectorAll('[data-favorites-close]') ?? [])];
+  const bookSearch = modal?.querySelector('.js-favorite-book-search');
+  const authorSearch = modal?.querySelector('.js-favorite-author-search');
+  const bookResults = modal?.querySelector('.js-favorite-book-results');
+  const authorResults = modal?.querySelector('.js-favorite-author-results');
+  const selectedBooksNode = modal?.querySelector('.js-selected-books');
+  const selectedAuthorsNode = modal?.querySelector('.js-selected-authors');
+  const bookCount = modal?.querySelector('.js-selected-books-count');
+  const authorCount = modal?.querySelector('.js-selected-authors-count');
+  const saveButton = modal?.querySelector('.js-save-favorites');
+  const statusNode = modal?.querySelector('.js-favorites-modal-status');
+  const endpoint = 'API/profile_favorites.php';
+  const csrfToken = <?= json_encode($csrfToken, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+  const initialBooks = <?= json_encode(array_map(static fn (array $book): array => [
+      'id' => (string) $book['id'],
+      'title' => (string) $book['title'],
+      'author' => (string) $book['author'],
+      'cover' => profileCover($book['cover'] ?? ''),
+  ], $favoriteBooks), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  const initialAuthors = <?= json_encode(array_values($favoriteAuthors), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+  if (!modal) return;
+
+  let selectedBooks = new Map(initialBooks.map((book) => [String(book.id), book]));
+  let selectedAuthors = [...initialAuthors];
+  let lastFocused = null;
+  let bookTimer = null;
+  let authorTimer = null;
+
+  const element = (tag, className = '', text = '') => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text) node.textContent = text;
+    return node;
+  };
+
+  function setStatus(message = '', type = '') {
+    if (!statusNode) return;
+    statusNode.textContent = message;
+    statusNode.className = `favorites-modal-status js-favorites-modal-status${type ? ` is-${type}` : ''}`;
+  }
+
+  function bookCover(book) {
+    const wrapper = element('span', 'favorite-editor-cover');
+    wrapper.textContent = (book.title || 'L').trim().charAt(0).toUpperCase() || 'L';
+    if (book.cover) {
+      const image = document.createElement('img');
+      image.src = book.cover;
+      image.alt = '';
+      image.addEventListener('error', () => image.remove());
+      wrapper.append(image);
+    }
+    return wrapper;
+  }
+
+  function renderSelectedBooks() {
+    if (!selectedBooksNode || !bookCount) return;
+    selectedBooksNode.replaceChildren();
+    bookCount.textContent = `${selectedBooks.size}/6`;
+
+    if (selectedBooks.size === 0) {
+      selectedBooksNode.append(element('p', 'favorites-editor-empty', 'No has seleccionado ningún libro.'));
+      return;
+    }
+
+    selectedBooks.forEach((book, id) => {
+      const item = element('article', 'favorite-selected-item');
+      item.append(bookCover(book));
+      const copy = element('div', 'favorite-selected-copy');
+      copy.append(element('strong', '', book.title || 'Sin título'));
+      copy.append(element('span', '', book.author || 'Autor desconocido'));
+      item.append(copy);
+      const remove = element('button', 'favorite-remove-button', '×');
+      remove.type = 'button';
+      remove.setAttribute('aria-label', `Quitar ${book.title || 'libro'}`);
+      remove.addEventListener('click', () => {
+        selectedBooks.delete(id);
+        renderSelectedBooks();
+        if (bookSearch?.value.trim()) searchBooks(bookSearch.value.trim());
+      });
+      item.append(remove);
+      selectedBooksNode.append(item);
+    });
+  }
+
+  function renderSelectedAuthors() {
+    if (!selectedAuthorsNode || !authorCount) return;
+    selectedAuthorsNode.replaceChildren();
+    authorCount.textContent = `${selectedAuthors.length}/6`;
+
+    if (selectedAuthors.length === 0) {
+      selectedAuthorsNode.append(element('p', 'favorites-editor-empty', 'No has seleccionado ningún autor.'));
+      return;
+    }
+
+    selectedAuthors.forEach((author) => {
+      const item = element('article', 'favorite-selected-item favorite-selected-author');
+      const initial = element('span', 'favorite-editor-author-initial', author.trim().charAt(0).toUpperCase() || 'A');
+      item.append(initial);
+      item.append(element('strong', '', author));
+      const remove = element('button', 'favorite-remove-button', '×');
+      remove.type = 'button';
+      remove.setAttribute('aria-label', `Quitar ${author}`);
+      remove.addEventListener('click', () => {
+        selectedAuthors = selectedAuthors.filter((value) => value.toLocaleLowerCase() !== author.toLocaleLowerCase());
+        renderSelectedAuthors();
+        if (authorSearch?.value.trim()) searchAuthors(authorSearch.value.trim());
+      });
+      item.append(remove);
+      selectedAuthorsNode.append(item);
+    });
+  }
+
+  async function getResults(type, query) {
+    const response = await fetch(`${endpoint}?type=${encodeURIComponent(type)}&q=${encodeURIComponent(query)}`, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.error) throw new Error(data.error || 'No se pudo buscar.');
+    return data;
+  }
+
+  async function searchBooks(query) {
+    if (!bookResults) return;
+    if (query.length < 2) {
+      bookResults.replaceChildren(element('p', 'favorites-search-hint', 'Escribe al menos 2 letras.'));
+      return;
+    }
+    bookResults.replaceChildren(element('p', 'favorites-search-hint', 'Buscando…'));
+    try {
+      const data = await getResults('books', query);
+      bookResults.replaceChildren();
+      const books = data.books || [];
+      if (books.length === 0) {
+        bookResults.append(element('p', 'favorites-search-hint', 'No se encontraron libros.'));
+        return;
+      }
+      books.forEach((book) => {
+        const id = String(book.id);
+        const selected = selectedBooks.has(id);
+        const button = element('button', `favorite-search-result${selected ? ' is-selected' : ''}`);
+        button.type = 'button';
+        button.disabled = selected || (!selected && selectedBooks.size >= 6);
+        button.append(bookCover(book));
+        const copy = element('span', 'favorite-search-copy');
+        copy.append(element('strong', '', book.title || 'Sin título'));
+        copy.append(element('small', '', book.author || 'Autor desconocido'));
+        button.append(copy);
+        button.append(element('span', 'favorite-search-action', selected ? 'Elegido' : 'Añadir'));
+        button.addEventListener('click', () => {
+          if (selectedBooks.size >= 6 || selectedBooks.has(id)) return;
+          selectedBooks.set(id, book);
+          renderSelectedBooks();
+          searchBooks(query);
+        });
+        bookResults.append(button);
+      });
+    } catch (error) {
+      bookResults.replaceChildren(element('p', 'favorites-search-error', error instanceof Error ? error.message : 'No se pudo buscar.'));
+    }
+  }
+
+  async function searchAuthors(query) {
+    if (!authorResults) return;
+    if (query.length < 2) {
+      authorResults.replaceChildren(element('p', 'favorites-search-hint', 'Escribe al menos 2 letras.'));
+      return;
+    }
+    authorResults.replaceChildren(element('p', 'favorites-search-hint', 'Buscando…'));
+    try {
+      const data = await getResults('authors', query);
+      authorResults.replaceChildren();
+      const authors = data.authors || [];
+      if (authors.length === 0) {
+        authorResults.append(element('p', 'favorites-search-hint', 'No se encontraron autores.'));
+        return;
+      }
+      authors.forEach((item) => {
+        const author = String(item.author_name || '').trim();
+        const selected = selectedAuthors.some((value) => value.toLocaleLowerCase() === author.toLocaleLowerCase());
+        const button = element('button', `favorite-search-result author-result${selected ? ' is-selected' : ''}`);
+        button.type = 'button';
+        button.disabled = selected || (!selected && selectedAuthors.length >= 6);
+        button.append(element('span', 'favorite-editor-author-initial', author.charAt(0).toUpperCase() || 'A'));
+        const copy = element('span', 'favorite-search-copy');
+        copy.append(element('strong', '', author));
+        copy.append(element('small', '', `${Number(item.book_count || 0)} libros en el catálogo`));
+        button.append(copy);
+        button.append(element('span', 'favorite-search-action', selected ? 'Elegido' : 'Añadir'));
+        button.addEventListener('click', () => {
+          if (selectedAuthors.length >= 6 || selected) return;
+          selectedAuthors.push(author);
+          renderSelectedAuthors();
+          searchAuthors(query);
+        });
+        authorResults.append(button);
+      });
+    } catch (error) {
+      authorResults.replaceChildren(element('p', 'favorites-search-error', error instanceof Error ? error.message : 'No se pudo buscar.'));
+    }
+  }
+
+  function openModal() {
+    lastFocused = document.activeElement;
+    selectedBooks = new Map(initialBooks.map((book) => [String(book.id), { ...book }]));
+    selectedAuthors = [...initialAuthors];
+    renderSelectedBooks();
+    renderSelectedAuthors();
+    if (bookResults) bookResults.replaceChildren(element('p', 'favorites-search-hint', 'Busca libros para añadirlos.'));
+    if (authorResults) authorResults.replaceChildren(element('p', 'favorites-search-hint', 'Busca autores para añadirlos.'));
+    if (bookSearch) bookSearch.value = '';
+    if (authorSearch) authorSearch.value = '';
+    setStatus();
+    modal.hidden = false;
+    document.body.classList.add('profile-modal-open');
+    window.requestAnimationFrame(() => {
+      modal.classList.add('is-open');
+      bookSearch?.focus();
+    });
+  }
+
+  function closeModal() {
+    modal.classList.remove('is-open');
+    document.body.classList.remove('profile-modal-open');
+    window.setTimeout(() => {
+      modal.hidden = true;
+      if (lastFocused instanceof HTMLElement) lastFocused.focus();
+    }, 150);
+  }
+
+  openButtons.forEach((button) => button.addEventListener('click', openModal));
+  closeButtons.forEach((button) => button.addEventListener('click', closeModal));
+
+  bookSearch?.addEventListener('input', () => {
+    window.clearTimeout(bookTimer);
+    bookTimer = window.setTimeout(() => searchBooks(bookSearch.value.trim()), 250);
+  });
+  authorSearch?.addEventListener('input', () => {
+    window.clearTimeout(authorTimer);
+    authorTimer = window.setTimeout(() => searchAuthors(authorSearch.value.trim()), 250);
+  });
+
+  saveButton?.addEventListener('click', async () => {
+    saveButton.disabled = true;
+    saveButton.textContent = 'Guardando…';
+    setStatus('Guardando tus favoritos…');
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify({
+          book_ids: [...selectedBooks.keys()],
+          authors: selectedAuthors,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.error) throw new Error(data.error || 'No se pudieron guardar tus favoritos.');
+      setStatus('Favoritos guardados.', 'success');
+      saveButton.textContent = '¡Guardado!';
+      window.setTimeout(() => window.location.reload(), 450);
+    } catch (error) {
+      saveButton.disabled = false;
+      saveButton.textContent = 'Guardar favoritos';
+      setStatus(error instanceof Error ? error.message : 'No se pudieron guardar tus favoritos.', 'error');
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !modal.hidden) closeModal();
+  });
+})();
+</script>
+
+</body>
+</html>

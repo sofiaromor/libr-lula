@@ -1,0 +1,4 @@
+Conserva desde tu instalación actual el archivo:
+- backfill-hero-colors.mjs
+
+No es necesario para abrir ni compilar el catálogo; se usa para recalcular colores de portadas existentes.
