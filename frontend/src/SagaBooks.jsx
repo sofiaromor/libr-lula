@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { apiFetch, publicUrl } from "./api.js";
+import "./SagaBooks.css";
 
 function sagaOrder(book) {
   if (
@@ -105,7 +106,7 @@ export default function SagaBooks({
   if (error) {
     return (
       <main>
-        <button type="button" onClick={onBack}>
+        <button type="button" className="saga-back-button" onClick={onBack}>
           ← Volver
         </button>
 
@@ -125,11 +126,8 @@ export default function SagaBooks({
     >
       <button
         type="button"
+        className="saga-back-button"
         onClick={onBack}
-        style={{
-          marginBottom: 22,
-          padding: "10px 16px",
-        }}
       >
         ← Volver al libro
       </button>
