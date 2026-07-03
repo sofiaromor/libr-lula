@@ -13,6 +13,7 @@ import {
   getBookReviews,
   saveBookReview,
 } from "./lib/bookReviewsApi.js";
+import { getMyReviews } from "./lib/myReviewsApi.js";
 
 const APP_BASE_URL = import.meta.env.DEV
   ? new URL("/librelula/", window.location.origin)
@@ -148,6 +149,10 @@ async function localCatalogApiFetch(endpoint, options, method) {
   if (name === "book_reviews.php" && method === "DELETE") {
     const body = await parseJsonBody(options);
     return jsonResponse(await deleteBookReview(body));
+  }
+
+  if (name === "my_reviews.php" && method === "GET") {
+    return jsonResponse(await getMyReviews());
   }
   if (name === "book_postits.php" && method === "GET") {
     const url = endpointUrl(endpoint);
