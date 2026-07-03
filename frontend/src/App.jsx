@@ -39,7 +39,7 @@ export default function App() {
   const isLoggedIn = Boolean(session.authenticated);
   const username = session.user?.username || "Mi perfil";
   const avatarValue = String(session.user?.avatar || "").trim();
-  const defaultAvatar = appUrl("images/avatar/avatar1.png");
+  const defaultAvatar = publicUrl("images/avatar/avatar1.png");
   const avatarUrl =
     avatarValue === "" || avatarValue === "default.jpg"
       ? defaultAvatar
@@ -232,13 +232,13 @@ useEffect(() => {
   return (
     <div className="catalog-app">
       <header className="site-header">
-        <nav className="site-nav" aria-label="NavegaciÃ³n principal">
+        <nav className="site-nav" aria-label="Navegación principal">
           <a
             className="site-brand"
             href={appUrl("index.php")}
-            aria-label="Ir al inicio de LibrÃ©lula"
+            aria-label="Ir al inicio de Librélula"
           >
-            <img src={appUrl("images/librelula-font.png")} alt="LibrÃ©lula" />
+            <img src={publicUrl("images/librelula-font.png")} alt="Librélula" />
           </a>
 
           <button
@@ -251,7 +251,7 @@ useEffect(() => {
             <span />
             <span />
             <span />
-            <span className="sr-only">Abrir menÃº</span>
+            <span className="sr-only">Abrir menú</span>
           </button>
 
           <div
@@ -265,12 +265,12 @@ useEffect(() => {
                 className="is-active"
                 onClick={openCatalog}
               >
-                CatÃ¡logo
+                Catálogo
               </button>
 
               {isLoggedIn && (
                 <>
-                  <a href={appUrl("perfil.php")}>Mi rincÃ³n</a>
+                  <a href={appUrl("perfil.php")}>Mi rincón</a>
                   <button
                     type="button"
                     className={page === "library" ? "is-active" : ""}
@@ -278,7 +278,7 @@ useEffect(() => {
                   >
                     Mi biblioteca
                   </button>
-                  <a href={appUrl("mis_resenas.php")}>Mis reseÃ±as</a>
+                  <a href={appUrl("mis_resenas.php")}>Mis reseñas</a>
                 </>
               )}
             </div>
@@ -320,22 +320,22 @@ useEffect(() => {
                     className={`dropdown-menu${userMenuOpen ? " show" : ""}`}
                     id="catalog-user-dropdown"
                   >
-                    <a href={appUrl("perfil.php")}>Mi rincÃ³n</a>
+                    <a href={appUrl("perfil.php")}>Mi rincón</a>
                     <button type="button" onClick={openLibrary}>
                       Mi biblioteca
                     </button>
-                    <a href={appUrl("mis_resenas.php")}>Mis reseÃ±as</a>
+                    <a href={appUrl("mis_resenas.php")}>Mis reseñas</a>
                     <button type="button" onClick={openCatalog}>
-                      Explorar catÃ¡logo
+                      Explorar catálogo
                     </button>
                     {isAdmin && (
                       <button type="button" onClick={() => openAddBook()}>
-                        AÃ±adir un libro
+                        Añadir un libro
                       </button>
                     )}
                     <div className="dropdown-divider" />
                     <button type="button" onClick={handleSignOut}>
-                      Cerrar sesiÃ³n
+                      Cerrar sesión
                     </button>
                   </div>
                 </div>
