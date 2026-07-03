@@ -8,6 +8,7 @@ import {
   deleteBookPostit,
   getBookPostits,
 } from "./lib/bookPostitsApi.js";
+import { getBookReviews } from "./lib/bookReviewsApi.js";
 
 const APP_BASE_URL = import.meta.env.DEV
   ? new URL("/librelula/", window.location.origin)
@@ -126,6 +127,15 @@ async function localCatalogApiFetch(endpoint, options, method) {
     );
   }
 
+  if (name === "book_reviews.php" && method === "GET") {
+    const url = endpointUrl(endpoint);
+    return jsonResponse(
+      await getBookReviews({
+        bookId: url.searchParams.get("book_id"),
+      }),
+    );
+  }
+
   if (name === "book_postits.php" && method === "GET") {
     const url = endpointUrl(endpoint);
     return jsonResponse(
@@ -181,7 +191,7 @@ export async function readJsonResponse(response) {
   try {
     data = text ? JSON.parse(text) : {};
   } catch {
-    throw new Error("La API no devolvió un JSON válido.");
+    throw new Error("La API no devolviÃƒÆ’Ã‚Â³ un JSON vÃƒÆ’Ã‚Â¡lido.");
   }
 
   if (!response.ok || data.error) {
