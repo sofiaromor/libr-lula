@@ -121,9 +121,13 @@ useEffect(() => {
   }
 
   function openProfile() {
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setNewBookTitle("");
+    setDetailBackPage("catalog");
     setPage("profile");
-    setNavigationOpen(false);
-    setUserMenuOpen(false);
   }
 
   function openLibrary() {
@@ -269,7 +273,7 @@ useEffect(() => {
               <a href={appUrl("index.php")}>Inicio</a>
               <button
                 type="button"
-                className="is-active"
+                className={["catalog", "detail", "saga"].includes(page) && detailBackPage !== "library" ? "is-active" : ""}
                 onClick={openCatalog}
               >
                 Catálogo
