@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import "./Navbar.css";
 import BookDetail from "./BookDetail.jsx";
 import BooksCatalog from "./BooksCatalog.jsx";
@@ -151,13 +151,13 @@ useEffect(() => {
   return (
     <div className="catalog-app">
       <header className="site-header">
-        <nav className="site-nav" aria-label="Navegación principal">
+        <nav className="site-nav" aria-label="NavegaciÃ³n principal">
           <a
             className="site-brand"
             href={appUrl("index.php")}
-            aria-label="Ir al inicio de Librélula"
+            aria-label="Ir al inicio de LibrÃ©lula"
           >
-            <img src={appUrl("images/librelula-font.png")} alt="Librélula" />
+            <img src={appUrl("images/librelula-font.png")} alt="LibrÃ©lula" />
           </a>
 
           <button
@@ -170,7 +170,7 @@ useEffect(() => {
             <span />
             <span />
             <span />
-            <span className="sr-only">Abrir menú</span>
+            <span className="sr-only">Abrir menÃº</span>
           </button>
 
           <div
@@ -184,12 +184,12 @@ useEffect(() => {
                 className="is-active"
                 onClick={openCatalog}
               >
-                Catálogo
+                CatÃ¡logo
               </button>
 
               {isLoggedIn && (
                 <>
-                  <a href={appUrl("perfil.php")}>Mi rincón</a>
+                  <a href={appUrl("perfil.php")}>Mi rincÃ³n</a>
                   <button
                     type="button"
                     className={page === "library" ? "is-active" : ""}
@@ -197,7 +197,7 @@ useEffect(() => {
                   >
                     Mi biblioteca
                   </button>
-                  <a href={appUrl("mis_resenas.php")}>Mis reseñas</a>
+                  <a href={appUrl("mis_resenas.php")}>Mis reseÃ±as</a>
                 </>
               )}
             </div>
@@ -239,22 +239,22 @@ useEffect(() => {
                     className={`dropdown-menu${userMenuOpen ? " show" : ""}`}
                     id="catalog-user-dropdown"
                   >
-                    <a href={appUrl("perfil.php")}>Mi rincón</a>
+                    <a href={appUrl("perfil.php")}>Mi rincÃ³n</a>
                     <button type="button" onClick={openLibrary}>
                       Mi biblioteca
                     </button>
-                    <a href={appUrl("mis_resenas.php")}>Mis reseñas</a>
+                    <a href={appUrl("mis_resenas.php")}>Mis reseÃ±as</a>
                     <button type="button" onClick={openCatalog}>
-                      Explorar catálogo
+                      Explorar catÃ¡logo
                     </button>
                     {isAdmin && (
                       <button type="button" onClick={() => openAddBook()}>
-                        Añadir un libro
+                        AÃ±adir un libro
                       </button>
                     )}
                     <div className="dropdown-divider" />
                     <button type="button" onClick={handleSignOut}>
-                      Cerrar sesión
+                      Cerrar sesiÃ³n
                     </button>
                   </div>
                 </div>
@@ -262,7 +262,7 @@ useEffect(() => {
 
               {!sessionLoading && !isLoggedIn && (
                 <a href={appUrl("login.php")} className="btn-signin">
-                  Iniciar sesión
+                  Iniciar sesiÃ³n
                 </a>
               )}
             </div>
@@ -277,6 +277,13 @@ useEffect(() => {
             isLoggedIn={isLoggedIn}
             onAddBook={openAddBook}
             onSelectBook={(book) => openBookDetail(book, "catalog")}
+          />
+        )}
+
+        {page === "library" && isLoggedIn && (
+          <MiBiblioteca
+            onOpenCatalog={openCatalog}
+            onSelectBook={(book) => openBookDetail(book, "library")}
           />
         )}
 
