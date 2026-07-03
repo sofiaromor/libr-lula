@@ -41,6 +41,10 @@ export function publicUrl(path) {
     normalized = normalized.slice("librelula/".length);
   }
 
+  if (import.meta.env.DEV && normalized.startsWith("images/")) {
+    return new URL(`/${normalized}`, window.location.origin).toString();
+  }
+
   return appUrl(normalized);
 }
 
