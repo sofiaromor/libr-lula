@@ -55,6 +55,20 @@ export function onSupabaseAuthChange(callback) {
   return () => subscription.unsubscribe();
 }
 
+export async function signInSupabase({ email, password }) {
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return getSupabaseAppSession();
+}
+
 export async function signOutSupabase() {
   await supabase.auth.signOut();
 }
+
