@@ -977,7 +977,7 @@ export default function BooksCatalog({
                     />
 
                     <div className="book-resources">
-                      {book.pdf_file && (
+                      {isAdmin && book.pdf_file && (
                         <a
                           href={publicUrl(book.pdf_file)}
                           target="_blank"
@@ -987,7 +987,7 @@ export default function BooksCatalog({
                           PDF
                         </a>
                       )}
-                      {book.epub_file && (
+                      {isAdmin && book.epub_file && (
                         <a
                           href={publicUrl(book.epub_file)}
                           download
