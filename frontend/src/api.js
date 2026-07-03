@@ -1,3 +1,9 @@
+import {
+  getCatalogBooks,
+  getCatalogUserBooks,
+  saveCatalogUserBookStatus,
+} from "./lib/catalogApi.js";
+
 const APP_BASE_URL = import.meta.env.DEV
   ? new URL("/librelula/", window.location.origin)
   : new URL("../", window.location.href);
@@ -38,9 +44,95 @@ export function publicUrl(path) {
   return appUrl(normalized);
 }
 
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data || {}), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+    },
+  });
+}
+
+function jsonErrorResponse(error) {
+  const status = Number(error?.status || 500);
+
+  return jsonResponse(
+    {
+      ok: false,
+      error:
+        error instanceof Error && error.message
+          ? error.message
+          : "Ha ocurrido un error en la API.",
+    },
+    status,
+  );
+}
+
+function endpointUrl(endpoint) {
+  return new URL(String(endpoint).replace(/^\/+/, ""), API_BASE_URL);
+}
+
+function endpointName(endpoint) {
+  const url = endpointUrl(endpoint);
+  return url.pathname.split("/").pop() || "";
+}
+
+function parseJsonBody(options) {
+  if (!options?.body) {
+    return {};
+  }
+
+  if (typeof options.body === "string") {
+    return JSON.parse(options.body);
+  }
+
+  return {};
+}
+
+async function localCatalogApiFetch(endpoint, options, method) {
+  const name = endpointName(endpoint);
+
+  if (name === "get_books.php" && method === "GET") {
+    return jsonResponse(await getCatalogBooks());
+  }
+
+  if (name === "catalog_user_books.php" && method === "GET") {
+    const url = endpointUrl(endpoint);
+
+    return jsonResponse(
+      await getCatalogUserBooks({
+        bookId: url.searchParams.get("book_id") || "",
+      }),
+    );
+  }
+
+  if (name === "catalog_user_books.php" && method === "POST") {
+    const body = parseJsonBody(options);
+
+    return jsonResponse(
+      await saveCatalogUserBookStatus({
+        book_id: body.book_id,
+        status: body.status,
+      }),
+    );
+  }
+
+  return null;
+}
+
 export async function apiFetch(endpoint, options = {}) {
   const headers = new Headers(options.headers || {});
   const method = String(options.method || "GET").toUpperCase();
+
+  try {
+    const localResponse = await localCatalogApiFetch(endpoint, options, method);
+
+    if (localResponse) {
+      return localResponse;
+    }
+  } catch (error) {
+    return jsonErrorResponse(error);
+  }
 
   if (!["GET", "HEAD", "OPTIONS"].includes(method) && csrfToken) {
     headers.set("X-CSRF-Token", csrfToken);
