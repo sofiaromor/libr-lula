@@ -3,6 +3,7 @@ import "./Navbar.css";
 import BookDetail from "./BookDetail.jsx";
 import BooksCatalog from "./BooksCatalog.jsx";
 import MiBiblioteca from "./MiBiblioteca.jsx";
+import PerfilSupabase from "./PerfilSupabase.jsx";
 import LoginSupabase from "./LoginSupabase.jsx";
 import EditBook from "./EditBook.jsx";
 import GoodreadsImport from "./GoodreadsImport.jsx";
@@ -117,6 +118,12 @@ useEffect(() => {
     setNewBookTitle("");
     setDetailBackPage("catalog");
     setPage("catalog");
+  }
+
+  function openProfile() {
+    setPage("profile");
+    setNavigationOpen(false);
+    setUserMenuOpen(false);
   }
 
   function openLibrary() {
@@ -270,7 +277,13 @@ useEffect(() => {
 
               {isLoggedIn && (
                 <>
-                  <a href={appUrl("perfil.php")}>Mi rincón</a>
+                  <button
+                    type="button"
+                    className={page === "profile" ? "is-active" : ""}
+                    onClick={openProfile}
+                  >
+                    Mi rincón
+                  </button>
                   <button
                     type="button"
                     className={page === "library" ? "is-active" : ""}
@@ -320,7 +333,9 @@ useEffect(() => {
                     className={`dropdown-menu${userMenuOpen ? " show" : ""}`}
                     id="catalog-user-dropdown"
                   >
-                    <a href={appUrl("perfil.php")}>Mi rincón</a>
+                    <button type="button" onClick={openProfile}>
+                      Mi rincón
+                    </button>
                     <button type="button" onClick={openLibrary}>
                       Mi biblioteca
                     </button>
