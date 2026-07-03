@@ -1,105 +1,295 @@
 ﻿.login-supabase-page {
   min-height: calc(100vh - 90px);
-  padding: clamp(32px, 7vw, 72px) 18px;
+  padding: 1.5rem;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at top left, rgba(184, 129, 66, .16), transparent 28%),
-    linear-gradient(180deg, #fffaf4 0%, #f4eadf 100%);
+  background: #faf7f2;
 }
 
-.login-supabase-card {
-  width: min(480px, 100%);
-  padding: clamp(26px, 5vw, 42px);
-  border: 1px solid rgba(126, 91, 59, .18);
-  border-radius: 28px;
-  background: rgba(255, 253, 249, .94);
-  box-shadow: 0 22px 70px rgba(67, 44, 27, .12);
+.lg-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  max-width: 900px;
+  min-height: 580px;
+  background: #fdf6ee;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 0.5px solid #e8d9c4;
 }
 
-.login-supabase-back {
-  margin: 0 0 22px;
+.lg-left {
+  position: relative;
+  overflow: hidden;
+}
+
+.lg-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.lg-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(253, 246, 238, 0) 40%,
+    rgba(44, 31, 14, 0.55) 100%
+  );
+}
+
+.lg-brand {
+  position: absolute;
+  bottom: 2rem;
+  left: 2rem;
+}
+
+.lg-brand-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-style: italic;
+  color: #fdf6ee;
+}
+
+.lg-brand-sub {
+  font-size: 11px;
+  color: rgba(253, 246, 238, 0.75);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.lg-right {
+  padding: 2.5rem 2.8rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.lg-back {
+  align-self: flex-start;
+  margin: 0 0 1rem;
   padding: 0;
   border: 0;
   background: transparent;
-  color: #8a6b52;
-  font: inherit;
-  font-weight: 700;
+  color: #9a8570;
+  font-family: 'Crimson Pro', serif;
+  font-size: 14px;
   cursor: pointer;
 }
 
-.login-supabase-kicker {
+.lg-back:hover {
+  color: #c4783a;
+}
+
+.lg-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 2rem;
+  background: #f5ebe0;
+  border-radius: 50px;
+  padding: 4px;
+}
+
+.lg-tab {
+  flex: 1;
+  padding: 9px;
+  border-radius: 50px;
+  border: none;
+  background: transparent;
+  font-family: 'Crimson Pro', serif;
+  font-size: 15px;
+  color: #9a8570;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lg-tab.active {
+  background: #fdf6ee;
+  color: #2c1f0e;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.lg-panel {
+  display: none;
+}
+
+.lg-panel.active {
   display: block;
-  margin-bottom: 8px;
-  color: #b88142;
-  font-size: .78rem;
-  font-weight: 800;
-  letter-spacing: .16em;
+}
+
+.lg-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  color: #2c1f0e;
+  margin-bottom: 4px;
+}
+
+.lg-title em {
+  font-style: italic;
+  color: #c4783a;
+}
+
+.lg-sub {
+  font-size: 14px;
+  color: #9a8570;
+  margin-bottom: 1.5rem;
+}
+
+.lg-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.2rem;
+}
+
+.lg-field label {
+  display: block;
+  font-size: 11px;
+  color: #9a8570;
+  letter-spacing: 1px;
   text-transform: uppercase;
+  margin-bottom: 5px;
 }
 
-.login-supabase-card h1 {
-  margin: 0 0 10px;
-  color: #3f2f25;
-  font-size: clamp(2rem, 7vw, 3rem);
-  line-height: .95;
+.lg-field input {
+  width: 100%;
+  padding: 10px 16px;
+  border: 0.5px solid #e8d9c4;
+  border-radius: 50px;
+  background: #faf7f2;
+  font-family: 'Crimson Pro', serif;
+  font-size: 15px;
+  color: #2c1f0e;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.login-supabase-card p {
-  margin: 0 0 24px;
-  color: #7b6b60;
-  line-height: 1.6;
+.lg-field input:focus {
+  border-color: #b8896a;
+  box-shadow: 0 0 0 3px rgba(184, 137, 106, 0.1);
 }
 
-.login-supabase-form {
-  display: grid;
-  gap: 16px;
+.lg-field input::placeholder {
+  color: #c4a98a;
+  font-style: italic;
 }
 
-.login-supabase-form label {
-  display: grid;
-  gap: 7px;
-  color: #6b5849;
-  font-weight: 700;
+.lg-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1.2rem;
 }
 
-.login-supabase-form input {
-  min-height: 46px;
-  padding: 0 14px;
-  border: 1px solid rgba(126, 91, 59, .22);
-  border-radius: 14px;
-  background: white;
-  color: #3f2f25;
-  font: inherit;
-}
-
-.login-supabase-form input:focus {
-  outline: 3px solid rgba(184, 129, 66, .22);
-  border-color: #b88142;
-}
-
-.login-supabase-error {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #fff0ed;
-  color: #9b453b;
-  font-weight: 700;
-}
-
-.login-supabase-submit {
-  min-height: 48px;
-  border: 0;
-  border-radius: 999px;
-  background: #b88142;
-  color: white;
-  font: inherit;
-  font-weight: 800;
+.lg-check input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  accent-color: #b8896a;
   cursor: pointer;
-  box-shadow: 0 14px 34px rgba(184, 129, 66, .24);
+  flex-shrink: 0;
 }
 
-.login-supabase-submit:disabled {
+.lg-check label {
+  font-size: 13px;
+  color: #7a6550;
+  cursor: pointer;
+}
+
+.lg-check a {
+  color: #b8896a;
+  text-decoration: none;
+}
+
+.lg-check a:hover {
+  color: #c4783a;
+}
+
+.lg-btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 50px;
+  background: #b8896a;
+  color: #fdf6ee;
+  font-family: 'Crimson Pro', serif;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  letter-spacing: 0.03em;
+}
+
+.lg-btn:hover {
+  background: #9a7055;
+  transform: translateY(-1px);
+}
+
+.lg-btn:disabled {
   cursor: wait;
-  opacity: .68;
+  opacity: 0.68;
+  transform: none;
+}
+
+.lg-switch {
+  text-align: center;
+  font-size: 13px;
+  color: #9a8570;
+  margin-top: 1rem;
+}
+
+.lg-switch a {
+  color: #b8896a;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lg-switch a:hover {
+  color: #c4783a;
+}
+
+.lg-error {
+  background: #fdf0ec;
+  border: 0.5px solid #f0c4b0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #7a3a1e;
+  margin-bottom: 1rem;
+}
+
+.lg-note {
+  margin-bottom: 1.2rem;
+  padding: 14px 16px;
+  border: 0.5px solid #e8d9c4;
+  border-radius: 18px;
+  background: #faf7f2;
+  color: #7a6550;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.lg-note p {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .login-supabase-page {
+    padding: 1rem;
+  }
+
+  .lg-wrap {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .lg-left {
+    min-height: 220px;
+  }
+
+  .lg-right {
+    padding: 2rem 1.6rem;
+  }
 }
