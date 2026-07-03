@@ -1333,27 +1333,29 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, isAdmin, 
           </div>
 
           <div className="book-detail-actions">
-            <div className="book-detail-action-group" aria-label="Descargas">
-              {currentBook.pdf_file && (
-                <a
-                  className="detail-action detail-action-primary"
-                  href={publicUrl(currentBook.pdf_file)}
-                  download
-                >
-                  <PdfIcon /> Descargar PDF
-                </a>
-              )}
+            {isAdmin && (currentBook.pdf_file || currentBook.epub_file) && (
+              <div className="book-detail-action-group" aria-label="Descargas">
+                {currentBook.pdf_file && (
+                  <a
+                    className="detail-action detail-action-primary"
+                    href={publicUrl(currentBook.pdf_file)}
+                    download
+                  >
+                    <PdfIcon /> Descargar PDF
+                  </a>
+                )}
 
-              {currentBook.epub_file && (
-                <a
-                  className="detail-action detail-action-secondary"
-                  href={publicUrl(currentBook.epub_file)}
-                  download
-                >
-                  <EpubIcon /> Descargar EPUB
-                </a>
-              )}
-            </div>
+                {currentBook.epub_file && (
+                  <a
+                    className="detail-action detail-action-secondary"
+                    href={publicUrl(currentBook.epub_file)}
+                    download
+                  >
+                    <EpubIcon /> Descargar EPUB
+                  </a>
+                )}
+              </div>
+            )}
 
             {isAdmin && (
               <>
