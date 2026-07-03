@@ -376,6 +376,10 @@ useEffect(() => {
           />
         )}
 
+        {page === "profile" && isLoggedIn && (
+          <PerfilSupabase onOpenLibrary={openLibrary} onOpenCatalog={openCatalog} />
+        )}
+
         {page === "library" && isLoggedIn && (
           <MiBiblioteca
             onOpenCatalog={openCatalog}
