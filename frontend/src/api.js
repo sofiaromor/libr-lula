@@ -3,6 +3,11 @@ import {
   getCatalogUserBooks,
   saveCatalogUserBookStatus,
 } from "./lib/catalogApi.js";
+import {
+  createBookPostit,
+  deleteBookPostit,
+  getBookPostits,
+} from "./lib/bookPostitsApi.js";
 
 const APP_BASE_URL = import.meta.env.DEV
   ? new URL("/librelula/", window.location.origin)
@@ -119,6 +124,25 @@ async function localCatalogApiFetch(endpoint, options, method) {
         status: body.status,
       }),
     );
+  }
+
+  if (name === "book_postits.php" && method === "GET") {
+    const url = endpointUrl(endpoint);
+    return jsonResponse(
+      await getBookPostits({
+        bookId: url.searchParams.get("book_id"),
+      }),
+    );
+  }
+
+  if (name === "book_postits.php" && method === "POST") {
+    const body = await parseJsonBody(options);
+    return jsonResponse(await createBookPostit(body));
+  }
+
+  if (name === "book_postits.php" && method === "DELETE") {
+    const body = await parseJsonBody(options);
+    return jsonResponse(await deleteBookPostit(body));
   }
 
   return null;
