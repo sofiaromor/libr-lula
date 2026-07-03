@@ -8,7 +8,11 @@ import {
   deleteBookPostit,
   getBookPostits,
 } from "./lib/bookPostitsApi.js";
-import { getBookReviews } from "./lib/bookReviewsApi.js";
+import {
+  deleteBookReview,
+  getBookReviews,
+  saveBookReview,
+} from "./lib/bookReviewsApi.js";
 
 const APP_BASE_URL = import.meta.env.DEV
   ? new URL("/librelula/", window.location.origin)
@@ -136,6 +140,15 @@ async function localCatalogApiFetch(endpoint, options, method) {
     );
   }
 
+  if (name === "book_reviews.php" && method === "POST") {
+    const body = await parseJsonBody(options);
+    return jsonResponse(await saveBookReview(body));
+  }
+
+  if (name === "book_reviews.php" && method === "DELETE") {
+    const body = await parseJsonBody(options);
+    return jsonResponse(await deleteBookReview(body));
+  }
   if (name === "book_postits.php" && method === "GET") {
     const url = endpointUrl(endpoint);
     return jsonResponse(
@@ -191,7 +204,7 @@ export async function readJsonResponse(response) {
   try {
     data = text ? JSON.parse(text) : {};
   } catch {
-    throw new Error("La API no devolviÃƒÆ’Ã‚Â³ un JSON vÃƒÆ’Ã‚Â¡lido.");
+    throw new Error("La API no devolviÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ un JSON vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lido.");
   }
 
   if (!response.ok || data.error) {

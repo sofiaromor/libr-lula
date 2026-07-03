@@ -5,30 +5,30 @@ const DEFAULT_ATMOSPHERE = Object.fromEntries(ATMOSPHERE_KEYS.map((key) => [key,
 
 const VIBES = {
   addictive: ["Adictivo", "No puedes dejarlo", "rhythm"],
-  agile: ["Ãgil", "Se lee con facilidad", "rhythm"],
+  agile: ["ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âgil", "Se lee con facilidad", "rhythm"],
   slow_burn: ["Pausado", "Se disfruta sin prisas", "rhythm"],
   unpredictable: ["Impredecible", "Sorprende continuamente", "rhythm"],
-  dense: ["Denso", "Pide atenciÃ³n y tiempo", "rhythm"],
-  cozy: ["Acogedor", "Como una manta cÃ¡lida", "emotion"],
+  dense: ["Denso", "Pide atenciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n y tiempo", "rhythm"],
+  cozy: ["Acogedor", "Como una manta cÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡lida", "emotion"],
   emotional: ["Emotivo", "Deja huella", "emotion"],
   devastating: ["Devastador", "Rompe por dentro", "emotion"],
-  funny: ["Divertido", "Te hace sonreÃ­r", "emotion"],
-  nostalgic: ["NostÃ¡lgico", "Deja una dulce melancolÃ­a", "emotion"],
+  funny: ["Divertido", "Te hace sonreÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­r", "emotion"],
+  nostalgic: ["NostÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡lgico", "Deja una dulce melancolÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a", "emotion"],
   hopeful: ["Esperanzador", "Terminas con luz", "emotion"],
   immersive: ["Inmersivo", "Te lleva a otro mundo", "setting"],
-  dark: ["Oscuro", "Tiene un tono sombrÃ­o", "setting"],
+  dark: ["Oscuro", "Tiene un tono sombrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­o", "setting"],
   unsettling: ["Inquietante", "Produce desasosiego", "setting"],
-  dreamlike: ["OnÃ­rico", "Parece un sueÃ±o", "setting"],
+  dreamlike: ["OnÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­rico", "Parece un sueÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±o", "setting"],
   nocturnal: ["Nocturno", "Ideal para leer de noche", "setting"],
   luminous: ["Luminoso", "Transmite ligereza", "setting"],
-  romantic: ["RomÃ¡ntico", "El amor es importante", "relationships"],
-  tender: ["Tierno", "VÃ­nculos dulces y cuidados", "relationships"],
-  romantic_tension: ["TensiÃ³n romÃ¡ntica", "Miradas, espera y deseo", "relationships"],
-  spicy: ["Picante", "QuÃ­mica intensa o explÃ­cita", "relationships"],
+  romantic: ["RomÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ntico", "El amor es importante", "relationships"],
+  tender: ["Tierno", "VÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­nculos dulces y cuidados", "relationships"],
+  romantic_tension: ["TensiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n romÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ntica", "Miradas, espera y deseo", "relationships"],
+  spicy: ["Picante", "QuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­mica intensa o explÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­cita", "relationships"],
   heartbreaking: ["Desgarrador", "Relaciones que duelen", "relationships"],
   reflective: ["Reflexivo", "Invita a pensar", "impact"],
   inspiring: ["Inspirador", "Despierta ganas de actuar", "impact"],
-  philosophical: ["FilosÃ³fico", "Plantea grandes preguntas", "impact"],
+  philosophical: ["FilosÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³fico", "Plantea grandes preguntas", "impact"],
   disturbing: ["Perturbador", "Sigue rondando la cabeza", "impact"],
   revealing: ["Revelador", "Cambia alguna perspectiva", "impact"],
 };
@@ -127,6 +127,51 @@ async function getCurrentLegacyUserId() {
   return profile?.legacy_id || null;
 }
 
+function requireLegacyUserId(legacyUserId) {
+  if (!legacyUserId) {
+    throw apiError("Necesitas iniciar sesiÃƒÂ³n para guardar tu opiniÃƒÂ³n.", 401);
+  }
+
+  return legacyUserId;
+}
+
+function normalizeScore(value) {
+  if (value === null || value === undefined || value === "") return null;
+
+  const score = Number(value);
+
+  if (!Number.isInteger(score) || score < 1 || score > 5) {
+    throw apiError("La puntuaciÃƒÂ³n debe estar entre 1 y 5.", 400);
+  }
+
+  return score;
+}
+
+function cleanVibeList(value) {
+  if (!Array.isArray(value)) return [];
+
+  return [...new Set(value.map(cleanText))]
+    .filter((key) => VIBES[key])
+    .slice(0, 5);
+}
+
+function cleanAtmosphereInput(value) {
+  if (!value || typeof value !== "object") {
+    return DEFAULT_ATMOSPHERE;
+  }
+
+  return atmosphereValues(value);
+}
+
+async function requireWritableReviewContext(bookId) {
+  const cleanId = cleanBookId(bookId);
+  const legacyUserId = requireLegacyUserId(await getCurrentLegacyUserId());
+
+  return {
+    bookId: cleanId,
+    legacyUserId,
+  };
+}
 export async function getBookReviews({ bookId }) {
   const cleanId = cleanBookId(bookId);
   const legacyUserId = await getCurrentLegacyUserId();
@@ -151,7 +196,7 @@ export async function getBookReviews({ bookId }) {
     .eq("book_id", cleanId);
 
   if (userBooksError) {
-    throw apiError("No se pudieron cargar las reseÃ±as del libro.");
+    throw apiError("No se pudieron cargar las reseÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±as del libro.");
   }
 
   const { data: vibes, error: vibesError } = await supabase
@@ -169,7 +214,7 @@ export async function getBookReviews({ bookId }) {
     .eq("book_id", cleanId);
 
   if (atmosphereError) {
-    throw apiError("No se pudo cargar la atmÃ³sfera del libro.");
+    throw apiError("No se pudo cargar la atmÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³sfera del libro.");
   }
 
   const rows = userBooks || [];
@@ -191,7 +236,7 @@ export async function getBookReviews({ bookId }) {
       .in("legacy_id", userIds);
 
     if (usersError) {
-      throw apiError("No se pudieron cargar los usuarios de las reseÃ±as.");
+      throw apiError("No se pudieron cargar los usuarios de las reseÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±as.");
     }
 
     usersById = new Map((users || []).map((user) => [String(user.legacy_id), user]));
@@ -305,12 +350,158 @@ export async function getBookReviews({ bookId }) {
       })),
       atmosphere: [
         { key: "pace", label: "Ritmo", left: "Contemplativo", right: "Vertiginoso" },
-        { key: "tension", label: "Tensión", left: "Sereno", right: "Intenso" },
-        { key: "darkness", label: "Oscuridad", left: "Luminoso", right: "Sombrío" },
-        { key: "warmth", label: "Calidez", left: "Frío", right: "Acogedor" },
-        { key: "emotion", label: "Emoción", left: "Contenido", right: "Desbordante" },
-        { key: "immersion", label: "Inmersión", left: "Distante", right: "Envolvente" },
+        { key: "tension", label: "TensiÃƒÆ’Ã‚Â³n", left: "Sereno", right: "Intenso" },
+        { key: "darkness", label: "Oscuridad", left: "Luminoso", right: "SombrÃƒÆ’Ã‚Â­o" },
+        { key: "warmth", label: "Calidez", left: "FrÃƒÆ’Ã‚Â­o", right: "Acogedor" },
+        { key: "emotion", label: "EmociÃƒÆ’Ã‚Â³n", left: "Contenido", right: "Desbordante" },
+        { key: "immersion", label: "InmersiÃƒÆ’Ã‚Â³n", left: "Distante", right: "Envolvente" },
       ],
     },
+  };
+}
+export async function saveBookReview(body = {}) {
+  const { bookId, legacyUserId } = await requireWritableReviewContext(
+    body.book_id ?? body.bookId,
+  );
+
+  const score = normalizeScore(body.score);
+  const ratingOnly = Boolean(body.rating_only);
+
+  const { error: userBookError } = await supabase
+    .from("user_books")
+    .upsert(
+      {
+        legacy_user_id: legacyUserId,
+        book_id: bookId,
+        score,
+        ...(ratingOnly ? {} : { notes: cleanText(body.review) || null }),
+      },
+      { onConflict: "legacy_user_id,book_id" },
+    );
+
+  if (userBookError) {
+    throw apiError("No se pudo guardar tu puntuaciÃ³n o reseÃ±a.");
+  }
+
+  if (!ratingOnly) {
+    const vibes = cleanVibeList(body.vibes);
+    const atmosphere = cleanAtmosphereInput(body.atmosphere);
+
+    const { error: deleteVibesError } = await supabase
+      .from("review_vibes")
+      .delete()
+      .eq("legacy_user_id", legacyUserId)
+      .eq("book_id", bookId);
+
+    if (deleteVibesError) {
+      throw apiError("No se pudieron actualizar tus sensaciones.");
+    }
+
+    if (vibes.length) {
+      const { error: insertVibesError } = await supabase
+        .from("review_vibes")
+        .insert(
+          vibes.map((vibe) => ({
+            legacy_user_id: legacyUserId,
+            book_id: bookId,
+            vibe,
+          })),
+        );
+
+      if (insertVibesError) {
+        throw apiError("No se pudieron guardar tus sensaciones.");
+      }
+    }
+
+    const { error: atmosphereError } = await supabase
+      .from("review_atmosphere")
+      .upsert(
+        {
+          legacy_user_id: legacyUserId,
+          book_id: bookId,
+          ...atmosphere,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "legacy_user_id,book_id" },
+      );
+
+    if (atmosphereError) {
+      throw apiError("No se pudo guardar la atmÃ³sfera de tu reseÃ±a.");
+    }
+  }
+
+  return {
+    ...(await getBookReviews({ bookId })),
+    message: ratingOnly
+      ? "Tu puntuaciÃ³n se ha guardado."
+      : "Tu reseÃ±a se ha guardado correctamente.",
+  };
+}
+export async function deleteBookReview(body = {}) {
+  const { bookId, legacyUserId } = await requireWritableReviewContext(
+    body.book_id ?? body.bookId,
+  );
+
+  const target = cleanText(body.target || "all");
+
+  if (!["rating", "review", "all"].includes(target)) {
+    throw apiError("No se indicó qué parte de la opinión borrar.", 400);
+  }
+
+  const shouldDeleteReview = target === "review" || target === "all";
+  const shouldDeleteRating = target === "rating" || target === "all";
+
+  if (shouldDeleteReview) {
+    const { error: deleteVibesError } = await supabase
+      .from("review_vibes")
+      .delete()
+      .eq("legacy_user_id", legacyUserId)
+      .eq("book_id", bookId);
+
+    if (deleteVibesError) {
+      throw apiError("No se pudieron borrar tus sensaciones.");
+    }
+
+    const { error: deleteAtmosphereError } = await supabase
+      .from("review_atmosphere")
+      .delete()
+      .eq("legacy_user_id", legacyUserId)
+      .eq("book_id", bookId);
+
+    if (deleteAtmosphereError) {
+      throw apiError("No se pudo borrar la atmósfera de tu reseña.");
+    }
+  }
+
+  const patch = {};
+
+  if (shouldDeleteRating) {
+    patch.score = null;
+  }
+
+  if (shouldDeleteReview) {
+    patch.notes = null;
+  }
+
+  if (Object.keys(patch).length) {
+    const { error: userBookError } = await supabase
+      .from("user_books")
+      .update(patch)
+      .eq("legacy_user_id", legacyUserId)
+      .eq("book_id", bookId);
+
+    if (userBookError) {
+      throw apiError("No se pudo borrar tu opinión.");
+    }
+  }
+
+  return {
+    ...(await getBookReviews({ bookId })),
+    message:
+      target === "rating"
+        ? "Tu puntuación se ha borrado."
+        : target === "review"
+          ? "Tu reseña se ha borrado."
+          : "Tu opinión se ha borrado.",
   };
 }
