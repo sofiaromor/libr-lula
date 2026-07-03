@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import "./Navbar.css";
 import BookDetail from "./BookDetail.jsx";
 import BooksCatalog from "./BooksCatalog.jsx";
+import MiBiblioteca from "./MiBiblioteca.jsx";
 import EditBook from "./EditBook.jsx";
 import GoodreadsImport from "./GoodreadsImport.jsx";
 import SagaBooks from "./SagaBooks.jsx";
@@ -12,13 +13,14 @@ import {
   readJsonResponse,
   setCsrfToken,
 } from "./api.js";
+import {
+  EMPTY_SUPABASE_SESSION,
+  getSupabaseAppSession,
+  onSupabaseAuthChange,
+  signOutSupabase,
+} from "./lib/session.js";
 
-const EMPTY_SESSION = {
-  authenticated: false,
-  is_admin: false,
-  user: null,
-  csrf_token: null,
-};
+const EMPTY_SESSION = EMPTY_SUPABASE_SESSION;
 
 export default function App() {
   const [page, setPage] = useState("catalog");
@@ -42,52 +44,7 @@ export default function App() {
       ? defaultAvatar
       : publicUrl(avatarValue);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function initialSessionLoad() {
-      try {
-        const response = await apiFetch("session.php");
-        const data = await readJsonResponse(response);
-
-        if (!cancelled) {
-          setSession(data);
-          setCsrfToken(data.csrf_token || "");
-        }
-      } catch {
-        if (!cancelled) {
-          setSession(EMPTY_SESSION);
-          setCsrfToken("");
-        }
-      } finally {
-        if (!cancelled) setSessionLoading(false);
-      }
-    }
-
-    initialSessionLoad();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    async function refreshSessionOnFocus() {
-      try {
-        const response = await apiFetch("session.php");
-        const data = await readJsonResponse(response);
-        setSession(data);
-        setCsrfToken(data.csrf_token || "");
-      } catch {
-        setSession(EMPTY_SESSION);
-        setCsrfToken("");
-      }
-    }
-
-    window.addEventListener("focus", refreshSessionOnFocus);
-    return () => window.removeEventListener("focus", refreshSessionOnFocus);
-  }, []);
-
-  useEffect(() => {
+useEffect(() => {
     function closeUserMenu(event) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false);
@@ -233,7 +190,13 @@ export default function App() {
               {isLoggedIn && (
                 <>
                   <a href={appUrl("perfil.php")}>Mi rincón</a>
-                  <a href={appUrl("biblioteca.php")}>Mi biblioteca</a>
+                  <button
+                    type="button"
+                    className={page === "library" ? "is-active" : ""}
+                    onClick={openLibrary}
+                  >
+                    Mi biblioteca
+                  </button>
                   <a href={appUrl("mis_resenas.php")}>Mis reseñas</a>
                 </>
               )}
@@ -277,7 +240,9 @@ export default function App() {
                     id="catalog-user-dropdown"
                   >
                     <a href={appUrl("perfil.php")}>Mi rincón</a>
-                    <a href={appUrl("biblioteca.php")}>Mi biblioteca</a>
+                    <button type="button" onClick={openLibrary}>
+                      Mi biblioteca
+                    </button>
                     <a href={appUrl("mis_resenas.php")}>Mis reseñas</a>
                     <button type="button" onClick={openCatalog}>
                       Explorar catálogo
@@ -288,7 +253,9 @@ export default function App() {
                       </button>
                     )}
                     <div className="dropdown-divider" />
-                    <a href={appUrl("logout.php")}>Cerrar sesión</a>
+                    <button type="button" onClick={handleSignOut}>
+                      Cerrar sesión
+                    </button>
                   </div>
                 </div>
               )}
