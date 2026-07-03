@@ -1,0 +1,25 @@
+.saga-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 22px;
+  padding: 10px 16px;
+  border: 1px solid rgba(117, 90, 58, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.88);
+  color: #4f3d2f;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  box-shadow: 0 8px 18px rgba(72, 48, 30, 0.08);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.saga-back-button:hover {
+  background: #fff7ed;
+  box-shadow: 0 11px 24px rgba(72, 48, 30, 0.12);
+  transform: translateY(-1px);
+}
