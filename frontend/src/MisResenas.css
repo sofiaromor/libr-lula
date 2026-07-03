@@ -1,0 +1,217 @@
+.my-reviews-page {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto 56px;
+}
+
+.my-reviews-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-end;
+  margin: 18px 0 28px;
+  padding: 28px;
+  border: 1px solid rgba(117, 90, 58, 0.16);
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255, 253, 248, 0.98), rgba(246, 238, 227, 0.94));
+  box-shadow: 0 14px 34px rgba(72, 48, 30, 0.08);
+}
+
+.my-reviews-kicker {
+  display: block;
+  margin-bottom: 7px;
+  color: #9a4d33;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.my-reviews-hero h1 {
+  margin: 0 0 8px;
+  color: #2f241b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  line-height: 0.95;
+}
+
+.my-reviews-hero p {
+  max-width: 620px;
+  margin: 0;
+  color: #746456;
+  line-height: 1.55;
+}
+
+.my-reviews-hero button,
+.my-reviews-empty button,
+.my-review-actions button {
+  border: 0;
+  border-radius: 999px;
+  background: #28463e;
+  color: #fffdf8;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+  padding: 11px 17px;
+  box-shadow: 0 8px 20px rgba(40, 70, 62, 0.17);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.my-reviews-hero button:hover,
+.my-reviews-empty button:hover,
+.my-review-actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 11px 24px rgba(40, 70, 62, 0.24);
+}
+
+.my-reviews-message,
+.my-reviews-feedback,
+.my-reviews-empty {
+  margin: 0 0 22px;
+  padding: 22px;
+  border-radius: 22px;
+  background: rgba(255, 253, 248, 0.92);
+  color: #6f6257;
+  font-weight: 700;
+}
+
+.my-reviews-feedback.is-error {
+  border: 1px solid rgba(155, 47, 47, 0.22);
+  background: #fff1f1;
+  color: #8c2929;
+}
+
+.my-reviews-empty {
+  border: 1px solid rgba(117, 90, 58, 0.15);
+  text-align: center;
+}
+
+.my-reviews-empty h2 {
+  margin: 0 0 8px;
+  color: #2f241b;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.my-reviews-empty p {
+  margin: 0 auto 18px;
+  max-width: 520px;
+  line-height: 1.55;
+}
+
+.my-reviews-list {
+  display: grid;
+  gap: 18px;
+}
+
+.my-review-card {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid rgba(117, 90, 58, 0.15);
+  border-radius: 24px;
+  background: rgba(255, 253, 248, 0.95);
+  box-shadow: 0 12px 30px rgba(72, 48, 30, 0.07);
+}
+
+.my-review-cover {
+  overflow: hidden;
+  min-height: 158px;
+  border-radius: 16px;
+  background: #eee6db;
+  color: #7b7064;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.my-review-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.my-review-content {
+  min-width: 0;
+}
+
+.my-review-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.my-review-score {
+  display: inline-flex;
+  margin-bottom: 7px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #fff1df;
+  color: #8d3d24;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.my-review-heading h2 {
+  margin: 0 0 3px;
+  color: #2f241b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.45rem;
+}
+
+.my-review-heading p,
+.my-review-heading time {
+  margin: 0;
+  color: #7a6b5e;
+}
+
+.my-review-heading time {
+  flex: 0 0 auto;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.my-review-text {
+  margin: 0;
+  color: #4d4238;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.my-review-text.is-empty {
+  color: #8d8174;
+  font-style: italic;
+}
+
+.my-review-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+@media (max-width: 720px) {
+  .my-reviews-hero,
+  .my-review-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .my-reviews-hero button,
+  .my-review-actions button {
+    width: 100%;
+  }
+
+  .my-review-card {
+    grid-template-columns: 86px minmax(0, 1fr);
+    padding: 14px;
+  }
+
+  .my-review-cover {
+    min-height: 128px;
+  }
+}
