@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+﻿import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
@@ -10,11 +10,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: {
-      "/librelula": {
-        target: "http://localhost:8080",
-        changeOrigin: true,
-      },
-    },
+    open: "/librelula/index.php",
   },
 });
