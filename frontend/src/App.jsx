@@ -83,6 +83,23 @@ useEffect(() => {
     setPage("catalog");
   }
 
+  function openLibrary() {
+    if (!isLoggedIn) return;
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setNewBookTitle("");
+    setDetailBackPage("library");
+    setPage("library");
+  }
+
+  async function handleSignOut() {
+    await signOutSupabase();
+    setSession(EMPTY_SESSION);
+    openCatalog();
+  }
+
   function openAddBook(initialTitle = "") {
     if (!isAdmin) return;
     closeNavigation();
@@ -136,6 +153,13 @@ useEffect(() => {
       setPage("saga");
       return;
     }
+
+    if (detailBackPage === "library") {
+      updateBookQuery();
+      setPage("library");
+      return;
+    }
+
     openCatalog();
   }
 
@@ -328,3 +352,4 @@ useEffect(() => {
     </div>
   );
 }
+
