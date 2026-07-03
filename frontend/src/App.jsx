@@ -56,6 +56,41 @@ useEffect(() => {
     return () => document.removeEventListener("pointerdown", closeUserMenu);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSession() {
+      try {
+        const nextSession = await getSupabaseAppSession();
+
+        if (!cancelled) {
+          setSession(nextSession);
+        }
+      } catch {
+        if (!cancelled) {
+          setSession(EMPTY_SESSION);
+        }
+      } finally {
+        if (!cancelled) {
+          setSessionLoading(false);
+        }
+      }
+    }
+
+    loadSession();
+
+    const unsubscribe = onSupabaseAuthChange((nextSession) => {
+      if (!cancelled) {
+        setSession(nextSession);
+        setSessionLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, []);
   function closeNavigation() {
     setNavOpen(false);
     setUserMenuOpen(false);
