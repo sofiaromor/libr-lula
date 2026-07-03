@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
+import "./MiBiblioteca.css";
 import {
   getLibraryStatus,
   getMyLibrary,
@@ -308,3 +309,5 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
     </main>
   );
 }
+
+
