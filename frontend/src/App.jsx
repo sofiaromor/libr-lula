@@ -3,6 +3,7 @@ import "./Navbar.css";
 import BookDetail from "./BookDetail.jsx";
 import BooksCatalog from "./BooksCatalog.jsx";
 import MiBiblioteca from "./MiBiblioteca.jsx";
+import LoginSupabase from "./LoginSupabase.jsx";
 import EditBook from "./EditBook.jsx";
 import GoodreadsImport from "./GoodreadsImport.jsx";
 import SagaBooks from "./SagaBooks.jsx";
@@ -85,6 +86,27 @@ useEffect(() => {
 
   function openLibrary() {
     if (!isLoggedIn) return;
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setNewBookTitle("");
+    setDetailBackPage("library");
+    setPage("library");
+  }
+
+  function openLogin() {
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setNewBookTitle("");
+    setDetailBackPage("catalog");
+    setPage("login");
+  }
+
+  function handleLoginSuccess(nextSession) {
+    setSession(nextSession);
     closeNavigation();
     updateBookQuery();
     setSelectedBook(null);
@@ -285,9 +307,9 @@ useEffect(() => {
               )}
 
               {!sessionLoading && !isLoggedIn && (
-                <a href={appUrl("login.php")} className="btn-signin">
-                  Iniciar sesiÃ³n
-                </a>
+                <button type="button" className="btn-signin" onClick={openLogin}>
+                  Iniciar sesión
+                </button>
               )}
             </div>
           </div>
@@ -308,6 +330,13 @@ useEffect(() => {
           <MiBiblioteca
             onOpenCatalog={openCatalog}
             onSelectBook={(book) => openBookDetail(book, "library")}
+          />
+        )}
+
+        {page === "login" && !isLoggedIn && (
+          <LoginSupabase
+            onLoginSuccess={handleLoginSuccess}
+            onOpenCatalog={openCatalog}
           />
         )}
 
