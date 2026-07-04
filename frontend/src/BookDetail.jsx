@@ -442,7 +442,7 @@ function RatingStars({ score, label = true }) {
 }
 
 
-export default function BookDetail({ book, onBack, onEdit, onOpenSaga, isAdmin, isLoggedIn }) {
+export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyReviews, isAdmin, isLoggedIn }) {
   const [currentBook, setCurrentBook] = useState(book);
   const [coverFailed, setCoverFailed] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -1705,9 +1705,13 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, isAdmin, 
               <h2 id="book-reviews-title">Valoraciones y reseñas</h2>
             </div>
             {reviewData?.authenticated && (
-              <a className="book-reviews-own-link" href={appUrl("mis_resenas.php")}>
+              <button
+                type="button"
+                className="book-reviews-own-link"
+                onClick={onOpenMyReviews}
+              >
                 Ver mis reseñas
-              </a>
+              </button>
             )}
           </div>
 
