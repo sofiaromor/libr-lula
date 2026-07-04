@@ -3,6 +3,7 @@ import "./Navbar.css";
 import BookDetail from "./BookDetail.jsx";
 import BooksCatalog from "./BooksCatalog.jsx";
 import MiBiblioteca from "./MiBiblioteca.jsx";
+import MisResenas from "./MisResenas.jsx";
 import PerfilSupabase from "./PerfilSupabase.jsx";
 import LoginSupabase from "./LoginSupabase.jsx";
 import EditBook from "./EditBook.jsx";
@@ -141,6 +142,17 @@ useEffect(() => {
     setPage("library");
   }
 
+  function openMyReviews() {
+    if (!isLoggedIn) return;
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setNewBookTitle("");
+    setDetailBackPage("my-reviews");
+    setPage("my-reviews");
+  }
+
   function openLogin() {
     closeNavigation();
     updateBookQuery();
@@ -228,6 +240,12 @@ useEffect(() => {
       return;
     }
 
+    if (detailBackPage === "my-reviews") {
+      updateBookQuery();
+      setPage("my-reviews");
+      return;
+    }
+
     openCatalog();
   }
 
@@ -273,7 +291,7 @@ useEffect(() => {
               <a href={appUrl("index.php")}>Inicio</a>
               <button
                 type="button"
-                className={["catalog", "detail", "saga"].includes(page) && detailBackPage !== "library" ? "is-active" : ""}
+                className={["catalog", "detail", "saga"].includes(page) && !["library", "my-reviews"].includes(detailBackPage) ? "is-active" : ""}
                 onClick={openCatalog}
               >
                 Catálogo
@@ -295,7 +313,13 @@ useEffect(() => {
                   >
                     Mi biblioteca
                   </button>
-                  <a href={appUrl("mis_resenas.php")}>Mis reseñas</a>
+                  <button
+                    type="button"
+                    className={page === "my-reviews" || (page === "detail" && detailBackPage === "my-reviews") ? "is-active" : ""}
+                    onClick={openMyReviews}
+                  >
+                    Mis reseñas
+                  </button>
                 </>
               )}
             </div>
@@ -343,7 +367,9 @@ useEffect(() => {
                     <button type="button" onClick={openLibrary}>
                       Mi biblioteca
                     </button>
-                    <a href={appUrl("mis_resenas.php")}>Mis reseñas</a>
+                    <button type="button" onClick={openMyReviews}>
+                      Mis reseñas
+                    </button>
                     <button type="button" onClick={openCatalog}>
                       Explorar catálogo
                     </button>
@@ -391,6 +417,13 @@ useEffect(() => {
           />
         )}
 
+        {page === "my-reviews" && isLoggedIn && (
+          <MisResenas
+            onOpenCatalog={openCatalog}
+            onSelectBook={(book) => openBookDetail(book, "my-reviews")}
+          />
+        )}
+
         {page === "login" && !isLoggedIn && (
           <LoginSupabase
             onLoginSuccess={handleLoginSuccess}
@@ -413,6 +446,7 @@ useEffect(() => {
             onBack={backFromDetail}
             onEdit={openEditBook}
             onOpenSaga={openSaga}
+            onOpenMyReviews={openMyReviews}
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
           />
