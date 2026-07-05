@@ -1,0 +1,25 @@
+# Dependencias
+node_modules/
+frontend/node_modules/
+
+# Variables de entorno / secretos
+.env
+.env.*
+frontend/.env
+frontend/.env.*
+!.env.example
+!frontend/.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Backups temporales
+*.bak
+*.antes_*.bak
