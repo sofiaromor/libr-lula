@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import "./Navbar.css";
+import Inicio from "./Inicio.jsx";
 import BookDetail from "./BookDetail.jsx";
 import BooksCatalog from "./BooksCatalog.jsx";
 import MiBiblioteca from "./MiBiblioteca.jsx";
@@ -26,7 +27,7 @@ import {
 const EMPTY_SESSION = EMPTY_SUPABASE_SESSION;
 
 export default function App() {
-  const [page, setPage] = useState("catalog");
+  const [page, setPage] = useState("home");
   const [selectedBook, setSelectedBook] = useState(null);
   const [selectedSaga, setSelectedSaga] = useState(null);
   const [detailBackPage, setDetailBackPage] = useState("catalog");
@@ -111,6 +112,25 @@ useEffect(() => {
     window.history.replaceState({}, "", url);
   }
 
+  function openHome() {
+
+    closeNavigation();
+
+    updateBookQuery();
+
+    setSelectedBook(null);
+
+    setSelectedSaga(null);
+
+    setNewBookTitle("");
+
+    setDetailBackPage("catalog");
+
+    setPage("home");
+
+  }
+
+
   function openCatalog() {
     closeNavigation();
     updateBookQuery();
@@ -177,7 +197,7 @@ useEffect(() => {
   async function handleSignOut() {
     await signOutSupabase();
     setSession(EMPTY_SESSION);
-    openCatalog();
+    openHome();
   }
 
   function openAddBook(initialTitle = "") {
@@ -265,6 +285,10 @@ useEffect(() => {
           <a
             className="site-brand"
             href={appUrl("index.php")}
+              onClick={(event) => {
+                event.preventDefault();
+                openHome();
+              }}
             aria-label="Ir al inicio de Librélula"
           >
             <img src={publicUrl("images/librelula-font.png")} alt="Librélula" />
@@ -288,7 +312,13 @@ useEffect(() => {
             id="site-nav-panel"
           >
             <div className="site-nav-links">
-              <a href={appUrl("index.php")}>Inicio</a>
+              <button
+              type="button"
+              className={page === "home" ? "is-active" : ""}
+              onClick={openHome}
+            >
+              Inicio
+            </button>
               <button
                 type="button"
                 className={["catalog", "detail", "saga"].includes(page) && !["library", "my-reviews"].includes(detailBackPage) ? "is-active" : ""}
@@ -397,6 +427,17 @@ useEffect(() => {
       </header>
 
       <div className="catalog-content">
+        {page === "home" && (
+          <Inicio
+            isLoggedIn={isLoggedIn}
+            onExplore={openCatalog}
+            onLogin={openLogin}
+            onProfile={openProfile}
+            onLibrary={openLibrary}
+            onReviews={openMyReviews}
+          />
+        )}
+
         {page === "catalog" && (
           <BooksCatalog
             isAdmin={isAdmin}
@@ -473,4 +514,5 @@ useEffect(() => {
     </div>
   );
 }
+
 
