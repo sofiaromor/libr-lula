@@ -62,11 +62,7 @@
 }
 
 .inicio-logo-lockup span {
-  display: block;
-  width: 46px;
-  height: 1px;
-  margin-top: 14px;
-  background: rgba(139, 99, 71, 0.34);
+  display: none;
 }
 
 .inicio-editorial-eyebrow {
@@ -1164,3 +1160,133 @@
   }
 }
 /* Fin ajuste dashboard interno LibrÃ©lula */
+
+
+/* Luci?rnagas suaves en la imagen de inicio */
+.inicio-art-panel::before,
+.inicio-art-panel::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: rgba(255, 233, 163, 0.92);
+  box-shadow:
+    0 0 12px rgba(255, 229, 148, 0.72),
+    0 0 26px rgba(255, 210, 122, 0.34);
+  animation: inicioFireflyDance 8s ease-in-out infinite;
+}
+
+.inicio-art-panel::before {
+  top: 24%;
+  left: 42%;
+  animation-delay: -2.4s;
+}
+
+.inicio-art-panel::after {
+  top: 62%;
+  left: 78%;
+  width: 4px;
+  height: 4px;
+  animation-delay: -5.2s;
+}
+
+.inicio-firefly {
+  position: absolute;
+  z-index: 4;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: rgba(255, 238, 178, 0.96);
+  box-shadow:
+    0 0 10px rgba(255, 236, 170, 0.78),
+    0 0 22px rgba(255, 214, 130, 0.34);
+  opacity: 0.72;
+  animation: inicioFireflyDance 9s ease-in-out infinite;
+}
+
+.inicio-firefly--one {
+  top: 18%;
+  left: 36%;
+  animation-delay: -1.2s;
+}
+
+.inicio-firefly--two {
+  top: 34%;
+  left: 68%;
+  width: 3px;
+  height: 3px;
+  animation-delay: -3.8s;
+}
+
+.inicio-firefly--three {
+  top: 72%;
+  left: 54%;
+  animation-delay: -6.1s;
+}
+
+.inicio-firefly--four {
+  top: 48%;
+  left: 44%;
+  width: 3px;
+  height: 3px;
+  animation-delay: -4.5s;
+}
+
+.inicio-firefly--five {
+  top: 26%;
+  left: 84%;
+  animation-delay: -7.3s;
+}
+
+.inicio-firefly--six {
+  top: 58%;
+  left: 31%;
+  width: 3px;
+  height: 3px;
+  animation-delay: -2.9s;
+}
+
+.inicio-firefly--seven {
+  top: 80%;
+  left: 72%;
+  animation-delay: -5.9s;
+}
+
+@keyframes inicioFireflyDance {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.78);
+    opacity: 0.18;
+  }
+
+  22% {
+    transform: translate3d(18px, -16px, 0) scale(1);
+    opacity: 0.86;
+  }
+
+  48% {
+    transform: translate3d(-12px, 10px, 0) scale(0.72);
+    opacity: 0.36;
+  }
+
+  72% {
+    transform: translate3d(14px, 18px, 0) scale(1.08);
+    opacity: 0.92;
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.78);
+    opacity: 0.18;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inicio-firefly,
+  .inicio-art-panel::before,
+  .inicio-art-panel::after {
+    animation: none;
+  }
+}
