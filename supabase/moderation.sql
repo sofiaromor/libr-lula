@@ -1,7 +1,16 @@
-﻿-- Librélula: moderación de libros propuestos
+-- Librélula: moderación de libros propuestos
 -- Ejecutar en Supabase SQL Editor después de schema.sql y storage.sql.
 
--- Compatibilidad: si created_by exist?a como bigint heredado, lo conservamos aparte.
+alter table public.books add column if not exists updated_at timestamptz;
+
+update public.books
+set updated_at = coalesce(updated_at, created_at, now())
+where updated_at is null;
+
+alter table public.books alter column updated_at set default now();
+alter table public.books alter column updated_at set not null;
+
+-- Compatibilidad: si created_by existía como bigint heredado, lo conservamos aparte.
 do $moderation$
 declare
   created_by_type text;
