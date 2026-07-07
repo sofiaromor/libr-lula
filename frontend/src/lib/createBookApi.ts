@@ -23,6 +23,8 @@ const BOOK_SELECT = `
   created_at
 `;
 
+const BOOK_COVERS_BUCKET = "book-covers";
+
 type BookInput = FormData | Record<string, unknown>;
 type TaxonomyKind = "theme" | "aesthetic" | "audience";
 
@@ -192,6 +194,65 @@ function buildBookPayload(input: BookInput) {
   };
 }
 
+
+function safeStorageName(value: string) {
+  return String(value || "archivo")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase()
+    .slice(0, 90) || "archivo";
+}
+
+function coverExtension(file: File) {
+  const nameExtension = String(file.name || "").split(".").pop()?.toLowerCase();
+
+  if (nameExtension && ["jpg", "jpeg", "png", "webp"].includes(nameExtension)) {
+    return nameExtension === "jpeg" ? "jpg" : nameExtension;
+  }
+
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
+  return "jpg";
+}
+
+async function uploadCoverFile(input: BookInput, bookId: string, title: string) {
+  const value = getValue(input, "cover");
+
+  if (!hasFile(value) || value.size === 0) {
+    return textOrNull(value);
+  }
+
+  if (!["image/jpeg", "image/png", "image/webp"].includes(value.type)) {
+    throw apiError("La portada debe ser JPG, PNG o WEBP.", 400);
+  }
+
+  const maxSize = 10 * 1024 * 1024;
+
+  if (value.size > maxSize) {
+    throw apiError("La portada no puede superar los 10 MB.", 400);
+  }
+
+  const path = `${bookId}/${Date.now()}-${safeStorageName(title)}.${coverExtension(value)}`;
+
+  const { error } = await supabase.storage
+    .from(BOOK_COVERS_BUCKET)
+    .upload(path, value, {
+      cacheControl: "3600",
+      upsert: true,
+      contentType: value.type,
+    });
+
+  if (error) {
+    throw apiError(error.message || "No se pudo subir la portada.", 500);
+  }
+
+  const { data } = supabase.storage.from(BOOK_COVERS_BUCKET).getPublicUrl(path);
+
+  return data.publicUrl;
+}
+
 async function requireAdminProfile() {
   const {
     data: { user },
@@ -281,6 +342,7 @@ export async function createCatalogBook(input: BookInput) {
   await requireAdminProfile();
 
   const payload = buildBookPayload(input);
+  payload.cover = await uploadCoverFile(input, payload.id, payload.title);
 
   const { data: book, error } = await supabase
     .from("books")
