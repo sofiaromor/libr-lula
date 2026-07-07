@@ -44,6 +44,9 @@ create table if not exists public.books (
 create index if not exists books_title_idx on public.books using btree (title);
 create index if not exists books_author_idx on public.books using btree (author);
 create unique index if not exists books_isbn_unique_idx on public.books (isbn) where isbn is not null and isbn <> '';
+alter table public.books add column if not exists provider text;
+alter table public.books add column if not exists source_id text;
+
 create unique index if not exists books_external_source_unique_idx on public.books (provider, source_id) where provider is not null and provider <> '' and source_id is not null and source_id <> '';
 
 create table if not exists public.book_taxonomy (
