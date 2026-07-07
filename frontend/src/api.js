@@ -132,6 +132,15 @@ async function localCatalogApiFetch(endpoint, options, method) {
     );
   }
 
+
+  if (name === "create_book.php" && method === "POST") {
+    return jsonResponse(await createCatalogBook(options.body || {}));
+  }
+
+  if (name === "import_external_book.php" && method === "POST") {
+    const body = parseJsonBody(options);
+    return jsonResponse(await importExternalCatalogBook(body));
+  }
   if (name === "book_reviews.php" && method === "GET") {
     const url = endpointUrl(endpoint);
     return jsonResponse(
