@@ -12,11 +12,7 @@ const landing = {
     "Miles de historias, un vuelo de distancia. Organiza tus lecturas, guarda reseñas y encuentra tu próxima obsesión literaria.",
 };
 
-const landingStats = [
-  { value: "12K+", label: "Novelas" },
-  { value: "840+", label: "Autores" },
-  { value: "2K+", label: "Participantes" },
-];
+const landingStats = [];
 
 const landingFeatures = [
   {
@@ -195,23 +191,21 @@ function LandingHome({ onExplore, onLogin }) {
             </a>
           </div>
 
-          <div className="inicio-editorial-stats">
-            {landingStats.map((item) => (
-              <article key={item.label}>
-                <strong>{item.value}</strong>
-                <span>{item.label}</span>
-              </article>
-            ))}
-          </div>
+          {landingStats.length > 0 ? (
+            <div className="inicio-editorial-stats">
+              {landingStats.map((item) => (
+                <article key={item.label}>
+                  <strong>{item.value}</strong>
+                  <span>{item.label}</span>
+                </article>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="inicio-art-panel" aria-hidden="true">
           <div className="inicio-art-image" />
           <div className="inicio-art-glow" />
-          <div className="inicio-dragonfly">
-            <span />
-            <i />
-          </div>
           <span className="inicio-firefly inicio-firefly--one" />
           <span className="inicio-firefly inicio-firefly--two" />
           <span className="inicio-firefly inicio-firefly--three" />
