@@ -12,6 +12,7 @@ import {
 } from "./bookGenres.js";
 import { inferTaxonomyFromSubjects, parseTaxonomyItems } from "./bookTaxonomy.js";
 import ReadingStatusControl from "./ReadingStatusControl.jsx";
+import { getMyBookProposals } from "./lib/myBookProposalsApi.js";
 import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
 
 function initialSearch() {
@@ -129,6 +130,9 @@ export default function BooksCatalog({
   const [userBooksLoading, setUserBooksLoading] = useState(false);
   const [savingStatusBookId, setSavingStatusBookId] = useState("");
   const [statusFeedback, setStatusFeedback] = useState(null);
+  const [bookProposals, setBookProposals] = useState([]);
+  const [bookProposalsLoading, setBookProposalsLoading] = useState(false);
+  const [bookProposalsError, setBookProposalsError] = useState("");
   const directBookHandled = useRef(false);
 
   useEffect(() => {
@@ -193,6 +197,41 @@ export default function BooksCatalog({
       cancelled = true;
     };
   }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn || isAdmin) {
+      setBookProposals([]);
+      setBookProposalsError("");
+      setBookProposalsLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function loadBookProposals() {
+      try {
+        setBookProposalsLoading(true);
+        setBookProposalsError("");
+        const items = await getMyBookProposals();
+
+        if (!cancelled) {
+          setBookProposals(Array.isArray(items) ? items : []);
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setBookProposalsError(requestError.message);
+        }
+      } finally {
+        if (!cancelled) setBookProposalsLoading(false);
+      }
+    }
+
+    loadBookProposals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, isLoggedIn]);
 
   useEffect(() => {
     if (loading || directBookHandled.current || books.length === 0) return;
@@ -779,6 +818,61 @@ export default function BooksCatalog({
         >
           {statusFeedback.text}
         </p>
+      )}
+
+      {isLoggedIn && !isAdmin && (
+        bookProposalsLoading || bookProposalsError || bookProposals.length > 0
+      ) && (
+        <section className="book-proposals-panel" aria-labelledby="book-proposals-title">
+          <div className="book-proposals-heading">
+            <div>
+              <span className="external-search-kicker">Tus propuestas</span>
+              <h2 id="book-proposals-title">Libros en revisión</h2>
+              <p>
+                Estas fichas ya se han enviado, pero todavía no aparecen en el catálogo público.
+              </p>
+            </div>
+          </div>
+
+          {bookProposalsLoading && (
+            <p className="book-proposals-muted">Cargando tus propuestas…</p>
+          )}
+
+          {bookProposalsError && (
+            <p className="external-feedback is-error" role="alert">{bookProposalsError}</p>
+          )}
+
+          {!bookProposalsLoading && !bookProposalsError && bookProposals.length > 0 && (
+            <div className="book-proposals-list">
+              {bookProposals.map((proposal) => (
+                <article className="book-proposal-card" key={proposal.id}>
+                  <div className="book-proposal-cover">
+                    {proposal.cover ? (
+                      <img
+                        src={publicUrl(proposal.cover)}
+                        alt={`Portada de ${proposal.title}`}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span>Sin portada</span>
+                    )}
+                  </div>
+
+                  <div>
+                    <span className={`book-proposal-badge is-${proposal.review_status}`}>
+                      {proposal.review_status === "rejected" ? "Rechazada" : "En revisión"}
+                    </span>
+                    <h3>{proposal.title}</h3>
+                    <p>{proposal.author || "Autor desconocido"}</p>
+                    {proposal.moderation_note && (
+                      <small>{proposal.moderation_note}</small>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       {externalSearchFinished && externalResults.length > 0 && !externalError && (
