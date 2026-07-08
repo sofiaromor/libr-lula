@@ -201,7 +201,11 @@ useEffect(() => {
   }
 
   function openAddBook(initialTitle = "") {
-    if (!isAdmin) return;
+    if (!isLoggedIn) {
+      openLogin();
+      return;
+    }
+
     closeNavigation();
     updateBookQuery();
     setSelectedBook(null);
@@ -472,9 +476,10 @@ useEffect(() => {
           />
         )}
 
-        {page === "add-book" && isAdmin && (
+        {page === "add-book" && isLoggedIn && (
           <GoodreadsImport
             initialTitle={newBookTitle}
+            isAdmin={isAdmin}
             onCancel={openCatalog}
             onCreated={handleBookCreated}
           />

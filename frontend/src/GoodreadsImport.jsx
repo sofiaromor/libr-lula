@@ -404,7 +404,7 @@ function goodreadsUrl(value) {
   }
 }
 
-export default function GoodreadsImport({ initialTitle = "", onCancel, onCreated }) {
+export default function GoodreadsImport({ initialTitle = "", isAdmin = false, onCancel, onCreated }) {
   const [sourceUrl, setSourceUrl] = useState("");
   const [rawText, setRawText] = useState("");
   const [fields, setFields] = useState(() => ({
@@ -423,6 +423,11 @@ export default function GoodreadsImport({ initialTitle = "", onCancel, onCreated
   const [createdBook, setCreatedBook] = useState(null);
   const heroColorPromise = useRef(Promise.resolve(FALLBACK_HERO_COLOR));
   const coverAnalysisId = useRef(0);
+  const canManageFiles = Boolean(isAdmin);
+  const creationTitle = canManageFiles ? "Añadir un libro" : "Proponer un libro";
+  const creationDescription = canManageFiles
+    ? "Puedes crear la ficha manualmente o pegar los datos de Goodreads para completar los campos más rápido."
+    : "Completa la ficha y la enviaremos a revisión antes de publicarla en el catálogo.";
 
   useEffect(() => () => {
     if (preview) URL.revokeObjectURL(preview);
@@ -522,6 +527,8 @@ export default function GoodreadsImport({ initialTitle = "", onCancel, onCreated
   }
 
   function validateOptionalFiles() {
+    if (!canManageFiles) return "";
+
     const maximumSize = 50 * 1024 * 1024;
 
     if (pdfFile && pdfFile.size > maximumSize) {
@@ -579,8 +586,8 @@ export default function GoodreadsImport({ initialTitle = "", onCancel, onCreated
       if (String(value || "").trim()) formData.append(name, String(value).trim());
     }
 
-    if (pdfFile) formData.append("pdf_file", pdfFile);
-    if (epubFile) formData.append("epub_file", epubFile);
+    if (canManageFiles && pdfFile) formData.append("pdf_file", pdfFile);
+    if (canManageFiles && epubFile) formData.append("epub_file", epubFile);
 
     setSubmitting(true);
 
@@ -621,11 +628,13 @@ export default function GoodreadsImport({ initialTitle = "", onCancel, onCreated
       <div className="create-book-heading">
         <div>
           <span className="external-search-kicker">Nuevo libro</span>
-          <h1>Añadir un libro</h1>
-          <p>
-            Puedes crear la ficha manualmente o pegar los datos de Goodreads para
-            completar los campos más rápido.
-          </p>
+          <h1>{creationTitle}</h1>
+          <p>{creationDescription}</p>
+          {!canManageFiles && (
+            <p className="goodreads-inline-warning">
+              Tu propuesta quedará pendiente hasta que una administradora la revise.
+            </p>
+          )}
         </div>
         <button type="button" className="create-book-back" onClick={onCancel}>
           ← Volver al catálogo
@@ -854,28 +863,36 @@ export default function GoodreadsImport({ initialTitle = "", onCancel, onCreated
                 />
               </label>
 
-              <label>
-                PDF (opcional)
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
-                />
-              </label>
+              {canManageFiles ? (
+                <>
+                  <label>
+                    PDF (opcional)
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
+                    />
+                  </label>
 
-              <label>
-                EPUB (opcional)
-                <input
-                  type="file"
-                  accept="application/epub+zip,.epub"
-                  onChange={(event) => setEpubFile(event.target.files?.[0] || null)}
-                />
-              </label>
+                  <label>
+                    EPUB (opcional)
+                    <input
+                      type="file"
+                      accept="application/epub+zip,.epub"
+                      onChange={(event) => setEpubFile(event.target.files?.[0] || null)}
+                    />
+                  </label>
+                </>
+              ) : (
+                <p className="goodreads-inline-warning">
+                  La subida de PDF y EPUB está reservada para administradoras.
+                </p>
+              )}
             </div>
 
             <div className="create-book-submit-row">
               <button type="submit" disabled={submitting}>
-                {submitting ? "Guardando…" : "Guardar en Librélula"}
+                {submitting ? "Guardando…" : canManageFiles ? "Guardar en Librélula" : "Enviar propuesta"}
               </button>
               <button type="button" className="is-secondary" onClick={onCancel}>
                 Cancelar
@@ -886,8 +903,15 @@ export default function GoodreadsImport({ initialTitle = "", onCancel, onCreated
 
             {createdBook && (
               <section className="goodreads-created-card">
-                <strong>Libro creado correctamente</strong>
+                <strong>
+                  {createdBook.review_status === "pending"
+                    ? "Propuesta enviada a revisión"
+                    : "Libro creado correctamente"}
+                </strong>
                 <p>{createdBook.title} · {createdBook.author}</p>
+                {createdBook.review_status === "pending" && (
+                  <p>Cuando una administradora lo apruebe, aparecerá en el catálogo público.</p>
+                )}
                 {createdBook.cover && (
                   <img src={publicUrl(createdBook.cover)} alt={`Portada de ${createdBook.title}`} />
                 )}

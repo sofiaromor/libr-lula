@@ -355,7 +355,7 @@ export default function BooksCatalog({
   }
 
   function startBookCreation() {
-    if (!isAdmin || typeof onAddBook !== "function") return;
+    if (!isLoggedIn || typeof onAddBook !== "function") return;
     onAddBook(search.trim());
   }
 
@@ -425,17 +425,21 @@ export default function BooksCatalog({
         throw new Error("No se recibió la ficha importada del libro.");
       }
 
-      setBooks((currentBooks) => {
-        const withoutDuplicate = currentBooks.filter(
-          (currentBook) => String(currentBook.id) !== String(importedBook.id),
-        );
-        return [importedBook, ...withoutDuplicate];
-      });
+      if (importedBook.review_status === "approved") {
+        setBooks((currentBooks) => {
+          const withoutDuplicate = currentBooks.filter(
+            (currentBook) => String(currentBook.id) !== String(importedBook.id),
+          );
+          return [importedBook, ...withoutDuplicate];
+        });
+      }
 
       setImportMessage(
         data.already_exists
           ? "Ese libro ya estaba en Librélula."
-          : "Libro incorporado correctamente a Librélula.",
+          : importedBook.review_status === "pending"
+            ? "Propuesta enviada a revisión."
+            : "Libro incorporado correctamente a Librélula.",
       );
 
       if (openAfter) openBook(importedBook);
@@ -446,7 +450,7 @@ export default function BooksCatalog({
   }
 
   async function importExternalBook(book) {
-    if (!isAdmin) return;
+    if (!isLoggedIn) return;
 
     try {
       await ensureExternalBook(book, { openAfter: true });
@@ -846,14 +850,18 @@ export default function BooksCatalog({
                         }}
                       />
 
-                      {isAdmin && !catalogMatch && (
+                      {isLoggedIn && !catalogMatch && (
                         <button
                           type="button"
                           className="external-import-only"
                           onClick={() => importExternalBook(book)}
                           disabled={Boolean(importingKey || savingStatusBookId)}
                         >
-                          {importing ? "Añadiendo…" : "Añadir solo al catálogo"}
+                          {importing
+                            ? "Añadiendo…"
+                            : isAdmin
+                              ? "Añadir solo al catálogo"
+                              : "Proponer al catálogo"}
                         </button>
                       )}
                     </div>
@@ -863,14 +871,18 @@ export default function BooksCatalog({
             })}
           </div>
 
-          {isAdmin && (
+          {isLoggedIn && (
             <div className="external-results-footer">
               <div>
                 <strong>¿No es ninguno de estos?</strong>
-                <span>Crea una ficha y complétala manualmente o pegando los datos de Goodreads.</span>
+                <span>
+                  {isAdmin
+                    ? "Crea una ficha y complétala manualmente o pegando los datos de Goodreads."
+                    : "Propón una ficha y una administradora la revisará antes de publicarla."}
+                </span>
               </div>
               <button type="button" onClick={startBookCreation}>
-                Crear libro
+                {isAdmin ? "Crear libro" : "Proponer libro"}
               </button>
             </div>
           )}
@@ -885,12 +897,16 @@ export default function BooksCatalog({
             <h2 id="create-missing-book-title">Crea la ficha de «{externalSearchedQuery}»</h2>
             <p>
               {externalError || "No hay resultados externos para esta búsqueda."}
-              {isAdmin && " Podrás rellenarla a mano o completar los campos pegando una ficha de Goodreads."}
+              {isLoggedIn && (
+                isAdmin
+                  ? " Podrás rellenarla a mano o completar los campos pegando una ficha de Goodreads."
+                  : " Puedes proponerla para revisión."
+              )}
             </p>
           </div>
-          {isAdmin && (
+          {isLoggedIn && (
             <button type="button" onClick={startBookCreation}>
-              Crear libro
+              {isAdmin ? "Crear libro" : "Proponer libro"}
             </button>
           )}
         </section>
