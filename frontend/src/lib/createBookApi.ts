@@ -20,6 +20,13 @@ const BOOK_SELECT = `
   epub_file,
   provider,
   source_id,
+  review_status,
+  created_by,
+  submitted_by_legacy_user_id,
+  approved_by,
+  approved_at,
+  rejected_at,
+  moderation_note,
   created_at
 `;
 
@@ -253,19 +260,19 @@ async function uploadCoverFile(input: BookInput, bookId: string, title: string) 
   return data.publicUrl;
 }
 
-async function requireAdminProfile() {
+async function getCurrentProfile() {
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    throw apiError("Inicia sesiÃ³n para crear libros.", 401);
+    throw apiError("Inicia sesión para proponer libros.", 401);
   }
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("legacy_id, is_admin")
+    .select("id, legacy_id, is_admin")
     .eq("id", user.id)
     .single();
 
@@ -273,11 +280,31 @@ async function requireAdminProfile() {
     throw apiError("No se pudo comprobar tu perfil.", 500);
   }
 
-  if (!profile?.is_admin) {
-    throw apiError("Necesitas permisos de administradora para crear libros.", 403);
-  }
+  return {
+    id: profile?.id || user.id,
+    legacy_id: profile?.legacy_id || null,
+    is_admin: Boolean(profile?.is_admin),
+  };
+}
 
-  return profile;
+function applyModerationFields(
+  basePayload: ReturnType<typeof buildBookPayload>,
+  profile: Awaited<ReturnType<typeof getCurrentProfile>>,
+) {
+  const isAdmin = Boolean(profile.is_admin);
+
+  return {
+    ...basePayload,
+    review_status: isAdmin ? "approved" : "pending",
+    created_by: profile.id,
+    submitted_by_legacy_user_id: profile.legacy_id,
+    approved_by: isAdmin ? profile.id : null,
+    approved_at: isAdmin ? new Date().toISOString() : null,
+    rejected_at: null,
+    moderation_note: null,
+    pdf_file: isAdmin ? basePayload.pdf_file : null,
+    epub_file: isAdmin ? basePayload.epub_file : null,
+  };
 }
 
 async function saveTaxonomy(input: BookInput, bookId: string) {
@@ -339,10 +366,11 @@ async function findExistingExternalBook(input: BookInput) {
 }
 
 export async function createCatalogBook(input: BookInput) {
-  await requireAdminProfile();
+  const profile = await getCurrentProfile();
 
-  const payload = buildBookPayload(input);
-  payload.cover = await uploadCoverFile(input, payload.id, payload.title);
+  const basePayload = buildBookPayload(input);
+  basePayload.cover = await uploadCoverFile(input, basePayload.id, basePayload.title);
+  const payload = applyModerationFields(basePayload, profile);
 
   const { data: book, error } = await supabase
     .from("books")
@@ -363,7 +391,7 @@ export async function createCatalogBook(input: BookInput) {
 }
 
 export async function importExternalCatalogBook(input: BookInput) {
-  await requireAdminProfile();
+  const profile = await getCurrentProfile();
 
   const existing = await findExistingExternalBook(input);
 
@@ -375,7 +403,8 @@ export async function importExternalCatalogBook(input: BookInput) {
     };
   }
 
-  const payload = buildBookPayload(input);
+  const basePayload = buildBookPayload(input);
+  const payload = applyModerationFields(basePayload, profile);
 
   const { data: book, error } = await supabase
     .from("books")

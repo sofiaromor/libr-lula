@@ -95,8 +95,10 @@ export async function getCatalogBooks() {
       hero_color,
       pdf_file,
       epub_file,
+      review_status,
       created_at
     `)
+    .eq("review_status", "approved")
     .order("year", { ascending: false, nullsFirst: false })
     .order("title", { ascending: true });
 
