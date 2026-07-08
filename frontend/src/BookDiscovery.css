@@ -1472,3 +1472,104 @@
 .catalog-clear-filters:disabled:hover {
   background: transparent;
 }
+
+/* Panel de propuestas de libros en revisión */
+.book-proposals-panel {
+  margin: 0 0 30px;
+  padding: 22px;
+  border: 1px solid rgba(117, 90, 58, 0.18);
+  border-radius: 24px;
+  background: linear-gradient(135deg, #fffdf8, #f4eee4);
+  box-shadow: 0 12px 34px rgba(60, 49, 38, 0.08);
+}
+
+.book-proposals-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.book-proposals-heading h2 {
+  margin: 4px 0 6px;
+  color: #2e2924;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.book-proposals-heading p,
+.book-proposals-muted {
+  margin: 0;
+  color: #6f655a;
+}
+
+.book-proposals-list {
+  display: grid;
+  gap: 12px;
+}
+
+.book-proposal-card {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(117, 90, 58, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 253, 248, 0.86);
+}
+
+.book-proposal-cover {
+  width: 58px;
+  aspect-ratio: 2 / 3;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #eadfcc;
+  color: #7a6a58;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.book-proposal-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-proposal-card h3 {
+  margin: 6px 0 3px;
+  color: #2e2924;
+  font-size: 1rem;
+}
+
+.book-proposal-card p {
+  margin: 0;
+  color: #6f655a;
+}
+
+.book-proposal-card small {
+  display: block;
+  margin-top: 6px;
+  color: #8a3d33;
+  font-weight: 700;
+}
+
+.book-proposal-badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #f2d98a;
+  color: #4c351c;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.book-proposal-badge.is-rejected {
+  background: #f8dddd;
+  color: #8c2929;
+}

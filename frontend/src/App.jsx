@@ -235,9 +235,18 @@ useEffect(() => {
   }
 
   function handleBookCreated(createdBook) {
-    setSelectedBook(createdBook);
     setSelectedSaga(null);
     setNewBookTitle("");
+
+    if (createdBook?.review_status === "pending") {
+      setSelectedBook(null);
+      setDetailBackPage("catalog");
+      updateBookQuery();
+      setPage("catalog");
+      return;
+    }
+
+    setSelectedBook(createdBook);
     setDetailBackPage("catalog");
     updateBookQuery(createdBook?.id || null);
     setPage("detail");
