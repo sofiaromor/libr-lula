@@ -25,22 +25,10 @@ export async function getMyBookProposals() {
 
   if (!user) return [];
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("legacy_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileError) {
-    throw new Error("No se pudo cargar tu perfil.");
-  }
-
-  if (!profile?.legacy_id) return [];
-
   const { data, error } = await supabase
     .from("books")
     .select(PROPOSAL_SELECT)
-    .eq("created_by", profile.legacy_id)
+    .eq("created_by", user.id)
     .in("review_status", ["pending", "rejected"])
     .order("created_at", { ascending: false });
 
