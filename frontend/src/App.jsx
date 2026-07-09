@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./Navbar.css";
 import Inicio from "./Inicio.jsx";
 import BookDetail from "./BookDetail.jsx";
@@ -440,7 +440,15 @@ useEffect(() => {
       </header>
 
       <div className="catalog-content">
-        {page === "home" && (
+
+        {sessionLoading && (
+          <section className="lector-empty-state">
+            <h3>Cargando tu sesión…</h3>
+            <p>Estamos preparando tu rincón lector.</p>
+          </section>
+        )}
+
+{!sessionLoading && page === "home" && (
           <Inicio
             isLoggedIn={isLoggedIn}
             onExplore={openCatalog}
@@ -451,7 +459,7 @@ useEffect(() => {
           />
         )}
 
-        {page === "catalog" && (
+        {!sessionLoading && page === "catalog" && (
           <BooksCatalog
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
@@ -460,32 +468,32 @@ useEffect(() => {
           />
         )}
 
-        {page === "profile" && isLoggedIn && (
+        {!sessionLoading && page === "profile" && isLoggedIn && (
           <PerfilSupabase onOpenLibrary={openLibrary} onOpenCatalog={openCatalog} />
         )}
 
-        {page === "library" && isLoggedIn && (
+        {!sessionLoading && page === "library" && isLoggedIn && (
           <MiBiblioteca
             onOpenCatalog={openCatalog}
             onSelectBook={(book) => openBookDetail(book, "library")}
           />
         )}
 
-        {page === "my-reviews" && isLoggedIn && (
+        {!sessionLoading && page === "my-reviews" && isLoggedIn && (
           <MisResenas
             onOpenCatalog={openCatalog}
             onSelectBook={(book) => openBookDetail(book, "my-reviews")}
           />
         )}
 
-        {page === "login" && !isLoggedIn && (
+        {!sessionLoading && page === "login" && !isLoggedIn && (
           <LoginSupabase
             onLoginSuccess={handleLoginSuccess}
             onOpenCatalog={openCatalog}
           />
         )}
 
-        {page === "add-book" && isLoggedIn && (
+        {!sessionLoading && page === "add-book" && isLoggedIn && (
           <GoodreadsImport
             initialTitle={newBookTitle}
             isAdmin={isAdmin}
@@ -507,7 +515,7 @@ useEffect(() => {
           />
         )}
 
-        {page === "edit" && isAdmin && (
+        {!sessionLoading && page === "edit" && isAdmin && (
           <EditBook
             key={selectedBook?.id || "edit"}
             book={selectedBook}
@@ -516,7 +524,7 @@ useEffect(() => {
           />
         )}
 
-        {page === "saga" && selectedSaga && (
+        {!sessionLoading && page === "saga" && selectedSaga && (
           <SagaBooks
             sagaKey={selectedSaga.key}
             sagaName={selectedSaga.name}
