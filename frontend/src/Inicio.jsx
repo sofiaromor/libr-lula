@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./Inicio.css";
 import { getProfileOverview } from "./lib/profileApi.js";
+import { saveCatalogUserBookProgress } from "./lib/catalogApi.js";
 
 const landing = {
   brand: "Librélula",
@@ -55,6 +56,25 @@ function asText(value) {
 function asNumber(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+const COMPLETION_CONFETTI = Array.from({ length: 46 }, (_, index) => index);
+
+function completionPalette(book) {
+  const seed = String(book?.title || book?.author || book?.id || "librelula");
+  const palettes = [
+    ["#2b1b3d", "#7f5fc9", "#f2d98a"],
+    ["#2f2455", "#9c7edb", "#f2d98a"],
+    ["#2b3f5f", "#8ab3d6", "#f6d7a7"],
+    ["#513044", "#d487a6", "#f3d9a4"],
+    ["#294d45", "#8bbd99", "#f2d98a"],
+    ["#4a3427", "#c08a55", "#f1d6a2"],
+  ];
+
+  let total = 0;
+  for (const character of seed) total += character.charCodeAt(0);
+
+  return palettes[total % palettes.length];
 }
 
 function clampPercent(value) {
@@ -120,8 +140,8 @@ function buildBookCoverStyle(book, index) {
   };
 }
 
-function readingMeta(book) {
-  const progress = clampPercent(book?.progress);
+function readingMeta(book, progressOverride = null) {
+  const progress = clampPercent(progressOverride ?? book?.progress);
   const totalPages = asNumber(book?.pages);
   const currentPage = totalPages > 0 ? Math.round((totalPages * progress) / 100) : null;
 
@@ -231,6 +251,9 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews }) {
   const [message, setMessage] = useState(null);
   const [draft, setDraft] = useState("");
   const [localPosts, setLocalPosts] = useState([]);
+  const [progressDrafts, setProgressDrafts] = useState({});
+  const [savingProgress, setSavingProgress] = useState({});
+  const [completedBook, setCompletedBook] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -305,6 +328,109 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews }) {
     setDraft("");
   }
 
+  function displayedProgress(book) {
+    const key = String(book?.id || "");
+    return clampPercent(progressDrafts[key] ?? book?.progress);
+  }
+
+  function changeBookProgress(book, value) {
+    const key = String(book?.id || "");
+    if (!key) return;
+
+    setProgressDrafts((items) => ({
+      ...items,
+      [key]: clampPercent(value),
+    }));
+  }
+
+  async function persistBookProgress(book, value) {
+    const key = String(book?.id || "");
+    if (!key || savingProgress[key]) return;
+
+    const cleanProgress = clampPercent(value);
+    const previousProgress = clampPercent(book?.progress);
+
+    setMessage(null);
+    setProgressDrafts((items) => ({
+      ...items,
+      [key]: cleanProgress,
+    }));
+    setSavingProgress((items) => ({
+      ...items,
+      [key]: true,
+    }));
+
+    try {
+      const response = await saveCatalogUserBookProgress({
+        book_id: key,
+        progress: cleanProgress,
+      });
+
+      const saved = response.item;
+
+      if (cleanProgress >= 100 && previousProgress < 100) {
+        setCompletedBook({
+          ...book,
+          status: saved?.status || "completed",
+          progress: saved?.progress ?? cleanProgress,
+          finished_at: saved?.finished_at || null,
+          read_count: saved?.read_count || book?.read_count || 1,
+        });
+
+        setLocalPosts((items) => [
+          {
+            id: `completed-reading-${key}-${Date.now()}`,
+            type: "reading",
+            user: profileName || "Tú",
+            avatar: String(profileName || "T").trim().slice(0, 1).toUpperCase() || "T",
+            action: "ha terminado",
+            book: book.title,
+            time: "Ahora",
+            self: true,
+          },
+          ...items,
+        ]);
+      }
+
+      setHomeData((current) => {
+        if (!current || !saved) return current;
+
+        return {
+          ...current,
+          currentReadingBooks: (current.currentReadingBooks || [])
+            .map((item) => {
+              if (String(item.id) !== String(saved.book_id)) return item;
+
+              return {
+                ...item,
+                status: saved.status,
+                progress: saved.progress,
+                started_at: saved.started_at,
+                finished_at: saved.finished_at,
+                read_count: saved.read_count,
+              };
+            })
+            .filter((item) => !["completed", "finished"].includes(String(item.status || ""))),
+        };
+      });
+    } catch (error) {
+      setMessage(error.message || "No se pudo guardar tu progreso.");
+    } finally {
+      setProgressDrafts((items) => {
+        const next = { ...items };
+        delete next[key];
+        return next;
+      });
+      setSavingProgress((items) => ({
+        ...items,
+        [key]: false,
+      }));
+    }
+  }
+
+  const completedMeta = completedBook ? readingMeta(completedBook, 100) : null;
+  const completionColors = completedBook ? completionPalette(completedBook) : null;
+
   return (
     <main className="lector-dashboard-shell">
       <section className="lector-greeting-row">
@@ -347,8 +473,11 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews }) {
           ) : currentReadingBooks.length > 0 ? (
             <div className="lector-book-list">
               {currentReadingBooks.map((book, index) => {
-                const meta = readingMeta(book);
+                const bookKey = String(book.id);
+                const progressValue = displayedProgress(book);
+                const meta = readingMeta(book, progressValue);
                 const label = STATUS_LABELS[book.status] || "En lectura";
+                const isSavingBookProgress = Boolean(savingProgress[bookKey]);
 
                 return (
                   <article className="lector-book-card" key={book.id}>
@@ -366,27 +495,51 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews }) {
                           <h3>{book.title}</h3>
                           <p>{book.author || "Autor desconocido"}</p>
                         </div>
-
-                        <strong>{meta.progress}%</strong>
+                        <div className="lector-progress-badge">
+                          <strong>{meta.progress}%</strong>
+                          <span>leído</span>
+                        </div>
                       </div>
 
-                      <div className="lector-progress-track" aria-label="Progreso de lectura">
-                        <span style={{ width: `${meta.progress}%` }} />
+                      <div
+                        className="lector-progress-slider"
+                        style={{ "--progress": `${meta.progress}%` }}
+                      >
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={meta.progress}
+                          aria-label={`Progreso de lectura de ${book.title}`}
+                          disabled={isSavingBookProgress}
+                          onChange={(event) => changeBookProgress(book, event.target.value)}
+                          onPointerUp={(event) => persistBookProgress(book, event.currentTarget.value)}
+                          onKeyUp={(event) => {
+                            if (["ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown", "Enter"].includes(event.key)) {
+                              persistBookProgress(book, event.currentTarget.value);
+                            }
+                          }}
+                        />
                       </div>
 
                       <div className="lector-progress-meta">
-                        <span>
-                          {meta.totalPages > 0
-                            ? `${meta.currentPage} / ${meta.totalPages} páginas`
-                            : `${meta.progress}% leído`}
-                        </span>
-                        <span>{meta.finished ? "Terminado" : label}</span>
+                        <div className="lector-progress-meta-group">
+                          <span className="lector-progress-pages">
+                            {meta.totalPages > 0
+                              ? `${meta.currentPage} / ${meta.totalPages} páginas`
+                              : "Páginas no indicadas"}
+                          </span>
+                          <span className="lector-progress-divider">·</span>
+                          <span className="lector-progress-percent">{meta.progress}% leído</span>
+                        </div>
+                        <span>{isSavingBookProgress ? "Guardando…" : meta.finished ? "Terminado" : label}</span>
                       </div>
 
                       <div className="lector-progress-actions">
-                        <button type="button" onClick={onLibrary}>
-                          Actualizar progreso
-                        </button>
+                        <span className="lector-progress-hint">
+                          Arrastra la barra para guardar tu avance.
+                        </span>
                         <button type="button" onClick={onReviews}>
                           Escribir reseña
                         </button>
@@ -485,6 +638,110 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews }) {
           </div>
         </article>
       </section>
+      {completedBook && completedMeta && (
+        <div
+          className="lector-completion-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lector-completion-title"
+        >
+          <div className="lector-confetti" aria-hidden="true">
+            {COMPLETION_CONFETTI.map((piece) => (
+              <span
+                key={piece}
+                style={{
+                  "--x": `${(piece * 17) % 100}%`,
+                  "--delay": `${(piece % 9) * 0.12}s`,
+                  "--duration": `${2.4 + (piece % 7) * 0.18}s`,
+                  "--spin": `${piece % 2 === 0 ? "" : "-"}${240 + piece * 13}deg`,
+                }}
+              />
+            ))}
+          </div>
+
+          <article
+            className="lector-completion-card"
+            style={{
+              "--completion-a": completionColors[0],
+              "--completion-b": completionColors[1],
+              "--completion-c": completionColors[2],
+            }}
+          >
+            <button
+              type="button"
+              className="lector-completion-close"
+              aria-label="Cerrar celebración"
+              onClick={() => setCompletedBook(null)}
+            >
+              ×
+            </button>
+
+            <header className="lector-completion-hero">
+              <div
+                className="lector-completion-glow"
+                style={buildBookCoverStyle(completedBook, 0)}
+                aria-hidden="true"
+              />
+              <div
+                className="lector-completion-cover"
+                style={{
+                  ...buildBookCoverStyle(completedBook, 0),
+                  backgroundSize: "contain",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "center",
+                }}
+                aria-hidden="true"
+              >
+                {!completedBook.cover ? completedBook.title : null}
+              </div>
+
+              <div className="lector-completion-check" aria-hidden="true">
+                ✓
+              </div>
+            </header>
+
+            <div className="lector-completion-body">
+              <p className="lector-completion-kicker">Lectura completada</p>
+              <h2 id="lector-completion-title">¡Libro terminado!</h2>
+              <p>
+                Has terminado <strong>{completedBook.title}</strong>
+                {completedBook.author ? ` de ${completedBook.author}` : ""}. Un libro más en tu estantería.
+              </p>
+
+              <div className="lector-completion-stats" aria-label="Resumen de lectura">
+                <span>
+                  <strong>{completedMeta.totalPages || completedMeta.currentPage || completedBook.pages || "—"}</strong>
+                  páginas
+                </span>
+                <span>
+                  <strong>100%</strong>
+                  leído
+                </span>
+                <span>
+                  <strong>{completedBook.read_count || 1}</strong>
+                  {Number(completedBook.read_count || 1) === 1 ? "vez leído" : "veces leído"}
+                </span>
+              </div>
+
+              <div className="lector-completion-actions">
+                <button type="button" onClick={() => setCompletedBook(null)}>
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  className="is-primary"
+                  onClick={() => {
+                    setCompletedBook(null);
+                    onReviews();
+                  }}
+                >
+                  Escribir reseña
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      )}
     </main>
   );
 }

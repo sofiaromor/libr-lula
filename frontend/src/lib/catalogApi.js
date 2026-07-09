@@ -1,4 +1,4 @@
-﻿import { supabase } from "./supabase.js";
+import { supabase } from "./supabase.js";
 
 const VALID_READING_STATUSES = [
   "planned",
@@ -394,6 +394,99 @@ export async function saveCatalogUserBookStatus({ book_id: bookId, status }) {
 
   if (saveError) {
     throw apiError("No se pudo guardar el estado del libro.", 500);
+  }
+
+  return {
+    ok: true,
+    item: mapUserBookRow(saved),
+  };
+}
+
+function clampProgressValue(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.max(0, Math.min(100, Math.round(number)));
+}
+
+export async function saveCatalogUserBookProgress({ book_id: bookId, progress }) {
+  const legacyUserId = await getCurrentLegacyUserId();
+
+  if (!legacyUserId) {
+    throw apiError("Inicia sesión para guardar tu progreso.", 401);
+  }
+
+  const cleanBookId = String(bookId || "").trim();
+  const cleanProgress = clampProgressValue(progress);
+
+  if (!cleanBookId) {
+    throw apiError("Falta el libro.", 400);
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("user_books")
+    .select(`
+      id,
+      status,
+      progress,
+      started_at,
+      finished_at,
+      read_count,
+      paused_at,
+      dropped_at
+    `)
+    .eq("legacy_user_id", legacyUserId)
+    .eq("book_id", cleanBookId)
+    .maybeSingle();
+
+  if (existingError) {
+    console.error("Error consultando progreso lector:", existingError);
+    throw apiError(existingError.message || "No se pudo consultar tu biblioteca.", 500);
+  }
+
+  const today = todayIsoDate();
+  const currentStatus = String(existing?.status || "").trim();
+  const previousReadCount = Math.max(0, Number(existing?.read_count || 0));
+  const isFinished = cleanProgress >= 100;
+
+  const patch = {
+    legacy_user_id: legacyUserId,
+    book_id: cleanBookId,
+    status: isFinished
+      ? "completed"
+      : ["reading", "rereading"].includes(currentStatus)
+        ? currentStatus
+        : "reading",
+    progress: cleanProgress,
+    started_at: existing?.started_at || today,
+    finished_at: isFinished ? today : null,
+    read_count:
+      isFinished && currentStatus !== "completed"
+        ? Math.max(1, previousReadCount)
+        : previousReadCount,
+    paused_at: null,
+    dropped_at: null,
+  };
+
+  const { data: saved, error: saveError } = await supabase
+    .from("user_books")
+    .upsert(patch, { onConflict: "legacy_user_id,book_id" })
+    .select(`
+      book_id,
+      status,
+      progress,
+      score,
+      notes,
+      started_at,
+      finished_at,
+      read_count,
+      paused_at,
+      dropped_at
+    `)
+    .single();
+
+  if (saveError) {
+    console.error("Error guardando progreso lector:", saveError);
+    throw apiError(saveError.message || "No se pudo guardar tu progreso.", 500);
   }
 
   return {
