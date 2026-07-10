@@ -13,6 +13,11 @@ import {
 import { inferTaxonomyFromSubjects, parseTaxonomyItems } from "./bookTaxonomy.js";
 import ReadingStatusControl from "./ReadingStatusControl.jsx";
 import { getMyBookProposals } from "./lib/myBookProposalsApi.js";
+import {
+  approveBookProposal,
+  getPendingBookProposals,
+  rejectBookProposal,
+} from "./lib/bookModerationApi.js";
 import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
 
 function initialSearch() {
@@ -133,6 +138,11 @@ export default function BooksCatalog({
   const [bookProposals, setBookProposals] = useState([]);
   const [bookProposalsLoading, setBookProposalsLoading] = useState(false);
   const [bookProposalsError, setBookProposalsError] = useState("");
+  const [adminProposals, setAdminProposals] = useState([]);
+  const [adminProposalsLoading, setAdminProposalsLoading] = useState(false);
+  const [adminProposalsError, setAdminProposalsError] = useState("");
+  const [moderatingBookId, setModeratingBookId] = useState("");
+  const [expandedAdminProposalId, setExpandedAdminProposalId] = useState("");
   const directBookHandled = useRef(false);
 
   useEffect(() => {
@@ -227,6 +237,41 @@ export default function BooksCatalog({
     }
 
     loadBookProposals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !isAdmin) {
+      setAdminProposals([]);
+      setAdminProposalsError("");
+      setAdminProposalsLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function loadAdminProposals() {
+      try {
+        setAdminProposalsLoading(true);
+        setAdminProposalsError("");
+        const items = await getPendingBookProposals();
+
+        if (!cancelled) {
+          setAdminProposals(Array.isArray(items) ? items : []);
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setAdminProposalsError(requestError.message);
+        }
+      } finally {
+        if (!cancelled) setAdminProposalsLoading(false);
+      }
+    }
+
+    loadAdminProposals();
 
     return () => {
       cancelled = true;
@@ -393,6 +438,51 @@ export default function BooksCatalog({
     if (typeof onSelectBook === "function") onSelectBook(book);
   }
 
+  async function approveProposal(book) {
+    if (!book?.id || moderatingBookId) return;
+
+    try {
+      setModeratingBookId(String(book.id));
+      setAdminProposalsError("");
+      await approveBookProposal(book.id);
+
+      setAdminProposals((current) =>
+        current.filter((item) => String(item.id) !== String(book.id)),
+      );
+
+      const refreshedBooks = await getCatalogBooks();
+      setBooks(Array.isArray(refreshedBooks) ? refreshedBooks : refreshedBooks?.books || []);
+    } catch (requestError) {
+      setAdminProposalsError(requestError.message || "No se pudo aprobar la propuesta.");
+    } finally {
+      setModeratingBookId("");
+    }
+  }
+
+  async function rejectProposal(book) {
+    if (!book?.id || moderatingBookId) return;
+
+    const note = window.prompt(
+      `Motivo del rechazo para "${book.title}"`,
+      "No encaja todavía con los criterios del catálogo.",
+    );
+
+    if (note === null) return;
+
+    try {
+      setModeratingBookId(String(book.id));
+      setAdminProposalsError("");
+      await rejectBookProposal(book.id, note);
+
+      setAdminProposals((current) =>
+        current.filter((item) => String(item.id) !== String(book.id)),
+      );
+    } catch (requestError) {
+      setAdminProposalsError(requestError.message || "No se pudo rechazar la propuesta.");
+    } finally {
+      setModeratingBookId("");
+    }
+  }
   function startBookCreation() {
     if (!isLoggedIn || typeof onAddBook !== "function") return;
     onAddBook(search.trim());
@@ -818,6 +908,135 @@ export default function BooksCatalog({
         >
           {statusFeedback.text}
         </p>
+      )}
+
+      {isLoggedIn && isAdmin && (
+        adminProposalsLoading || adminProposalsError || adminProposals.length > 0
+      ) && (
+        <section className="book-proposals-panel admin-proposals-panel" aria-labelledby="admin-proposals-title">
+          <div className="book-proposals-heading">
+            <div>
+              <span className="external-search-kicker">Moderación</span>
+              <h2 id="admin-proposals-title">Propuestas pendientes</h2>
+              <p>
+                Revisa las fichas enviadas por lectoras antes de publicarlas en el catálogo.
+              </p>
+            </div>
+          </div>
+
+          {adminProposalsLoading && (
+            <p className="book-proposals-muted">Cargando propuestas pendientes…</p>
+          )}
+
+          {adminProposalsError && (
+            <p className="external-feedback is-error" role="alert">{adminProposalsError}</p>
+          )}
+
+          {!adminProposalsLoading && !adminProposalsError && adminProposals.length > 0 && (
+            <div className="admin-proposals-list">
+              {adminProposals.map((proposal) => {
+                const isModerating = String(moderatingBookId) === String(proposal.id);
+                const isExpanded = String(expandedAdminProposalId) === String(proposal.id);
+                const proposalText =
+                  proposal.description ||
+                  proposal.summary ||
+                  proposal.synopsis ||
+                  proposal.notes ||
+                  proposal.review ||
+                  "";
+
+                return (
+                  <article className="admin-proposal-card" key={proposal.id}>
+                    <div className="book-proposal-cover">
+                      {proposal.cover ? (
+                        <img
+                          src={publicUrl(proposal.cover)}
+                          alt={`Portada de ${proposal.title}`}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span>Sin portada</span>
+                      )}
+                    </div>
+
+                    <div className="admin-proposal-main">
+                      <span className="book-proposal-badge">Pendiente</span>
+                      <h3>{proposal.title}</h3>
+                      <p>{proposal.author || "Autor desconocido"}</p>
+                      {proposalText && (
+                        <small>{proposalText.slice(0, 180)}{proposalText.length > 180 ? "…" : ""}</small>
+                      )}
+
+                      {isExpanded && (
+                        <dl className="admin-proposal-details">
+                          <div>
+                            <dt>ID</dt>
+                            <dd>{proposal.id}</dd>
+                          </div>
+                          <div>
+                            <dt>Año</dt>
+                            <dd>{proposal.year || "Sin año"}</dd>
+                          </div>
+                          <div>
+                            <dt>Origen</dt>
+                            <dd>{proposal.provider || "Manual"}</dd>
+                          </div>
+                          <div>
+                            <dt>Estado</dt>
+                            <dd>{proposal.review_status}</dd>
+                          </div>
+                          {proposalText && (
+                            <div className="admin-proposal-details-wide">
+                              <dt>Texto enviado</dt>
+                              <dd>{proposalText}</dd>
+                            </div>
+                          )}
+                        </dl>
+                      )}
+                    </div>
+
+                    <div className="admin-proposal-actions">
+                      <button
+                        type="button"
+                        className="admin-proposal-view"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setExpandedAdminProposalId((current) =>
+                            String(current) === String(proposal.id) ? "" : String(proposal.id),
+                          );
+                        }}
+                      >
+                        {isExpanded ? "Ocultar ficha" : "Ver ficha"}
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-proposal-approve"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          approveProposal(proposal);
+                        }}
+                        disabled={isModerating}
+                      >
+                        {isModerating ? "Guardando…" : "Aprobar"}
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-proposal-reject"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          rejectProposal(proposal);
+                        }}
+                        disabled={isModerating}
+                      >
+                        Rechazar
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
       )}
 
       {isLoggedIn && !isAdmin && (
