@@ -1,6 +1,21 @@
--- Registro publico seguro para Librélula.
--- Crea un perfil normal cuando Supabase Auth crea un usuario nuevo.
--- También impide que una cuenta normal se convierta en admin desde el cliente.
+-- Registro público seguro para Librélula.
+-- Crea legacy_users + profiles cuando Supabase Auth crea un usuario nuevo.
+-- Mantiene a los usuarios registrados como lectoras normales, no admins.
+
+alter table public.profiles
+add column if not exists updated_at timestamptz not null default now();
+
+create sequence if not exists public.legacy_users_legacy_id_seq;
+
+select setval(
+  'public.legacy_users_legacy_id_seq',
+  greatest(coalesce((select max(legacy_id) from public.legacy_users), 0) + 1, 1),
+  false
+);
+
+alter table public.legacy_users
+alter column legacy_id set default nextval('public.legacy_users_legacy_id_seq'::regclass);
+
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -12,10 +27,14 @@ declare
   base_username text;
   clean_username text;
   final_username text;
+  safe_email text;
+  new_legacy_id bigint;
 begin
+  safe_email := coalesce(nullif(new.email, ''), new.id::text || '@auth.local');
+
   base_username := coalesce(
     nullif(trim(new.raw_user_meta_data->>'username'), ''),
-    nullif(split_part(new.email, '@', 1), ''),
+    nullif(split_part(safe_email, '@', 1), ''),
     'lectora'
   );
 
@@ -29,16 +48,31 @@ begin
 
   final_username := left(clean_username, 30);
 
-  if exists (
-    select 1
-    from public.profiles
-    where username = final_username
-  ) then
-    final_username := left(clean_username, 23) || '-' || left(new.id::text, 6);
-  end if;
+  insert into public.legacy_users (
+    username,
+    email,
+    avatar,
+    bio,
+    is_admin
+  )
+  values (
+    final_username,
+    safe_email,
+    '',
+    '',
+    false
+  )
+  on conflict (email) do update
+  set
+    username = excluded.username,
+    avatar = coalesce(public.legacy_users.avatar, excluded.avatar),
+    bio = coalesce(public.legacy_users.bio, excluded.bio),
+    is_admin = false
+  returning legacy_id into new_legacy_id;
 
   insert into public.profiles (
     id,
+    legacy_id,
     username,
     avatar,
     bio,
@@ -46,12 +80,18 @@ begin
   )
   values (
     new.id,
+    new_legacy_id,
     final_username,
     '',
     '',
     false
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update
+  set
+    legacy_id = coalesce(public.profiles.legacy_id, excluded.legacy_id),
+    username = coalesce(public.profiles.username, excluded.username),
+    avatar = coalesce(public.profiles.avatar, excluded.avatar),
+    bio = coalesce(public.profiles.bio, excluded.bio);
 
   return new;
 end;
@@ -104,3 +144,37 @@ create trigger profiles_protect_admin_fields
 before insert or update on public.profiles
 for each row
 execute function public.protect_profile_admin_fields();
+
+
+-- Reparar perfiles ya creados con legacy_id nulo.
+
+insert into public.legacy_users (
+  username,
+  email,
+  avatar,
+  bio,
+  is_admin
+)
+select
+  coalesce(nullif(trim(p.username), ''), split_part(u.email, '@', 1), 'lectora') as username,
+  coalesce(nullif(u.email, ''), u.id::text || '@auth.local') as email,
+  coalesce(p.avatar, ''),
+  coalesce(p.bio, ''),
+  false
+from public.profiles p
+join auth.users u on u.id = p.id
+where p.legacy_id is null
+on conflict (email) do update
+set
+  username = excluded.username,
+  avatar = coalesce(public.legacy_users.avatar, excluded.avatar),
+  bio = coalesce(public.legacy_users.bio, excluded.bio),
+  is_admin = false;
+
+update public.profiles p
+set legacy_id = lu.legacy_id
+from auth.users u
+join public.legacy_users lu
+  on lu.email = coalesce(nullif(u.email, ''), u.id::text || '@auth.local')
+where p.id = u.id
+  and p.legacy_id is null;
