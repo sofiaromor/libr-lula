@@ -1,20 +1,29 @@
 ﻿import { useState } from "react";
 import { publicUrl } from "./api.js";
-import { signInSupabase } from "./lib/session.js";
+import { signInSupabase, signUpSupabase } from "./lib/session.js";
 import "./LoginSupabase.css";
 
 export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
   const [activePanel, setActivePanel] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [signupUsername, setSignupUsername] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  function switchPanel(panel) {
+    setActivePanel(panel);
+    setErrorMessage("");
+    setSuccessMessage("");
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
 
     setSubmitting(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       const session = await signInSupabase({
@@ -26,6 +35,38 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
     } catch (error) {
       setErrorMessage(
         error.message || "No se pudo iniciar sesión. Revisa el email y la contraseña.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSignupSubmit(event) {
+    event.preventDefault();
+
+    setSubmitting(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const session = await signUpSupabase({
+        email: email.trim(),
+        password,
+        username: signupUsername.trim(),
+      });
+
+      if (session?.needsEmailConfirmation) {
+        setSuccessMessage(
+          "Cuenta creada. Te hemos enviado un correo para confirmar tu email antes de iniciar sesión.",
+        );
+        setActivePanel("login");
+        return;
+      }
+
+      onLoginSuccess?.(session);
+    } catch (error) {
+      setErrorMessage(
+        error.message || "No se pudo crear la cuenta. Revisa los datos e inténtalo otra vez.",
       );
     } finally {
       setSubmitting(false);
@@ -61,14 +102,14 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
             <button
               type="button"
               className={`lg-tab${activePanel === "login" ? " active" : ""}`}
-              onClick={() => setActivePanel("login")}
+              onClick={() => switchPanel("login")}
             >
               Iniciar sesión
             </button>
             <button
               type="button"
               className={`lg-tab${activePanel === "signup" ? " active" : ""}`}
-              onClick={() => setActivePanel("signup")}
+              onClick={() => switchPanel("signup")}
             >
               Registrarse
             </button>
@@ -76,6 +117,12 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
 
           {errorMessage && (
             <div className="lg-error">{errorMessage}</div>
+          )}
+
+          {successMessage && (
+            <div className="lg-note">
+              <p>{successMessage}</p>
+            </div>
           )}
 
           <section className={`lg-panel${activePanel === "login" ? " active" : ""}`}>
@@ -133,8 +180,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
                 href="#"
                 onClick={(event) => {
                   event.preventDefault();
-                  setActivePanel("signup");
-                  setErrorMessage("");
+                  switchPanel("signup");
                 }}
               >
                 Regístrate
@@ -148,20 +194,56 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
             </div>
             <div className="lg-sub">Empieza tu aventura literaria hoy</div>
 
-            <div className="lg-note">
-              <p>
-                El registro con Supabase se activará cuando migremos esta parte.
-                De momento entra con el usuario ya creado para la migración.
-              </p>
-            </div>
+            <form onSubmit={handleSignupSubmit}>
+              <div className="lg-fields">
+                <div className="lg-field">
+                  <label htmlFor="signup-username">Nombre de usuario</label>
+                  <input
+                    type="text"
+                    id="signup-username"
+                    name="username"
+                    placeholder="tu_nombre"
+                    autoComplete="username"
+                    required
+                    value={signupUsername}
+                    onChange={(event) => setSignupUsername(event.target.value)}
+                  />
+                </div>
 
-            <button
-              type="button"
-              className="lg-btn"
-              onClick={() => setActivePanel("login")}
-            >
-              Volver a iniciar sesión
-            </button>
+                <div className="lg-field">
+                  <label htmlFor="signup-email">Correo electrónico</label>
+                  <input
+                    type="email"
+                    id="signup-email"
+                    name="email"
+                    placeholder="tu@correo.com"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                  />
+                </div>
+
+                <div className="lg-field">
+                  <label htmlFor="signup-pass">Contraseña</label>
+                  <input
+                    type="password"
+                    id="signup-pass"
+                    name="password"
+                    placeholder="Mínimo 6 caracteres"
+                    autoComplete="new-password"
+                    minLength={6}
+                    required
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="lg-btn" disabled={submitting}>
+                {submitting ? "Creando cuenta…" : "Crear mi cuenta"}
+              </button>
+            </form>
 
             <div className="lg-switch">
               ¿Ya tienes cuenta?{" "}
@@ -169,8 +251,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
                 href="#"
                 onClick={(event) => {
                   event.preventDefault();
-                  setActivePanel("login");
-                  setErrorMessage("");
+                  switchPanel("login");
                 }}
               >
                 Inicia sesión

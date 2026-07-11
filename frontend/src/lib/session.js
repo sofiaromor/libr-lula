@@ -55,6 +55,14 @@ export function onSupabaseAuthChange(callback) {
   return () => subscription.unsubscribe();
 }
 
+function getAuthRedirectUrl() {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  return window.location.origin;
+}
+
 export async function signInSupabase({ email, password }) {
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -68,7 +76,48 @@ export async function signInSupabase({ email, password }) {
   return getSupabaseAppSession();
 }
 
+export async function signUpSupabase({ email, password, username }) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const cleanUsername = String(username || "").trim();
+
+  if (!cleanEmail) {
+    throw new Error("Escribe tu correo electrónico.");
+  }
+
+  if (!cleanUsername) {
+    throw new Error("Elige un nombre de usuario.");
+  }
+
+  if (!password || password.length < 6) {
+    throw new Error("La contraseña debe tener al menos 6 caracteres.");
+  }
+
+  const { data, error } = await supabase.auth.signUp({
+    email: cleanEmail,
+    password,
+    options: {
+      data: {
+        username: cleanUsername,
+      },
+      emailRedirectTo: getAuthRedirectUrl(),
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (data?.session) {
+    return getSupabaseAppSession();
+  }
+
+  return {
+    authenticated: false,
+    needsEmailConfirmation: true,
+    email: cleanEmail,
+  };
+}
+
 export async function signOutSupabase() {
   await supabase.auth.signOut();
 }
-
