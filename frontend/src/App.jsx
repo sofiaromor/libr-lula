@@ -7,16 +7,11 @@ import MiBiblioteca from "./MiBiblioteca.jsx";
 import MisResenas from "./MisResenas.jsx";
 import PerfilSupabase from "./PerfilSupabase.jsx";
 import LoginSupabase from "./LoginSupabase.jsx";
+import AddFriends from "./AddFriends.jsx";
 import EditBook from "./EditBook.jsx";
 import GoodreadsImport from "./GoodreadsImport.jsx";
 import SagaBooks from "./SagaBooks.jsx";
-import {
-  apiFetch,
-  appUrl,
-  publicUrl,
-  readJsonResponse,
-  setCsrfToken,
-} from "./api.js";
+import { appUrl, publicUrl } from "./api.js";
 import {
   EMPTY_SUPABASE_SESSION,
   getSupabaseAppSession,
@@ -149,6 +144,21 @@ useEffect(() => {
     setNewBookTitle("");
     setDetailBackPage("catalog");
     setPage("profile");
+  }
+
+    function openAddFriends() {
+    if (!isLoggedIn) {
+      openLogin();
+      return;
+    }
+
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setNewBookTitle("");
+    setDetailBackPage("catalog");
+    setPage("add-friends");
   }
 
   function openLibrary() {
@@ -407,6 +417,9 @@ useEffect(() => {
                     <button type="button" onClick={openProfile}>
                       Mi rincón
                     </button>
+                    <button type="button" onClick={openAddFriends}>
+                      Añadir amigos
+                    </button>
                     <button type="button" onClick={openLibrary}>
                       Mi biblioteca
                     </button>
@@ -470,6 +483,10 @@ useEffect(() => {
 
         {!sessionLoading && page === "profile" && isLoggedIn && (
           <PerfilSupabase onOpenLibrary={openLibrary} onOpenCatalog={openCatalog} />
+        )}
+
+        {!sessionLoading && page === "add-friends" && isLoggedIn && (
+          <AddFriends onOpenProfile={openProfile} />
         )}
 
         {!sessionLoading && page === "library" && isLoggedIn && (
