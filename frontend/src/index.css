@@ -457,7 +457,6 @@ button {
 .book-detail-saga:focus-visible,
 .detail-action:focus-visible,
 .detail-icon-action:focus-visible,
-.detail-enrich-button:focus-visible,
 .book-technical-details summary:focus-visible {
   outline: 2px solid #e8703a;
   outline-offset: 3px;
@@ -682,24 +681,6 @@ button {
   font-weight: 600;
 }
 
-.detail-enrich-button {
-  padding: 6px 11px;
-  border: 1px solid #e8ddcc;
-  border-radius: 999px;
-  background: transparent;
-  color: #8a6f52;
-  font-size: 12px;
-}
-
-.detail-enrich-button:hover {
-  border-color: #d9c5aa;
-  color: #5c3a21;
-}
-
-.detail-enrich-button:disabled {
-  cursor: wait;
-  opacity: .65;
-}
 
 .book-detail-synopsis p {
   margin: 0 0 14px;

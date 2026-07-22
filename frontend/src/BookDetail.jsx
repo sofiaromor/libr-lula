@@ -447,9 +447,6 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
   const [coverFailed, setCoverFailed] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [enriching, setEnriching] = useState(false);
-  const [enrichError, setEnrichError] = useState("");
-  const [enrichMessage, setEnrichMessage] = useState("");
   const [reviewData, setReviewData] = useState(null);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [reviewsError, setReviewsError] = useState("");
@@ -1032,46 +1029,6 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
     }
   }
 
-  async function handleEnrich() {
-    if (!currentBook?.id || enriching) return;
-
-    setEnriching(true);
-    setEnrichError("");
-    setEnrichMessage("");
-
-    try {
-      const response = await apiFetch("enrich_book.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: currentBook.id }),
-      });
-      const text = await response.text();
-      let data;
-
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        throw new Error("La API no devolvió un JSON válido.");
-      }
-
-      if (!response.ok || data.error) {
-        throw new Error(data.error || "No se pudieron completar los datos.");
-      }
-
-      setCurrentBook(data.book);
-      const sourceName = data.source?.name || "la fuente externa";
-      const score = data.source?.match_score;
-      setEnrichMessage(
-        score
-          ? `Datos completados desde ${sourceName}. Coincidencia: ${score}%.`
-          : `Datos completados desde ${sourceName}.`,
-      );
-    } catch (requestError) {
-      setEnrichError(requestError.message);
-    } finally {
-      setEnriching(false);
-    }
-  }
 
   async function handleDelete() {
     if (!currentBook?.id || deleting) return;
@@ -1124,16 +1081,6 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
     );
   }
 
-  const metadataFields = [
-    currentBook.year,
-    currentBook.pages,
-    currentBook.synopsis,
-    currentBook.genre,
-    currentBook.publisher,
-    currentBook.language,
-    currentBook.isbn,
-  ];
-  const hasMissingMetadata = metadataFields.some(isMissing);
   const heroColor = coverFailed
     ? FALLBACK_HERO_COLOR
     : normalizeHeroColor(currentBook.hero_color || currentBook.heroColor);
@@ -1394,16 +1341,6 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
       <section className="book-detail-content">
         <div className="book-detail-section-heading">
           <h2>Sinopsis</h2>
-          {isAdmin && hasMissingMetadata && (
-            <button
-              type="button"
-              className="detail-enrich-button"
-              onClick={handleEnrich}
-              disabled={enriching}
-            >
-              {enriching ? "Buscando datos…" : "Completar datos"}
-            </button>
-          )}
         </div>
 
         <div className="book-detail-synopsis">
@@ -1412,16 +1349,6 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
           ))}
         </div>
 
-        {enrichMessage && (
-          <p className="detail-feedback is-success" role="status">
-            {enrichMessage}
-          </p>
-        )}
-        {enrichError && (
-          <p className="detail-feedback is-error" role="alert">
-            {enrichError}
-          </p>
-        )}
         {deleteError && (
           <p className="detail-feedback is-error" role="alert">
             {deleteError}
