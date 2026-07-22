@@ -6,6 +6,7 @@ import {
 import {
   createCatalogBook,
   importExternalCatalogBook,
+  updateCatalogBook,
 } from "./lib/createBookApi.ts";
 import {
   createBookPostit,
@@ -145,6 +146,11 @@ async function localCatalogApiFetch(endpoint, options, method) {
     const body = parseJsonBody(options);
     return jsonResponse(await importExternalCatalogBook(body));
   }
+
+  if (name === "update_book.php" && method === "POST") {
+    return jsonResponse(await updateCatalogBook(options.body || {}));
+  }
+
   if (name === "book_reviews.php" && method === "GET") {
     const url = endpointUrl(endpoint);
     return jsonResponse(

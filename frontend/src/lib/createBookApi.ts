@@ -319,6 +319,28 @@ async function saveTaxonomy(input: BookInput, bookId: string) {
   }
 }
 
+
+async function replaceTaxonomy(input: BookInput, bookId: string) {
+  const rows = taxonomyRows(input, bookId);
+
+  const { error: deleteError } = await supabase
+    .from("book_taxonomy")
+    .delete()
+    .eq("book_id", bookId);
+
+  if (deleteError) {
+    throw apiError("El libro se actualiz?, pero no se pudieron reemplazar sus etiquetas.", 500);
+  }
+
+  if (rows.length === 0) return;
+
+  const { error } = await supabase.from("book_taxonomy").insert(rows);
+
+  if (error) {
+    throw apiError("El libro se actualiz?, pero no se pudieron guardar sus etiquetas.", 500);
+  }
+}
+
 async function findExistingExternalBook(input: BookInput) {
   const provider = textOrNull(getValue(input, "provider"));
   const sourceId = textOrNull(getValue(input, "source_id")) || textOrNull(getValue(input, "sourceId"));
@@ -424,3 +446,104 @@ export async function importExternalCatalogBook(input: BookInput) {
     book,
   };
 }
+
+
+export async function updateCatalogBook(input: BookInput) {
+  const profile = await getCurrentProfile();
+
+  if (!profile.is_admin) {
+    throw apiError("Solo una administradora puede editar libros.", 403);
+  }
+
+  const bookId =
+    textOrNull(getValue(input, "id")) ||
+    textOrNull(getValue(input, "book_id"));
+
+  if (!bookId) {
+    throw apiError("No se recibi? el libro que quieres editar.", 400);
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("books")
+    .select(BOOK_SELECT)
+    .eq("id", bookId)
+    .maybeSingle();
+
+  if (existingError) {
+    throw apiError("No se pudo cargar el libro para editarlo.", 500);
+  }
+
+  if (!existing) {
+    throw apiError("No encontramos ese libro.", 404);
+  }
+
+  const basePayload = buildBookPayload(input);
+  const payload: Partial<ReturnType<typeof buildBookPayload>> = {
+    ...basePayload,
+  };
+
+  delete payload.id;
+
+  if (!textOrNull(getValue(input, "language"))) {
+    delete payload.language;
+  }
+
+  if (!textOrNull(getValue(input, "provider"))) {
+    delete payload.provider;
+  }
+
+  if (
+    !textOrNull(getValue(input, "source_id")) &&
+    !textOrNull(getValue(input, "sourceId"))
+  ) {
+    delete payload.source_id;
+  }
+
+  const removeCover = asText(getValue(input, "remove_cover")) === "1";
+
+  if (removeCover) {
+    payload.cover = null;
+  } else {
+    const uploadedCover = await uploadCoverFile(input, bookId, basePayload.title);
+
+    if (uploadedCover) {
+      payload.cover = uploadedCover;
+    } else {
+      delete payload.cover;
+    }
+  }
+
+  const removePdf = asText(getValue(input, "remove_pdf")) === "1";
+  const removeEpub = asText(getValue(input, "remove_epub")) === "1";
+
+  if (removePdf) {
+    payload.pdf_file = null;
+  } else if (!payload.pdf_file) {
+    delete payload.pdf_file;
+  }
+
+  if (removeEpub) {
+    payload.epub_file = null;
+  } else if (!payload.epub_file) {
+    delete payload.epub_file;
+  }
+
+  const { data: book, error } = await supabase
+    .from("books")
+    .update(payload)
+    .eq("id", bookId)
+    .select(BOOK_SELECT)
+    .single();
+
+  if (error) {
+    throw apiError(error.message || "No se pudo actualizar el libro.", 500);
+  }
+
+  await replaceTaxonomy(input, bookId);
+
+  return {
+    ok: true,
+    book,
+  };
+}
+
