@@ -884,15 +884,33 @@ button {
 }
 
 .book-reviews-own-link {
-  color: #805037;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 9px 16px;
+  border: 1px solid rgba(128, 80, 55, .28);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fff8ef 0%, #f3e4c8 100%);
+  color: #5f3a2a;
+  box-shadow: 0 8px 18px rgba(91, 61, 43, .08);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 750;
+  letter-spacing: .03em;
   text-decoration: none;
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease,
+    border-color .18s ease,
+    background .18s ease;
 }
 
 .book-reviews-own-link:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  border-color: rgba(150, 104, 57, .42);
+  background: linear-gradient(135deg, #fffaf1 0%, #ead3a7 100%);
+  box-shadow: 0 12px 24px rgba(91, 61, 43, .13);
+  text-decoration: none;
+  transform: translateY(-1px);
 }
 
 .book-reviews-message {
