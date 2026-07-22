@@ -443,7 +443,7 @@ function RatingStars({ score, label = true }) {
 
 
 export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyReviews, isAdmin, isLoggedIn }) {
-  const [currentBook, setCurrentBook] = useState(book);
+  const currentBook = book;
   const [coverFailed, setCoverFailed] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
