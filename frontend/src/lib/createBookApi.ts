@@ -547,3 +547,49 @@ export async function updateCatalogBook(input: BookInput) {
   };
 }
 
+
+export async function deleteCatalogBook(input: BookInput) {
+  const profile = await getCurrentProfile();
+
+  if (!profile.is_admin) {
+    throw apiError("Solo una administradora puede eliminar libros.", 403);
+  }
+
+  const bookId =
+    textOrNull(getValue(input, "id")) ||
+    textOrNull(getValue(input, "book_id"));
+
+  if (!bookId) {
+    throw apiError("No se recibi? el libro que quieres eliminar.", 400);
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("books")
+    .select("id, title")
+    .eq("id", bookId)
+    .maybeSingle();
+
+  if (existingError) {
+    throw apiError("No se pudo comprobar el libro antes de eliminarlo.", 500);
+  }
+
+  if (!existing) {
+    throw apiError("No encontramos ese libro.", 404);
+  }
+
+  const { error } = await supabase
+    .from("books")
+    .delete()
+    .eq("id", bookId);
+
+  if (error) {
+    throw apiError(error.message || "No se pudo eliminar el libro.", 500);
+  }
+
+  return {
+    ok: true,
+    deleted: true,
+    id: bookId,
+  };
+}
+

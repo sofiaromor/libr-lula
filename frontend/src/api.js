@@ -5,6 +5,7 @@ import {
 } from "./lib/catalogApi.js";
 import {
   createCatalogBook,
+  deleteCatalogBook,
   importExternalCatalogBook,
   updateCatalogBook,
 } from "./lib/createBookApi.ts";
@@ -149,6 +150,11 @@ async function localCatalogApiFetch(endpoint, options, method) {
 
   if (name === "update_book.php" && method === "POST") {
     return jsonResponse(await updateCatalogBook(options.body || {}));
+  }
+
+  if (name === "delete_book.php" && method === "POST") {
+    const body = parseJsonBody(options);
+    return jsonResponse(await deleteCatalogBook(body));
   }
 
   if (name === "book_reviews.php" && method === "GET") {
