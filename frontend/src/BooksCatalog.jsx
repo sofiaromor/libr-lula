@@ -1190,7 +1190,7 @@ export default function BooksCatalog({
                 <strong>¿No es ninguno de estos?</strong>
                 <span>
                   {isAdmin
-                    ? "Crea una ficha y complétala manualmente o pegando los datos de Goodreads."
+                    ? "Crea una ficha manualmente o pega el texto de una librería, editorial u otra fuente."
                     : "Propón una ficha y una administradora la revisará antes de publicarla."}
                 </span>
               </div>
@@ -1212,7 +1212,7 @@ export default function BooksCatalog({
               {externalError || "No hay resultados externos para esta búsqueda."}
               {isLoggedIn && (
                 isAdmin
-                  ? " Podrás rellenarla a mano o completar los campos pegando una ficha de Goodreads."
+                  ? " Podrás rellenarla a mano o completar los campos pegando el texto de otra fuente."
                   : " Puedes proponerla para revisión."
               )}
             </p>

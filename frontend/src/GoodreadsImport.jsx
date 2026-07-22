@@ -28,6 +28,12 @@ const STOP_HEADINGS = [
   "book details",
   "book details editions",
   "detalles del libro",
+  "ficha tecnica",
+  "caracteristicas",
+  "datos del producto",
+  "detalles del producto",
+  "informacion del producto",
+  "especificaciones",
   "editions",
   "ediciones",
   "genres",
@@ -59,6 +65,11 @@ const STOP_HEADINGS = [
   "idioma",
   "more reviews",
   "mas resenas",
+  "opiniones",
+  "los mas leidos",
+  "tambien te puede interesar",
+  "productos relacionados",
+  "recomendados",
 ];
 
 const NOISE_LINES = [
@@ -79,6 +90,9 @@ const NOISE_LINES = [
   "see all formats and editions",
   "all editions",
   "friend reviews",
+  "escribe una resena y accede a ventajas",
+  "ver mas",
+  "mostrar menos",
 ];
 
 function plainText(value) {
@@ -225,9 +239,53 @@ function cleanAuthor(value) {
   return plainText(value)
     .replace(/^by\s+/i, "")
     .replace(/^por\s+/i, "")
+    .replace(
+      /\s*\|\s*(?:pertenece\s+a\s+la\s+)?(?:serie|saga)\b.*$/iu,
+      "",
+    )
     .replace(/\s*\(Goodreads Author\)\s*$/i, "")
     .replace(/\s*\(Autor de Goodreads\)\s*$/i, "")
     .trim();
+}
+
+function sagaFromLabeledValue(value) {
+  const line = plainText(value)
+    .replace(/^(?:pertenece\s+a\s+la\s+)?(?:series?|serie(?:\s+saga)?|saga)\s*:?\s*/iu, "")
+    .replace(/[.;]+$/u, "")
+    .trim();
+
+  if (!line || line.length > 120 || isStopHeading(line) || isNoiseLine(line)) {
+    return { name: "", number: "" };
+  }
+
+  const goodreadsStyle = parseSagaValue(line);
+  if (goodreadsStyle.name) {
+    return {
+      ...goodreadsStyle,
+      name: goodreadsStyle.name.replace(/[,:-]+$/u, "").trim(),
+    };
+  }
+
+  const numbered = line.match(
+    /^(.+?)\s*(?:#|n(?:[uú]m(?:ero)?)?\.?\s*|n[.ºo]?\s+)(\d+(?:[.,]\d+)?)\s*$/iu,
+  ) || line.match(/^(.+?\D)\s+(\d+(?:[.,]\d+)?)\s*$/u);
+
+  if (numbered) {
+    return {
+      name: numbered[1].trim(),
+      number: numbered[2].replace(",", "."),
+    };
+  }
+
+  return { name: line, number: "" };
+}
+
+function sagaFromAuthorByline(value) {
+  const match = plainText(value).match(
+    /\|\s*(?:pertenece\s+a\s+la\s+)?(?:serie|saga)\s*:?\s*(.+)$/iu,
+  );
+
+  return sagaFromLabeledValue(match?.[1] || "");
 }
 
 function plausibleTitle(value) {
@@ -282,19 +340,30 @@ function extractSynopsis(text, rawLines) {
 }
 
 function sagaFromTitle(value) {
-  const match = plainText(value).match(
-    /\(([^()]+?)\s*,\s*#\s*(\d+(?:[.,]\d+)?)\)\s*$/u,
-  );
+  const candidates = [...plainText(value).matchAll(/\(([^()]{2,120})\)/gu)]
+    .map((match) => plainText(match[1]))
+    .reverse();
 
-  if (!match) return { name: "", number: "" };
+  for (const candidate of candidates) {
+    const clean = normalized(candidate);
 
-  return {
-    name: match[1].trim(),
-    number: match[2].replace(",", "."),
-  };
+    if (
+      !clean
+      || candidate.split(/\s+/u).length > 12
+      || /\b(edicion|edition|especial|limitada|ilustrada|tapa|bolsillo|cantos|audiolibro|ebook|version|premio)\b/u.test(clean)
+    ) {
+      continue;
+    }
+
+    const preferredName = plainText(candidate.split(/\s+\/\s+/u)[0]);
+    const saga = sagaFromLabeledValue(preferredName);
+    if (saga.name) return saga;
+  }
+
+  return { name: "", number: "" };
 }
 
-function parseGoodreadsText(text) {
+function parseBookSourceText(text) {
   const rawLines = String(text || "").replace(/\r\n?/g, "\n").split("\n");
   const lines = rawLines.map((line) => plainText(line)).filter(Boolean);
   const joined = lines.join("\n");
@@ -314,6 +383,7 @@ function parseGoodreadsText(text) {
     if (authorIndex >= 0) author = lines[authorIndex];
   }
 
+  const bylineSaga = sagaFromAuthorByline(author);
   author = cleanAuthor(author);
 
   let title = header?.title
@@ -332,23 +402,48 @@ function parseGoodreadsText(text) {
     title = lines.find((line) => plausibleTitle(line)) || "";
   }
 
-  const yearMatch = joined.match(
+  const publicationValue = lineAfterLabel(lines, [
+    "ano de edicion",
+    "ano de publicacion",
+    "fecha de lanzamiento",
+    "fecha de publicacion",
+    "publication date",
+    "published",
+    "publicado",
+  ]);
+  const yearMatch = publicationValue.match(/\b((?:18|19|20)\d{2})\b/u) || joined.match(
     /(?:first published|published|publication date|fecha de publicaci[oó]n|publicado(?:\s+por\s+primera\s+vez)?)[^\d]{0,35}((?:18|19|20)\d{2})/iu,
   ) || joined.match(/\b((?:18|19|20)\d{2})\b/u);
 
-  const pagesMatch = joined.match(/\b(\d{1,3}(?:[.,]\d{3})*|\d{1,5})\s+pages?\b/i)
+  const pagesValue = lineAfterLabel(lines, [
+    "numero de paginas",
+    "paginas",
+    "number of pages",
+    "page count",
+  ]);
+  const pagesMatch = pagesValue.match(/\b(\d{1,3}(?:[.,]\d{3})*|\d{1,5})\b/u)
+    || joined.match(/\b(\d{1,3}(?:[.,]\d{3})*|\d{1,5})\s+pages?\b/i)
     || joined.match(/\b(\d{1,3}(?:[.,]\d{3})*|\d{1,5})\s+p[aá]ginas?\b/iu);
 
-  const isbnMatch = joined.match(/\bISBN(?:-1[03])?\s*[:#]?\s*([0-9Xx -]{10,20})/i);
+  const isbnValue = lineAfterLabel(lines, ["isbn", "isbn 13", "isbn 10"]);
+  const isbnMatch = isbnValue.match(/\b([0-9Xx -]{10,20})\b/u)
+    || joined.match(/\bISBN(?:-1[03])?\s*[:#]?\s*([0-9Xx -]{10,20})/i);
 
+  const publisherValue = lineAfterLabel(lines, ["editorial", "publisher"]);
   const publisherMatch = joined.match(
     /(?:published|publicado)(?:\s+[^\n]{0,45}?)?\s+(?:by|por)\s+([^\n]{2,160})/i,
   ) || joined.match(/(?:editorial|publisher)\s*[:\n]\s*([^\n]{2,160})/i);
 
-  let genre = "";
+  let genre = lineAfterLabel(lines, [
+    "subgeneros",
+    "generos",
+    "genero",
+    "categorias",
+    "categoria",
+  ]);
   const genreIndex = lines.findIndex((line) => ["genres", "generos"].includes(normalized(line)));
 
-  if (genreIndex >= 0) {
+  if (!genre && genreIndex >= 0) {
     const genres = [];
     for (let index = genreIndex + 1; index < lines.length && genres.length < 4; index += 1) {
       const line = lines[index];
@@ -358,20 +453,31 @@ function parseGoodreadsText(text) {
     genre = genres.join(", ");
   }
 
-  let language = "es";
-  if (/\b(english|ingl[eé]s)\b/i.test(joined)) language = "en";
-  else if (/\b(catal[aá]n|catalan)\b/i.test(joined)) language = "ca";
-  else if (/\b(french|franc[eé]s)\b/i.test(joined)) language = "fr";
-  else if (/\b(german|alem[aá]n)\b/i.test(joined)) language = "de";
-  else if (/\b(italian|italiano)\b/i.test(joined)) language = "it";
-  else if (/\b(portuguese|portugu[eé]s)\b/i.test(joined)) language = "pt";
+  if (!normalizeBookGenre(genre)) {
+    genre = lines
+      .slice(0, 20)
+      .find((line) => line.length <= 70 && normalizeBookGenre(line)) || "";
+  }
 
-  const seriesValue = lineAfterLabel(lines, ["series", "serie"]);
-  const saga = header?.saga?.name
-    ? header.saga
-    : parseSagaValue(seriesValue).name
-      ? parseSagaValue(seriesValue)
-      : sagaFromTitle(title);
+  let language = "es";
+  const languageValue = lineAfterLabel(lines, ["language", "idioma"]);
+  const languageText = normalized(languageValue || joined);
+  if (/\b(english|ingles)\b/u.test(languageText)) language = "en";
+  else if (/\b(catalan)\b/u.test(languageText)) language = "ca";
+  else if (/\b(french|frances)\b/u.test(languageText)) language = "fr";
+  else if (/\b(german|aleman)\b/u.test(languageText)) language = "de";
+  else if (/\b(italian|italiano)\b/u.test(languageText)) language = "it";
+  else if (/\b(portuguese|portugues)\b/u.test(languageText)) language = "pt";
+
+  const seriesValue = lineAfterLabel(lines, ["series", "serie", "saga", "serie saga"]);
+  const labeledSaga = sagaFromLabeledValue(seriesValue);
+  const saga = labeledSaga.name
+    ? labeledSaga
+    : bylineSaga.name
+      ? bylineSaga
+      : header?.saga?.name
+        ? header.saga
+        : sagaFromTitle(title);
 
   return {
     title: plainText(title),
@@ -383,20 +489,18 @@ function parseGoodreadsText(text) {
     sagaNumber: saga.number,
     year: yearMatch?.[1] || "",
     pages: String(pagesMatch?.[1] || "").replace(/[.,]/g, ""),
-    publisher: plainText(publisherMatch?.[1] || "").replace(/[.,;]+$/u, "").slice(0, 250),
+    publisher: plainText(publisherValue || publisherMatch?.[1] || "")
+      .replace(/[.,;]+$/u, "")
+      .slice(0, 250),
     isbn: plainText(isbnMatch?.[1] || "").replace(/\s+/g, "").slice(0, 30),
   };
 }
 
-function goodreadsUrl(value) {
+function sourcePageUrl(value) {
   try {
     const url = new URL(String(value || "").trim());
-    const host = url.hostname.toLowerCase();
 
-    if (url.protocol !== "https:") return "";
-    if (host !== "goodreads.com" && host !== "www.goodreads.com" && !host.endsWith(".goodreads.com")) {
-      return "";
-    }
+    if (url.protocol !== "https:" || !url.hostname) return "";
 
     return url.toString();
   } catch {
@@ -426,7 +530,7 @@ export default function GoodreadsImport({ initialTitle = "", isAdmin = false, on
   const canManageFiles = Boolean(isAdmin);
   const creationTitle = canManageFiles ? "Añadir un libro" : "Proponer un libro";
   const creationDescription = canManageFiles
-    ? "Puedes crear la ficha manualmente o pegar los datos de Goodreads para completar los campos más rápido."
+    ? "Puedes crear la ficha manualmente o pegar el texto de una ficha web para completar los campos más rápido."
     : "Completa la ficha y la enviaremos a revisión antes de publicarla en el catálogo.";
 
   useEffect(() => () => {
@@ -441,11 +545,11 @@ export default function GoodreadsImport({ initialTitle = "", isAdmin = false, on
 
   function handleAnalyze() {
     if (rawText.trim().length < 20) {
-      setError("Pega primero el texto visible de la ficha de Goodreads.");
+      setError("Pega primero el texto visible de una ficha web.");
       return;
     }
 
-    const parsed = parseGoodreadsText(rawText);
+    const parsed = parseBookSourceText(rawText);
     setFields((current) => ({
       ...current,
       ...Object.fromEntries(
@@ -459,7 +563,10 @@ export default function GoodreadsImport({ initialTitle = "", isAdmin = false, on
       parsed.year && "año",
       parsed.synopsis && "sinopsis",
       parsed.pages && "páginas",
+      parsed.publisher && "editorial",
       parsed.isbn && "ISBN",
+      parsed.genre && "tipo de novela",
+      parsed.sagaName && "saga",
     ].filter(Boolean);
 
     setParseMessage(
@@ -621,7 +728,7 @@ export default function GoodreadsImport({ initialTitle = "", isAdmin = false, on
     }
   }
 
-  const validSourceUrl = goodreadsUrl(sourceUrl);
+  const validSourceUrl = sourcePageUrl(sourceUrl);
 
   return (
     <main className="goodreads-import-page">
@@ -647,18 +754,19 @@ export default function GoodreadsImport({ initialTitle = "", isAdmin = false, on
           <div className="goodreads-step-content">
             <h2>Importa los datos si los tienes <span className="goodreads-optional-badge">Opcional</span></h2>
             <p>
-              Si encontraste el libro en Goodreads, pega el enlace y el texto de su ficha.
+              Si encontraste el libro en una librería, editorial, Goodreads u otra web,
+              pega el enlace y el texto visible de su ficha.
               Si no, puedes saltarte este paso y completar todo manualmente más abajo.
             </p>
 
             <div className="goodreads-url-row">
               <label>
-                Enlace de Goodreads (opcional)
+                Enlace de la fuente (opcional)
                 <input
                   type="url"
                   value={sourceUrl}
                   onChange={(event) => setSourceUrl(event.target.value)}
-                  placeholder="https://www.goodreads.com/book/show/..."
+                  placeholder="https://www.casadellibro.com/..."
                 />
               </label>
               <button
@@ -672,7 +780,7 @@ export default function GoodreadsImport({ initialTitle = "", isAdmin = false, on
 
             {sourceUrl && !validSourceUrl && (
               <small className="goodreads-inline-warning">
-                Introduce un enlace HTTPS de goodreads.com.
+                Introduce un enlace HTTPS válido.
               </small>
             )}
 
@@ -682,7 +790,7 @@ export default function GoodreadsImport({ initialTitle = "", isAdmin = false, on
                 value={rawText}
                 onChange={(event) => setRawText(event.target.value)}
                 rows={12}
-                placeholder={`Ejemplo:\nTítulo del libro\nby Nombre del autor\nFirst published 2021\nDescription\nAquí aparece la sinopsis...`}
+                placeholder={`Ejemplo:\nTítulo del libro\nPor Nombre del autor\nSinopsis\nAquí aparece la sinopsis...\nFicha técnica\nISBN: 978...`}
               />
             </label>
 
