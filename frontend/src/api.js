@@ -1,3 +1,4 @@
+import { searchExternalBooks } from "./lib/externalBookSearchApi.js";
 import {
   getCatalogBooks,
   getCatalogUserBooks,
@@ -115,6 +116,11 @@ async function localCatalogApiFetch(endpoint, options, method) {
 
   if (name === "get_books.php" && method === "GET") {
     return jsonResponse(await getCatalogBooks());
+  }
+
+  if (name === "search.php" && method === "GET") {
+    const url = endpointUrl(endpoint);
+    return jsonResponse(await searchExternalBooks(url.searchParams.get("q") || ""));
   }
 
   if (name === "catalog_user_books.php" && method === "GET") {
