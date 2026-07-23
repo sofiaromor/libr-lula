@@ -41,18 +41,30 @@ export async function getSupabaseAppSession() {
 }
 
 export function onSupabaseAuthChange(callback) {
+  let active = true;
+
   const {
     data: { subscription },
-  } = supabase.auth.onAuthStateChange(async () => {
-    try {
-      const session = await getSupabaseAppSession();
-      callback(session);
-    } catch {
-      callback(EMPTY_SUPABASE_SESSION);
-    }
+  } = supabase.auth.onAuthStateChange(() => {
+    window.setTimeout(async () => {
+      try {
+        const session = await getSupabaseAppSession();
+
+        if (active) {
+          callback(session);
+        }
+      } catch {
+        if (active) {
+          callback(EMPTY_SUPABASE_SESSION);
+        }
+      }
+    }, 0);
   });
 
-  return () => subscription.unsubscribe();
+  return () => {
+    active = false;
+    subscription.unsubscribe();
+  };
 }
 
 function getAuthRedirectUrl() {
