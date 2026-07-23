@@ -240,7 +240,7 @@ export async function readJsonResponse(response) {
   try {
     data = text ? JSON.parse(text) : {};
   } catch {
-    throw new Error("La API no devolviÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ un JSON vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lido.");
+    throw new Error("La API no devolvió un JSON válido.");
   }
 
   if (!response.ok || data.error) {
