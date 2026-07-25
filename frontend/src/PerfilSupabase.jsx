@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { publicUrl } from "./api.js";
+import MisResenas from "./MisResenas.jsx";
 import { getProfileOverview } from "./lib/profileApi.js";
 import "./PerfilSupabase.css";
+
+const PROFILE_TABS = [
+  { id: "summary", label: "Resumen" },
+  { id: "activity", label: "Actividad" },
+  { id: "favorites", label: "Favoritos" },
+  { id: "reviews", label: "Reseñas" },
+];
 
 function formatNumber(value) {
   return new Intl.NumberFormat("es-ES").format(Number(value) || 0);
@@ -69,7 +77,13 @@ function ProfileBookCard({ book }) {
   );
 }
 
-export default function PerfilSupabase({ onOpenLibrary, onOpenCatalog }) {
+export default function PerfilSupabase({
+  activeTab = "summary",
+  onTabChange,
+  onOpenLibrary,
+  onOpenCatalog,
+  onSelectReviewBook,
+}) {
   const [state, setState] = useState({
     loading: true,
     error: "",
@@ -106,6 +120,9 @@ export default function PerfilSupabase({ onOpenLibrary, onOpenCatalog }) {
 
   const data = state.data;
   const profile = data?.profile;
+  const currentTab = PROFILE_TABS.some((tab) => tab.id === activeTab)
+    ? activeTab
+    : "summary";
 
   const visibleActivityDays = useMemo(() => {
     return (data?.activityDays || []).slice(-126);
@@ -192,13 +209,29 @@ export default function PerfilSupabase({ onOpenLibrary, onOpenCatalog }) {
           </div>
         </header>
 
-        <nav className="profile-tabs" aria-label="Secciones del perfil">
-          <span className="active">Resumen</span>
-          <span>Actividad</span>
-          <span>Favoritos</span>
+        <nav
+          className="profile-tabs"
+          aria-label="Secciones del perfil"
+          role="tablist"
+        >
+          {PROFILE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              id={`profile-tab-${tab.id}`}
+              type="button"
+              role="tab"
+              aria-controls={`profile-panel-${tab.id}`}
+              aria-selected={currentTab === tab.id}
+              className={currentTab === tab.id ? "active" : ""}
+              onClick={() => onTabChange?.(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </nav>
 
-        <section className="profile-stats-grid" aria-label="Estadísticas de lectura">
+        {currentTab === "summary" && (
+          <section className="profile-stats-grid" aria-label="Estadísticas de lectura">
           <article>
             <span>{formatNumber(data.stats.completed)}</span>
             <p>Libros leídos</p>
@@ -215,11 +248,18 @@ export default function PerfilSupabase({ onOpenLibrary, onOpenCatalog }) {
             <span>{formatNumber(data.streak)}</span>
             <p>Racha actual</p>
           </article>
-        </section>
+          </section>
+        )}
 
-        <section className="profile-grid">
+        {currentTab !== "reviews" && (
+        <section
+          id={`profile-panel-${currentTab}`}
+          className={`profile-grid profile-view-${currentTab}`}
+          role="tabpanel"
+          aria-labelledby={`profile-tab-${currentTab}`}
+        >
           <div className="profile-column-main">
-            <article className="profile-card">
+            <article className="profile-card profile-reading-card">
               <div className="profile-card-heading">
                 <div>
                   <span className="profile-eyebrow">Ahora</span>
@@ -238,7 +278,7 @@ export default function PerfilSupabase({ onOpenLibrary, onOpenCatalog }) {
               )}
             </article>
 
-            <article className="profile-card">
+            <article className="profile-card profile-activity-card">
               <div className="profile-card-heading">
                 <div>
                   <span className="profile-eyebrow">Últimos movimientos</span>
@@ -272,7 +312,7 @@ export default function PerfilSupabase({ onOpenLibrary, onOpenCatalog }) {
           </div>
 
           <aside className="profile-column-side">
-            <article className="profile-card">
+            <article className="profile-card profile-heatmap-card">
               <div className="profile-card-heading">
                 <div>
                   <span className="profile-eyebrow">Mapa lector</span>
@@ -291,7 +331,7 @@ export default function PerfilSupabase({ onOpenLibrary, onOpenCatalog }) {
               </div>
             </article>
 
-            <article className="profile-card">
+            <article className="profile-card profile-genres-card">
               <div className="profile-card-heading">
                 <div>
                   <span className="profile-eyebrow">Géneros</span>
@@ -312,7 +352,7 @@ export default function PerfilSupabase({ onOpenLibrary, onOpenCatalog }) {
               )}
             </article>
 
-            <article className="profile-card">
+            <article className="profile-card profile-favorite-books-card">
               <div className="profile-card-heading">
                 <div>
                   <span className="profile-eyebrow">Favoritos</span>
@@ -340,7 +380,7 @@ export default function PerfilSupabase({ onOpenLibrary, onOpenCatalog }) {
               )}
             </article>
 
-            <article className="profile-card">
+            <article className="profile-card profile-favorite-authors-card">
               <div className="profile-card-heading">
                 <div>
                   <span className="profile-eyebrow">Favoritos</span>
@@ -360,6 +400,24 @@ export default function PerfilSupabase({ onOpenLibrary, onOpenCatalog }) {
             </article>
           </aside>
         </section>
+        )}
+
+        {currentTab === "reviews" && (
+          <section
+            id="profile-panel-reviews"
+            className="profile-tab-panel"
+            role="tabpanel"
+            aria-labelledby="profile-tab-reviews"
+          >
+            <article className="profile-card profile-reviews-card">
+              <MisResenas
+                embedded
+                onOpenCatalog={onOpenCatalog}
+                onSelectBook={onSelectReviewBook}
+              />
+            </article>
+          </section>
+        )}
       </section>
     </main>
   );
