@@ -28,7 +28,11 @@ function scoreLabel(score) {
   return `${value} de 5`;
 }
 
-export default function MisResenas({ onOpenCatalog, onSelectBook }) {
+export default function MisResenas({
+  onOpenCatalog,
+  onSelectBook,
+  embedded = false,
+}) {
   const [reviews, setReviews] = useState([]);
   const [authenticated, setAuthenticated] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -77,21 +81,33 @@ export default function MisResenas({ onOpenCatalog, onSelectBook }) {
     }
   }
 
-  return (
-    <main className="my-reviews-page">
-      <section className="my-reviews-hero">
-        <div>
-          <span className="my-reviews-kicker">Tu estantería emocional</span>
-          <h1>Mis reseñas</h1>
-          <p>
-            Reúne las puntuaciones y opiniones que has dejado en Librélula.
-          </p>
-        </div>
+  const PageElement = embedded ? "section" : "main";
 
-        <button type="button" onClick={onOpenCatalog}>
-          Explorar catálogo
-        </button>
-      </section>
+  return (
+    <PageElement
+      className={`my-reviews-page${embedded ? " is-embedded" : ""}`}
+    >
+      {embedded ? (
+        <header className="my-reviews-embedded-heading">
+          <span className="my-reviews-kicker">Tu estantería emocional</span>
+          <h2>Mis reseñas</h2>
+          <p>Las puntuaciones y opiniones que has dejado en Librélula.</p>
+        </header>
+      ) : (
+        <section className="my-reviews-hero">
+          <div>
+            <span className="my-reviews-kicker">Tu estantería emocional</span>
+            <h1>Mis reseñas</h1>
+            <p>
+              Reúne las puntuaciones y opiniones que has dejado en Librélula.
+            </p>
+          </div>
+
+          <button type="button" onClick={onOpenCatalog}>
+            Explorar catálogo
+          </button>
+        </section>
+      )}
 
       {loading && (
         <p className="my-reviews-message">Cargando tus reseñas…</p>
@@ -173,6 +189,6 @@ export default function MisResenas({ onOpenCatalog, onSelectBook }) {
           })}
         </section>
       )}
-    </main>
+    </PageElement>
   );
 }

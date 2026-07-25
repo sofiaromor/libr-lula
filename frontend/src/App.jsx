@@ -4,7 +4,6 @@ import Inicio from "./Inicio.jsx";
 import BookDetail from "./BookDetail.jsx";
 import BooksCatalog from "./BooksCatalog.jsx";
 import MiBiblioteca from "./MiBiblioteca.jsx";
-import MisResenas from "./MisResenas.jsx";
 import PerfilSupabase from "./PerfilSupabase.jsx";
 import LoginSupabase from "./LoginSupabase.jsx";
 import AddFriends from "./AddFriends.jsx";
@@ -20,12 +19,14 @@ import {
 } from "./lib/session.js";
 
 const EMPTY_SESSION = EMPTY_SUPABASE_SESSION;
+const PROFILE_TABS = new Set(["summary", "activity", "favorites", "reviews"]);
 
 export default function App() {
   const [page, setPage] = useState("home");
   const [selectedBook, setSelectedBook] = useState(null);
   const [selectedSaga, setSelectedSaga] = useState(null);
   const [detailBackPage, setDetailBackPage] = useState("catalog");
+  const [profileTab, setProfileTab] = useState("summary");
   const [newBookTitle, setNewBookTitle] = useState("");
   const [session, setSession] = useState(EMPTY_SESSION);
   const [sessionLoading, setSessionLoading] = useState(true);
@@ -136,13 +137,17 @@ useEffect(() => {
     setPage("catalog");
   }
 
-  function openProfile() {
+  function openProfile(tab = "summary") {
+    const nextTab =
+      typeof tab === "string" && PROFILE_TABS.has(tab) ? tab : "summary";
+
     closeNavigation();
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
     setNewBookTitle("");
     setDetailBackPage("catalog");
+    setProfileTab(nextTab);
     setPage("profile");
   }
 
@@ -174,13 +179,7 @@ useEffect(() => {
 
   function openMyReviews() {
     if (!isLoggedIn) return;
-    closeNavigation();
-    updateBookQuery();
-    setSelectedBook(null);
-    setSelectedSaga(null);
-    setNewBookTitle("");
-    setDetailBackPage("my-reviews");
-    setPage("my-reviews");
+    openProfile("reviews");
   }
 
   function openLogin() {
@@ -283,9 +282,10 @@ useEffect(() => {
       return;
     }
 
-    if (detailBackPage === "my-reviews") {
+    if (detailBackPage === "profile-reviews") {
       updateBookQuery();
-      setPage("my-reviews");
+      setProfileTab("reviews");
+      setPage("profile");
       return;
     }
 
@@ -344,7 +344,7 @@ useEffect(() => {
             </button>
               <button
                 type="button"
-                className={["catalog", "detail", "saga"].includes(page) && !["library", "my-reviews"].includes(detailBackPage) ? "is-active" : ""}
+                className={["catalog", "detail", "saga"].includes(page) && !["library", "profile-reviews"].includes(detailBackPage) ? "is-active" : ""}
                 onClick={openCatalog}
               >
                 Catálogo
@@ -354,7 +354,7 @@ useEffect(() => {
                 <>
                   <button
                     type="button"
-                    className={page === "profile" ? "is-active" : ""}
+                    className={page === "profile" && profileTab !== "reviews" ? "is-active" : ""}
                     onClick={openProfile}
                   >
                     Mi rincón
@@ -368,7 +368,7 @@ useEffect(() => {
                   </button>
                   <button
                     type="button"
-                    className={page === "my-reviews" || (page === "detail" && detailBackPage === "my-reviews") ? "is-active" : ""}
+                    className={(page === "profile" && profileTab === "reviews") || (page === "detail" && detailBackPage === "profile-reviews") ? "is-active" : ""}
                     onClick={openMyReviews}
                   >
                     Mis reseñas
@@ -482,7 +482,15 @@ useEffect(() => {
         )}
 
         {!sessionLoading && page === "profile" && isLoggedIn && (
-          <PerfilSupabase onOpenLibrary={openLibrary} onOpenCatalog={openCatalog} />
+          <PerfilSupabase
+            activeTab={profileTab}
+            onTabChange={setProfileTab}
+            onOpenLibrary={openLibrary}
+            onOpenCatalog={openCatalog}
+            onSelectReviewBook={(book) =>
+              openBookDetail(book, "profile-reviews")
+            }
+          />
         )}
 
         {!sessionLoading && page === "add-friends" && isLoggedIn && (
@@ -493,13 +501,6 @@ useEffect(() => {
           <MiBiblioteca
             onOpenCatalog={openCatalog}
             onSelectBook={(book) => openBookDetail(book, "library")}
-          />
-        )}
-
-        {!sessionLoading && page === "my-reviews" && isLoggedIn && (
-          <MisResenas
-            onOpenCatalog={openCatalog}
-            onSelectBook={(book) => openBookDetail(book, "my-reviews")}
           />
         )}
 
@@ -553,5 +554,4 @@ useEffect(() => {
     </div>
   );
 }
-
 
