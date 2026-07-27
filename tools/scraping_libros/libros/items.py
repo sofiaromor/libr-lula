@@ -1,0 +1,25 @@
+import scrapy
+
+
+class LibroItem(scrapy.Item):
+    titulo = scrapy.Field()
+    titulo_base = scrapy.Field()
+    edicion = scrapy.Field()
+    autora = scrapy.Field()
+    sinopsis = scrapy.Field()
+    genero_literario = scrapy.Field()
+    generos_fuente = scrapy.Field()
+    isbn = scrapy.Field()
+    numero_paginas = scrapy.Field()
+    editorial = scrapy.Field()
+    idioma = scrapy.Field()
+    fecha_publicacion = scrapy.Field()
+    anio = scrapy.Field()
+    encuadernacion = scrapy.Field()
+    saga = scrapy.Field()
+    imagen_portada = scrapy.Field()
+    provider = scrapy.Field()
+    source_id = scrapy.Field()
+    url = scrapy.Field()
+    extraido_en = scrapy.Field()
+    avisos = scrapy.Field()
