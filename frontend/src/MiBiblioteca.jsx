@@ -19,6 +19,14 @@ function coverUrl(cover) {
   return `/${value.replace(/^\/+/, "")}`;
 }
 
+function handleCoverError(event) {
+  const image = event.currentTarget;
+
+  image.onerror = null;
+  image.src = "/images/librelula.png";
+  image.alt = "Portada no disponible";
+  image.classList.add("is-fallback");
+}
 function clipText(text, maxLength = 130) {
   const value = String(text || "").trim();
 
@@ -38,6 +46,20 @@ function starValues(score) {
   }));
 }
 
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es")
+    .trim();
+}
+
+function genreValues(value) {
+  return String(value || "")
+    .split(/[,;|]/)
+    .map((genre) => genre.trim())
+    .filter(Boolean);
+}
 export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
   const [library, setLibrary] = useState({
     profile: null,
@@ -52,8 +74,12 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
       dropped: 0,
     },
   });
+  const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [ratingFilter, setRatingFilter] = useState("all");
+  const [genreFilter, setGenreFilter] = useState("all");
+  const [yearFilter, setYearFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("recent");
   const [loading, setLoading] = useState(true);
   const [savingBookId, setSavingBookId] = useState("");
   const [message, setMessage] = useState(null);
@@ -92,23 +118,108 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
     };
   }, []);
 
+  const genreOptions = useMemo(() => {
+    const genres = library.items.flatMap((item) =>
+      genreValues(item.book?.genre),
+    );
+
+    return [...new Set(genres)].sort((left, right) =>
+      left.localeCompare(right, "es", { sensitivity: "base" }),
+    );
+  }, [library.items]);
+
+  const yearOptions = useMemo(() => {
+    const years = library.items
+      .map((item) => Number(item.book?.year))
+      .filter((year) => Number.isInteger(year) && year > 0);
+
+    return [...new Set(years)].sort((left, right) => right - left);
+  }, [library.items]);
+
   const filteredItems = useMemo(() => {
-    return library.items.filter((item) => {
-      if (statusFilter !== "all" && item.status !== statusFilter) {
-        return false;
+    const query = normalizeText(searchQuery);
+    const collator = new Intl.Collator("es", { sensitivity: "base" });
+
+    const matches = library.items.filter((item) => {
+      const book = item.book || {};
+      const score = Number(item.score || 0);
+
+      if (query) {
+        const searchable = normalizeText(`${book.title || ""} ${book.author || ""}`);
+
+        if (!searchable.includes(query)) return false;
       }
 
+      if (statusFilter !== "all" && item.status !== statusFilter) return false;
+
+      if (ratingFilter === "unrated" && score !== 0) return false;
+
       if (
-        ratingFilter !== "all" &&
-        Number(item.score || 0) !== Number(ratingFilter)
-      ) {
-        return false;
-      }
+        !["all", "unrated"].includes(ratingFilter) &&
+        score !== Number(ratingFilter)
+      ) return false;
+
+      if (
+        genreFilter !== "all" &&
+        !genreValues(book.genre).includes(genreFilter)
+      ) return false;
+
+      if (
+        yearFilter !== "all" &&
+        Number(book.year || 0) !== Number(yearFilter)
+      ) return false;
 
       return true;
     });
-  }, [library.items, ratingFilter, statusFilter]);
 
+    return matches.sort((left, right) => {
+      const leftBook = left.book || {};
+      const rightBook = right.book || {};
+
+      if (sortOrder === "title") {
+        return collator.compare(leftBook.title || "", rightBook.title || "");
+      }
+
+      if (sortOrder === "author") {
+        return collator.compare(leftBook.author || "", rightBook.author || "");
+      }
+
+      if (sortOrder === "rating") {
+        return Number(right.score || 0) - Number(left.score || 0);
+      }
+
+      if (sortOrder === "year") {
+        return Number(rightBook.year || 0) - Number(leftBook.year || 0);
+      }
+
+      return Number(right.id || 0) - Number(left.id || 0);
+    });
+  }, [
+    genreFilter,
+    library.items,
+    ratingFilter,
+    searchQuery,
+    sortOrder,
+    statusFilter,
+    yearFilter,
+  ]);
+
+  const hasActiveFilters =
+    searchQuery.trim() !== "" ||
+    statusFilter !== "all" ||
+    ratingFilter !== "all" ||
+    genreFilter !== "all" ||
+    yearFilter !== "all" ||
+    sortOrder !== "recent";
+
+  function clearFilters() {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setRatingFilter("all");
+    setGenreFilter("all");
+    setYearFilter("all");
+    setSortOrder("recent");
+  }
   async function handleScoreChange(item, score) {
     const bookId = item.book_id;
 
@@ -161,44 +272,111 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
         </button>
       </header>
 
-      <nav className="library-filters" aria-label="Filtrar biblioteca por estado">
-        {Object.entries(LIBRARY_STATUS_LABELS).map(([key, label]) => (
-          <button
-            type="button"
-            key={key}
-            className={statusFilter === key ? "is-active" : ""}
-            onClick={() => setStatusFilter(key)}
-          >
-            {label}
-            <span>{library.counts[key] || 0}</span>
-          </button>
-        ))}
-      </nav>
+      <section className="library-layout">
+        <aside className="library-sidebar" aria-label="Filtros de Mi biblioteca">
+          <label className="library-search">
+            <span>Buscar</span>
+            <span className="library-search-field">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.4-3.4" />
+              </svg>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Título o autor"
+              />
+            </span>
+          </label>
 
-      <section className="library-rating-filter" aria-label="Filtrar por puntuación">
-        <span>Filtrar por estrellas</span>
-        <div>
-          <button
-            type="button"
-            className={ratingFilter === "all" ? "is-active" : ""}
-            onClick={() => setRatingFilter("all")}
-          >
-            Todas
-          </button>
+          <div className="library-sidebar-section">
+            <span className="library-sidebar-title">Mis listas</span>
+            <nav className="library-status-list" aria-label="Filtrar por estado">
+              {Object.entries(LIBRARY_STATUS_LABELS).map(([key, label]) => (
+                <button
+                  type="button"
+                  key={key}
+                  className={statusFilter === key ? "is-active" : ""}
+                  onClick={() => setStatusFilter(key)}
+                >
+                  <span>{label}</span>
+                  <small>{library.counts[key] || 0}</small>
+                </button>
+              ))}
+            </nav>
+          </div>
 
-          {[5, 4, 3, 2, 1].map((score) => (
-            <button
-              type="button"
-              key={score}
-              className={ratingFilter === String(score) ? "is-active" : ""}
-              onClick={() => setRatingFilter(String(score))}
-            >
-              {"★".repeat(score)}
+          <div className="library-sidebar-section library-select-filters">
+            <span className="library-sidebar-title">Filtros</span>
+
+            <label>
+              <span>Puntuación</span>
+              <select value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value)}>
+                <option value="all">Todas las puntuaciones</option>
+                {[5, 4, 3, 2, 1].map((score) => (
+                  <option key={score} value={String(score)}>
+                    {score} {score === 1 ? "estrella" : "estrellas"}
+                  </option>
+                ))}
+                <option value="unrated">Sin puntuar</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Género</span>
+              <select value={genreFilter} onChange={(event) => setGenreFilter(event.target.value)}>
+                <option value="all">Todos los géneros</option>
+                {genreOptions.map((genre) => (
+                  <option key={genre} value={genre}>{genre}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Año</span>
+              <select value={yearFilter} onChange={(event) => setYearFilter(event.target.value)}>
+                <option value="all">Todos los años</option>
+                {yearOptions.map((year) => (
+                  <option key={year} value={String(year)}>{year}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Ordenar</span>
+              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+                <option value="recent">Añadidos recientemente</option>
+                <option value="title">Título, de A a Z</option>
+                <option value="author">Autor, de A a Z</option>
+                <option value="rating">Mejor puntuados</option>
+                <option value="year">Año más reciente</option>
+              </select>
+            </label>
+          </div>
+
+          {hasActiveFilters && (
+            <button className="library-clear-filters" type="button" onClick={clearFilters}>
+              Limpiar filtros
             </button>
-          ))}
-        </div>
-      </section>
+          )}
+        </aside>
 
+        <div className="library-results">
+          <header className="library-results-heading">
+            <div>
+              <span className="profile-kicker">Tu selección</span>
+              <h2>
+                {statusFilter === "all"
+                  ? "Todos tus libros"
+                  : LIBRARY_STATUS_LABELS[statusFilter]}
+              </h2>
+            </div>
+            <p>
+              {filteredItems.length}{" "}
+              {filteredItems.length === 1 ? "libro" : "libros"}
+            </p>
+          </header>
       {message && (
         <p className={`library-message ${message.type === "error" ? "is-error" : "is-success"}`}>
           {message.text}
@@ -229,9 +407,18 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
                   aria-label={`Abrir ficha de ${book.title}`}
                 >
                   {cover ? (
-                    <img src={cover} alt={`Portada de ${book.title}`} loading="lazy" />
+                    <img
+                      src={cover}
+                      alt={`Portada de ${book.title}`}
+                      loading="lazy"
+                      onError={handleCoverError}
+                    />
                   ) : (
-                    <span>📖</span>
+                    <img
+                      className="is-fallback"
+                      src="/images/librelula.png"
+                      alt="Portada no disponible"
+                    />
                   )}
                 </button>
 
@@ -306,6 +493,8 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
           </button>
         </section>
       )}
+        </div>
+      </section>
     </main>
   );
 }

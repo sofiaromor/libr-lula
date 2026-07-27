@@ -56,6 +56,9 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [page]);
+  useEffect(() => {
     let cancelled = false;
 
     async function loadSession() {
