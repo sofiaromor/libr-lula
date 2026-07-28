@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import "./Navbar.css";
 import Inicio from "./Inicio.jsx";
 import BookDetail from "./BookDetail.jsx";
@@ -20,6 +20,7 @@ import {
 
 const EMPTY_SESSION = EMPTY_SUPABASE_SESSION;
 const PROFILE_TABS = new Set(["summary", "activity", "favorites", "reviews"]);
+const CatalogJsonImport = lazy(() => import("./CatalogJsonImport.jsx"));
 
 export default function App() {
   const [page, setPage] = useState("home");
@@ -226,6 +227,18 @@ useEffect(() => {
     setPage("add-book");
   }
 
+  function openCatalogImport() {
+    if (!isAdmin) return;
+
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setNewBookTitle("");
+    setDetailBackPage("catalog");
+    setPage("catalog-import");
+  }
+
   function openBookDetail(book, backPage = "catalog") {
     closeNavigation();
     updateBookQuery(book?.id || null);
@@ -347,7 +360,7 @@ useEffect(() => {
             </button>
               <button
                 type="button"
-                className={["catalog", "detail", "saga"].includes(page) && !["library", "profile-reviews"].includes(detailBackPage) ? "is-active" : ""}
+                className={["catalog", "catalog-import", "detail", "saga"].includes(page) && !["library", "profile-reviews"].includes(detailBackPage) ? "is-active" : ""}
                 onClick={openCatalog}
               >
                 Catálogo
@@ -433,9 +446,14 @@ useEffect(() => {
                       Explorar catálogo
                     </button>
                     {isAdmin && (
-                      <button type="button" onClick={() => openAddBook()}>
-                        Añadir un libro
-                      </button>
+                      <>
+                        <button type="button" onClick={() => openAddBook()}>
+                          Añadir un libro
+                        </button>
+                        <button type="button" onClick={openCatalogImport}>
+                          Importar JSON del scraper
+                        </button>
+                      </>
                     )}
                     <div className="dropdown-divider" />
                     <button type="button" onClick={handleSignOut}>
@@ -480,6 +498,7 @@ useEffect(() => {
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
             onAddBook={openAddBook}
+            onImportCatalog={openCatalogImport}
             onSelectBook={(book) => openBookDetail(book, "catalog")}
           />
         )}
@@ -521,6 +540,19 @@ useEffect(() => {
             onCancel={openCatalog}
             onCreated={handleBookCreated}
           />
+        )}
+
+        {!sessionLoading && page === "catalog-import" && isAdmin && (
+          <Suspense
+            fallback={
+              <section className="lector-empty-state">
+                <h3>Preparando el importador…</h3>
+                <p>Estamos abriendo la mesa de revisión del catálogo.</p>
+              </section>
+            }
+          >
+            <CatalogJsonImport onCancel={openCatalog} />
+          </Suspense>
         )}
 
         {page === "detail" && (

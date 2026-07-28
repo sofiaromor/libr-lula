@@ -46,6 +46,21 @@ function languageName(language) {
   return languages[language] || showValue(language);
 }
 
+function editionName(edition) {
+  if (edition?.edition_label) return edition.edition_label;
+  if (edition?.binding) return edition.binding;
+  return edition?.is_primary ? "Edición principal" : "Otra edición";
+}
+
+function editionMetadata(edition) {
+  return [
+    edition?.binding,
+    edition?.publisher,
+    edition?.year,
+    edition?.pages ? `${edition.pages} páginas` : null,
+  ].filter(Boolean);
+}
+
 function bookTitleWithoutSaga(book) {
   const title = String(book?.title || "").trim();
   const sagaName = String(book?.saga_name || "").trim();
@@ -445,6 +460,9 @@ function RatingStars({ score, label = true }) {
 export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyReviews, isAdmin, isLoggedIn }) {
   const currentBook = book;
   const [coverFailed, setCoverFailed] = useState(false);
+  const [editions, setEditions] = useState([]);
+  const [editionsLoading, setEditionsLoading] = useState(true);
+  const [editionsError, setEditionsError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [reviewData, setReviewData] = useState(null);
@@ -487,6 +505,49 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
   const [postitDeletingId, setPostitDeletingId] = useState(null);
   const postitComposerRef = useRef(null);
   const ratingPromptAnchorRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadEditions() {
+      if (!currentBook?.id) {
+        setEditions([]);
+        setEditionsLoading(false);
+        return;
+      }
+
+      setEditionsLoading(true);
+      setEditionsError("");
+
+      try {
+        const response = await apiFetch(
+          `book_editions.php?book_id=${encodeURIComponent(currentBook.id)}`,
+        );
+        const data = await readJsonResponse(response);
+
+        if (!cancelled) {
+          setEditions(Array.isArray(data.editions) ? data.editions : []);
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setEditions([]);
+          setEditionsError(
+            requestError instanceof Error
+              ? requestError.message
+              : "No se pudieron cargar las ediciones.",
+          );
+        }
+      } finally {
+        if (!cancelled) setEditionsLoading(false);
+      }
+    }
+
+    loadEditions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentBook?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1775,6 +1836,89 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
                 </div>
               )}
             </>
+          )}
+        </section>
+
+        <section className="book-editions-section" aria-labelledby="book-editions-title">
+          <div className="book-editions-heading">
+            <div>
+              <span>La misma historia, distintos ejemplares</span>
+              <h2 id="book-editions-title">Ediciones disponibles</h2>
+            </div>
+            {!editionsLoading && !editionsError && (
+              <strong>{editions.length}</strong>
+            )}
+          </div>
+
+          {editionsLoading ? (
+            <p className="book-editions-feedback">Cargando ediciones…</p>
+          ) : editionsError ? (
+            <p className="book-editions-feedback is-error">{editionsError}</p>
+          ) : editions.length > 0 ? (
+            <div className="book-editions-grid">
+              {editions.map((edition) => {
+                const metadata = editionMetadata(edition);
+                const editionCover = edition.cover || currentBook.cover;
+
+                return (
+                  <article className="book-edition-card" key={edition.id}>
+                    <div className="book-edition-cover">
+                      {editionCover && (
+                        <img
+                          src={publicUrl(editionCover)}
+                          alt={`Portada de ${edition.title || currentBook.title}`}
+                          loading="lazy"
+                          onError={(event) => {
+                            event.currentTarget.hidden = true;
+                            event.currentTarget.nextElementSibling?.removeAttribute("hidden");
+                          }}
+                        />
+                      )}
+                      <span hidden={Boolean(editionCover)}>
+                        {bookTitleWithoutSaga(currentBook)}
+                      </span>
+                    </div>
+                    <div className="book-edition-copy">
+                      <div className="book-edition-badges">
+                        <span>{editionName(edition)}</span>
+                        {edition.is_primary && <em>Principal</em>}
+                      </div>
+                      <h3>{edition.title || bookTitleWithoutSaga(currentBook)}</h3>
+                      {metadata.length > 0 && <p>{metadata.join(" · ")}</p>}
+                      <dl>
+                        <div>
+                          <dt>ISBN</dt>
+                          <dd>{showValue(edition.isbn)}</dd>
+                        </div>
+                        <div>
+                          <dt>Idioma</dt>
+                          <dd>{languageName(edition.language)}</dd>
+                        </div>
+                        {edition.publication_date && (
+                          <div>
+                            <dt>Publicación</dt>
+                            <dd>{edition.publication_date}</dd>
+                          </div>
+                        )}
+                      </dl>
+                      {edition.source_url && (
+                        <a
+                          href={edition.source_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Ver fuente de esta edición
+                        </a>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="book-editions-feedback">
+              Esta obra todavía no tiene ediciones registradas.
+            </p>
           )}
         </section>
 

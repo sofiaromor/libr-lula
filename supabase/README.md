@@ -7,8 +7,10 @@ Este directorio guarda el esquema base versionado de Supabase para Librélula.
 1. Revisar `schema.sql`.
 2. Pegar `schema.sql` en Supabase SQL Editor.
 3. Ejecutarlo una vez.
-4. Confirmar que las tablas existen.
-5. Marcar tu perfil como admin desde Supabase, no desde el frontend.
+4. Ejecutar las migraciones adicionales que use el proyecto (`moderation.sql`, `friends.sql`, etc.).
+5. Ejecutar `book-editions.sql` para activar obras principales, ediciones y protección de duplicados.
+6. Confirmar que las tablas existen.
+7. Marcar tu perfil como admin desde Supabase, no desde el frontend.
 
 ## Nota sobre admin
 
@@ -19,4 +21,5 @@ No se usa `service_role` en el frontend.
 
 - Storage para portadas, PDF y EPUB.
 - Importación externa desde Open Library / Google Books.
+- Herramienta administrativa para fusionar fichas antiguas que ya estuvieran duplicadas antes de `book-editions.sql`.
 - Clubes de lectura y feed social real.

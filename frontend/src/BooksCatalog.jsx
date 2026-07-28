@@ -114,6 +114,7 @@ export default function BooksCatalog({
   isAdmin = false,
   isLoggedIn = false,
   onAddBook,
+  onImportCatalog,
   onSelectBook,
 }) {
   const [books, setBooks] = useState([]);
@@ -863,6 +864,24 @@ export default function BooksCatalog({
               </button>
             </div>
           </div>
+          {isAdmin && (
+            <div className="catalog-admin-actions">
+              <button
+                type="button"
+                className="catalog-goodreads-button"
+                onClick={onImportCatalog}
+              >
+                Importar JSON del scraper
+              </button>
+              <button
+                type="button"
+                className="catalog-create-button"
+                onClick={() => onAddBook?.("")}
+              >
+                Añadir un libro
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
