@@ -84,6 +84,58 @@ function bookTitleWithoutSaga(book) {
   return title;
 }
 
+function safeExternalUrl(value) {
+  const rawUrl = String(value || "").trim();
+  if (!rawUrl) return "";
+
+  try {
+    const parsedUrl = new URL(rawUrl);
+    return ["http:", "https:"].includes(parsedUrl.protocol) ? parsedUrl.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function isCasaDelLibroUrl(value) {
+  const safeUrl = safeExternalUrl(value);
+  if (!safeUrl) return false;
+
+  try {
+    const hostname = new URL(safeUrl).hostname.toLowerCase();
+    return hostname === "casadellibro.com" || hostname.endsWith(".casadellibro.com");
+  } catch {
+    return false;
+  }
+}
+
+function casaDelLibroSearchUrl(edition, book) {
+  const isbn = String(
+    edition?.isbn || (edition?.is_primary ? book?.isbn : "") || "",
+  ).replace(/[^0-9X]/giu, "");
+  const title = String(
+    edition?.title || bookTitleWithoutSaga(book) || book?.title || "",
+  ).trim();
+  const author = String(book?.author || "").trim();
+  const query = isbn || [title, author].filter(Boolean).join(" ");
+
+  if (!query) return "";
+
+  const search = new URL("https://www.casadellibro.com/busqueda-generica");
+  search.searchParams.set("busqueda", query);
+  search.searchParams.set("nivel", "5");
+  search.searchParams.set("auto", "0");
+  search.searchParams.set("maxresultados", "-1");
+  return search.href;
+}
+
+function editionPurchaseUrl(edition, book) {
+  if (isCasaDelLibroUrl(edition?.source_url)) {
+    return safeExternalUrl(edition.source_url);
+  }
+
+  return casaDelLibroSearchUrl(edition, book);
+}
+
 function parseGenres(value) {
   return normalizeBookGenres(value).slice(0, 8);
 }
@@ -1859,6 +1911,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
               {editions.map((edition) => {
                 const metadata = editionMetadata(edition);
                 const editionCover = edition.cover || currentBook.cover;
+                const purchaseUrl = editionPurchaseUrl(edition, currentBook);
 
                 return (
                   <article className="book-edition-card" key={edition.id}>
@@ -1901,13 +1954,14 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
                           </div>
                         )}
                       </dl>
-                      {edition.source_url && (
+                      {purchaseUrl && (
                         <a
-                          href={edition.source_url}
+                          href={purchaseUrl}
                           target="_blank"
                           rel="noreferrer"
+                          title="Abrir esta edición en Casa del Libro"
                         >
-                          Ver fuente de esta edición
+                          Comprar esta edición
                         </a>
                       )}
                     </div>

@@ -34,8 +34,61 @@ TERMINOS_EDICION = re.compile(
 )
 
 
+SAGA_FINAL_TITULO = re.compile(
+    r"\s*[\(\[]\s*(?P<name>[^\(\)\[\]]+?)"
+    r"(?:,\s*#\s*|#\s*|\s+)"
+    r"(?P<number>\d+)\s*[\)\]]\s*$",
+    re.IGNORECASE,
+)
+
+SAGA_TEXTO = re.compile(
+    r"^(?P<name>.+?)(?:,\s*#\s*|#\s*|\s+)(?P<number>\d+)$",
+    re.IGNORECASE,
+)
+
+
 def texto(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "").replace("\xa0", " ")).strip()
+
+
+
+def datos_saga(value: object) -> tuple[str, int | None]:
+    """Extrae nombre y número de textos como 'Ciudad Medialuna 3' o 'Ciudad Medialuna, #3'."""
+    value = texto(value).strip("()[] ")
+
+    if not value:
+        return "", None
+
+    match = SAGA_TEXTO.fullmatch(value)
+
+    if not match:
+        return value, None
+
+    name = texto(match.group("name")).strip(" ,#")
+
+    if not name or TERMINOS_EDICION.search(name):
+        return value, None
+
+    return name, int(match.group("number"))
+
+
+def normalizar_saga_en_titulo(title: str) -> tuple[str, str, int | None]:
+    """Convierte '(Ciudad Medialuna 3)' en '(Ciudad Medialuna, #3)'."""
+    match = SAGA_FINAL_TITULO.search(title)
+
+    if not match:
+        return title, "", None
+
+    name = texto(match.group("name")).strip(" ,#")
+
+    if not name or TERMINOS_EDICION.search(name):
+        return title, "", None
+
+    number = int(match.group("number"))
+    prefix = texto(title[: match.start()]).rstrip(" -–—,:")
+    normalized = f"{prefix} ({name}, #{number})" if prefix else f"({name}, #{number})"
+
+    return normalized, name, number
 
 
 def normalizado(value: object) -> str:
@@ -116,9 +169,20 @@ def separar_edicion(title: str) -> tuple[str, str]:
 
 
 def transformar(registro: dict, posicion: int) -> dict:
-    title = texto(registro.get("titulo") or registro.get("titulo_original"))
+    original_title = texto(registro.get("titulo") or registro.get("titulo_original"))
+    title, title_saga_name, title_saga_number = normalizar_saga_en_titulo(
+        original_title
+    )
+    source_saga_name, source_saga_number = datos_saga(registro.get("saga"))
+    saga_name = title_saga_name or source_saga_name
+    saga_number = title_saga_number or source_saga_number
+
+    if saga_name and saga_number and not title_saga_name:
+        title = f"{title} ({saga_name}, #{saga_number})"
+
     detected_title_base, detected_edition = separar_edicion(title)
-    title_base = texto(registro.get("titulo_base")) or detected_title_base
+    # Se recalcula para no conservar el sufijo antiguo '(Saga 3)' del JSON raw.
+    title_base = detected_title_base
     edition = texto(registro.get("edicion")) or detected_edition
     author = texto(registro.get("autora"))
     synopsis = texto(registro.get("sinopsis"))
@@ -174,7 +238,8 @@ def transformar(registro: dict, posicion: int) -> dict:
         "publisher": publisher,
         "language": "es",
         "isbn": normalized_isbn,
-        "saga_name": texto(registro.get("saga")),
+        "saga_name": saga_name,
+        "saga_number": saga_number,
         "cover": cover,
         "provider": "casa_del_libro",
         "source_id": texto(registro.get("source_id")) or normalized_isbn or source_url,

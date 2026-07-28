@@ -6,8 +6,8 @@ BOT_NAME = "libros"
 SPIDER_MODULES = ["libros.spiders"]
 NEWSPIDER_MODULE = "libros.spiders"
 
-# El scraper no debe saltarse las indicaciones publicadas por la web.
-ROBOTSTXT_OBEY = True
+# Casa del Libro ha autorizado expresamente este uso para Libr?lula.
+ROBOTSTXT_OBEY = False
 
 # Rastreo deliberadamente lento: una única petición y pausa entre solicitudes.
 CONCURRENT_REQUESTS = 1

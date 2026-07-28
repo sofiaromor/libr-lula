@@ -85,6 +85,7 @@ function normalizedItem(value, index) {
     language: cleanText(item.language || item.idioma || "es") || "es",
     isbn: cleanIsbn(item.isbn),
     sagaName: cleanText(item.saga_name || item.saga),
+    sagaNumber: cleanInteger(item.saga_number || item.sagaNumber),
     cover: cleanText(item.cover || item.imagen_portada),
     provider: cleanText(item.provider || "casa_del_libro"),
     sourceId,
@@ -188,6 +189,7 @@ function importPayload(item) {
     language: item.language || "es",
     isbn: item.isbn || null,
     saga_name: item.sagaName || null,
+    saga_number: item.sagaNumber || null,
     cover: item.cover || null,
     provider: item.provider || "casa_del_libro",
     source_id: item.sourceId || null,
@@ -885,6 +887,18 @@ export default function CatalogJsonImport({ onCancel }) {
                             value={item.sagaName}
                             onChange={(event) =>
                               editItem(item.rowId, { sagaName: event.target.value })
+                            }
+                          />
+                        </label>
+                        <label>
+                          <span>N.º en la saga</span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={item.sagaNumber}
+                            onChange={(event) =>
+                              editItem(item.rowId, { sagaNumber: event.target.value })
                             }
                           />
                         </label>
