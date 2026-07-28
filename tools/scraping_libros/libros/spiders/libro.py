@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import scrapy
 
@@ -67,53 +67,93 @@ class LibroSpider(scrapy.Spider):
         self,
         categoria_url: str | None = None,
         max_paginas: str | int = 1,
+        pagina_inicial: str | int = 1,
+        cantidad_paginas: str | int | None = None,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
 
-        self.categoria_url = texto_limpio(
-            categoria_url or self.categoria_predeterminada
+        self.categoria_url = self.normalizar_categoria_url(
+            texto_limpio(categoria_url or self.categoria_predeterminada)
         )
 
         try:
-            paginas = int(max_paginas)
+            inicio = int(pagina_inicial)
         except (TypeError, ValueError):
-            paginas = 1
+            inicio = 1
 
-        # Evita que un error de escritura lance una recopilación masiva.
-        self.max_paginas = max(1, min(paginas, 10))
+        self.pagina_inicial = max(1, inicio)
+
+        if cantidad_paginas is None:
+            # Compatibilidad con los comandos antiguos:
+            # max_paginas=2 sigue recorriendo las páginas 1 y 2.
+            try:
+                pagina_final = int(max_paginas)
+            except (TypeError, ValueError):
+                pagina_final = 1
+
+            pagina_final = max(1, min(pagina_final, 10))
+            self.pagina_inicial = 1
+            self.pagina_final = pagina_final
+        else:
+            try:
+                cantidad = int(cantidad_paginas)
+            except (TypeError, ValueError):
+                cantidad = 1
+
+            # Limita el tamaño del lote, no el número absoluto de página.
+            cantidad = max(1, min(cantidad, 10))
+            self.pagina_final = self.pagina_inicial + cantidad - 1
+
+        self.logger.info(
+            "Se recopilarán las páginas %s a %s (%s página(s)).",
+            self.pagina_inicial,
+            self.pagina_final,
+            self.pagina_final - self.pagina_inicial + 1,
+        )
 
     async def start(self):
         yield scrapy.Request(
-            self.url_pagina(1),
+            self.url_pagina(self.pagina_inicial),
             callback=self.parse,
-            meta={"pagina": 1},
+            meta={"pagina": self.pagina_inicial},
+        )
+
+    @staticmethod
+    def normalizar_categoria_url(url: str) -> str:
+        """Devuelve la URL base de categoria, aunque se reciba una /pN."""
+        partes = urlsplit(url)
+        ruta = re.sub(r"/p\d+/?$", "", partes.path.rstrip("/"), flags=re.I)
+        return urlunsplit(
+            (partes.scheme, partes.netloc, ruta, partes.query, partes.fragment)
         )
 
     def url_pagina(self, pagina: int) -> str:
+        """Construye la paginacion real: pagina 2 -> /p2."""
         partes = urlsplit(self.categoria_url)
-        consulta = dict(parse_qsl(partes.query, keep_blank_values=True))
-
-        if pagina > 1:
-            consulta["page"] = str(pagina)
-        else:
-            consulta.pop("page", None)
+        numero = max(1, int(pagina))
+        ruta_base = re.sub(
+            r"/p\d+/?$", "", partes.path.rstrip("/"), flags=re.I
+        )
+        ruta = ruta_base if numero == 1 else f"{ruta_base}/p{numero}"
 
         return urlunsplit(
-            (
-                partes.scheme,
-                partes.netloc,
-                partes.path,
-                urlencode(consulta),
-                partes.fragment,
-            )
+            (partes.scheme, partes.netloc, ruta, partes.query, partes.fragment)
         )
 
     def parse(self, response):
-        tarjetas = response.css(
-            "div.results div.products div.product-card, div.product-card"
-        )
+        # Prioriza los resultados paginados y evita carruseles promocionales
+        # repetidos. Si Casa del Libro cambia el contenedor, usa respaldo.
+        tarjetas = response.css("div.results div.products div.product-card")
+
+        if not tarjetas:
+            self.logger.warning(
+                "No se encontro el listado principal en %s; se usa el selector "
+                "de respaldo.",
+                response.url,
+            )
+            tarjetas = response.css("div.product-card")
 
         if not tarjetas:
             self.logger.warning(
@@ -132,7 +172,7 @@ class LibroSpider(scrapy.Spider):
 
         pagina_actual = int(response.meta.get("pagina", 1))
 
-        if pagina_actual < self.max_paginas:
+        if pagina_actual < self.pagina_final:
             pagina_siguiente = pagina_actual + 1
             yield scrapy.Request(
                 self.url_pagina(pagina_siguiente),
