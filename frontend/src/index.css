@@ -710,6 +710,215 @@ button {
   color: #8f3229;
 }
 
+.book-editions-section {
+  margin-top: 30px;
+  padding: 24px;
+  border: 1px solid rgba(117, 91, 65, .14);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(255, 253, 249, .94), rgba(247, 239, 229, .72));
+}
+
+.book-editions-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.book-editions-heading span {
+  color: #a56a47;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.book-editions-heading h2 {
+  margin: 4px 0 0;
+  color: #4f3c2e;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 24px;
+}
+
+.book-editions-heading > strong {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 50%;
+  background: #694d39;
+  color: #fffaf3;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 17px;
+}
+
+.book-editions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.book-edition-card {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid rgba(113, 85, 60, .14);
+  border-radius: 17px;
+  background: rgba(255, 255, 252, .88);
+  box-shadow: 0 9px 24px rgba(71, 52, 36, .055);
+}
+
+.book-edition-cover {
+  width: 88px;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #eadfce;
+  box-shadow: 0 7px 15px rgba(53, 39, 28, .12);
+}
+
+.book-edition-cover img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.book-edition-cover span {
+  padding: 8px;
+  color: #6f5b48;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.book-edition-cover span[hidden] {
+  display: none;
+}
+
+.book-edition-copy {
+  min-width: 0;
+}
+
+.book-edition-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.book-edition-badges span,
+.book-edition-badges em {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.book-edition-badges span {
+  background: #efe4d6;
+  color: #76533b;
+}
+
+.book-edition-badges em {
+  background: #e4f0e8;
+  color: #356147;
+}
+
+.book-edition-copy h3 {
+  margin: 0;
+  color: #4b382b;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.book-edition-copy > p {
+  margin: 6px 0 10px;
+  color: #806d5d;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.book-edition-copy dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.book-edition-copy dl > div {
+  min-width: 90px;
+}
+
+.book-edition-copy dt {
+  color: #9b816a;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.book-edition-copy dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  color: #5f4c3d;
+  font-size: 11px;
+}
+
+.book-edition-copy a {
+  display: inline-block;
+  margin-top: 10px;
+  color: #7e4b32;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.book-editions-feedback {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .58);
+  color: #786657;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+}
+
+.book-editions-feedback.is-error {
+  background: #f9e7e4;
+  color: #8f3229;
+}
+
+@media (max-width: 560px) {
+  .book-editions-section {
+    padding: 18px;
+  }
+
+  .book-editions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .book-edition-card {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .book-edition-cover {
+    width: 72px;
+  }
+}
+
 .book-technical-details {
   margin-top: 24px;
   color: #9c8265;

@@ -7,7 +7,9 @@ import {
 import {
   createCatalogBook,
   deleteCatalogBook,
+  getCatalogBookEditions,
   importExternalCatalogBook,
+  previewExternalCatalogBooks,
   updateCatalogBook,
 } from "./lib/createBookApi.ts";
 import {
@@ -152,6 +154,20 @@ async function localCatalogApiFetch(endpoint, options, method) {
   if (name === "import_external_book.php" && method === "POST") {
     const body = parseJsonBody(options);
     return jsonResponse(await importExternalCatalogBook(body));
+  }
+
+  if (name === "preview_external_books.php" && method === "POST") {
+    const body = parseJsonBody(options);
+    return jsonResponse(
+      await previewExternalCatalogBooks(Array.isArray(body.books) ? body.books : []),
+    );
+  }
+
+  if (name === "book_editions.php" && method === "GET") {
+    const url = endpointUrl(endpoint);
+    return jsonResponse(
+      await getCatalogBookEditions(url.searchParams.get("book_id") || ""),
+    );
   }
 
   if (name === "update_book.php" && method === "POST") {
