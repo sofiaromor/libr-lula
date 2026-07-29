@@ -1,8 +1,12 @@
 import { searchExternalBooks } from "./lib/externalBookSearchApi.js";
 import {
   getCatalogBooks,
+  getCatalogDiscovery,
+  getCatalogFilterOptions,
+  getCatalogReleaseAlerts,
   getCatalogUserBooks,
   saveCatalogUserBookStatus,
+  setCatalogReleaseAlert,
 } from "./lib/catalogApi.js";
 import {
   createCatalogBook,
@@ -116,8 +120,38 @@ function parseJsonBody(options) {
 async function localCatalogApiFetch(endpoint, options, method) {
   const name = endpointName(endpoint);
 
+  if (name === "catalog_discovery.php" && method === "GET") {
+    return jsonResponse(await getCatalogDiscovery());
+  }
+
+  if (name === "release_alerts.php" && method === "GET") {
+    return jsonResponse(await getCatalogReleaseAlerts());
+  }
+
+  if (name === "release_alerts.php" && method === "POST") {
+    const body = parseJsonBody(options);
+    return jsonResponse(await setCatalogReleaseAlert({
+      editionId: body.edition_id,
+      active: Boolean(body.active),
+    }));
+  }
+
   if (name === "get_books.php" && method === "GET") {
-    return jsonResponse(await getCatalogBooks());
+    const url = endpointUrl(endpoint);
+
+    if (url.searchParams.get("mode") === "filters") {
+      return jsonResponse(await getCatalogFilterOptions());
+    }
+
+    return jsonResponse(await getCatalogBooks({
+      page: url.searchParams.get("page") || 1,
+      pageSize: url.searchParams.get("page_size") || 24,
+      search: url.searchParams.get("q") || "",
+      genres: (url.searchParams.get("genres") || "").split("|").filter(Boolean),
+      genreMode: url.searchParams.get("genre_mode") || "any",
+      year: url.searchParams.get("year") || "",
+      bookId: url.searchParams.get("book_id") || "",
+    }));
   }
 
   if (name === "search.php" && method === "GET") {
