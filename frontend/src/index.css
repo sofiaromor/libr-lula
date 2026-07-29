@@ -3802,3 +3802,55 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Mi recorrido lector · hilo personal */
+.book-progress-thread-section {
+  margin-top: 30px;
+  padding: 28px;
+  border: 1px solid rgba(107, 82, 65, .15);
+  border-radius: 24px;
+  background: linear-gradient(145deg, #fffdf8, #f7f1e8);
+  box-shadow: 0 18px 42px rgba(68, 48, 36, .06);
+}
+
+.book-progress-thread-heading { align-items: flex-start; }
+.book-progress-thread-heading p { margin: 8px 0 0; max-width: 610px; color: #806f64; line-height: 1.45; }
+.book-progress-thread-kicker { color: #b35d3c; font-size: .67rem; font-weight: 900; letter-spacing: .17em; text-transform: uppercase; }
+.book-progress-thread-count { padding: 7px 11px; border-radius: 999px; background: #efe5d5; color: #745e50; font-size: .72rem; font-weight: 800; }
+.book-progress-thread-message { margin: 20px 0 0; color: #79675d; }
+.book-progress-thread-message.is-error { color: #a54e35; }
+
+.book-progress-thread-empty {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px dashed rgba(91, 119, 94, .32);
+  border-radius: 17px;
+  background: rgba(245, 248, 241, .78);
+}
+.book-progress-thread-empty strong { color: #315544; }
+.book-progress-thread-empty p { margin: 5px 0 0; color: #7d6b60; }
+
+.book-progress-thread-list { position: relative; display: grid; gap: 0; margin-top: 24px; padding-left: 22px; }
+.book-progress-thread-list::before { content: ""; position: absolute; top: 9px; bottom: 9px; left: 7px; width: 2px; background: linear-gradient(#b65b39, #d7c6af); }
+.book-progress-thread-item { position: relative; padding: 0 0 18px 18px; }
+.book-progress-thread-item:last-child { padding-bottom: 0; }
+.book-progress-thread-dot { position: absolute; left: -20px; top: 19px; width: 13px; height: 13px; border: 3px solid #fffaf2; border-radius: 50%; background: #b75a38; box-shadow: 0 0 0 1px rgba(183, 90, 56, .28); }
+
+.book-progress-thread-card { padding: 16px 17px; border: 1px solid rgba(107, 82, 65, .13); border-radius: 16px; background: #fffdfa; }
+.book-progress-thread-card header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.book-progress-thread-card header > div { display: flex; align-items: baseline; gap: 9px; }
+.book-progress-thread-card header strong { color: #315544; font-family: "Fraunces", Georgia, serif; font-size: 1.15rem; }
+.book-progress-thread-card header span { color: #b25b3c; font-size: .75rem; font-weight: 850; }
+.book-progress-thread-card time { color: #8d7b70; font-size: .7rem; text-align: right; }
+.book-progress-thread-card p { margin: 10px 0 0; color: #55463e; line-height: 1.55; white-space: pre-wrap; }
+.book-progress-thread-card p.is-muted { color: #9a887c; font-style: italic; }
+.book-progress-thread-card p.is-hidden-spoiler { filter: blur(5px); user-select: none; }
+.book-progress-thread-card button { margin-top: 9px; border: 0; padding: 0; background: transparent; color: #a44e32; font: inherit; font-size: .72rem; font-weight: 850; cursor: pointer; }
+
+@media (max-width: 680px) {
+  .book-progress-thread-section { padding: 20px 16px; }
+  .book-progress-thread-heading { flex-direction: column; }
+  .book-progress-thread-card header { flex-direction: column; gap: 5px; }
+  .book-progress-thread-card time { text-align: left; }
+}
