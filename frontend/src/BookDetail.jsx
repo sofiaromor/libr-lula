@@ -5,6 +5,7 @@ import { apiFetch, appUrl, publicUrl, readJsonResponse } from "./api.js";
 import { normalizeBookGenres } from "./bookGenres.js";
 import { parseTaxonomyItems } from "./bookTaxonomy.js";
 import ReadingStatusControl from "./ReadingStatusControl.jsx";
+import { getBookProgressThread } from "./lib/homeDashboardApi.js";
 import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
 import {
   FALLBACK_HERO_COLOR,
@@ -494,6 +495,19 @@ function reviewDate(value) {
   }).format(date);
 }
 
+function progressDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Fecha no disponible";
+
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function RatingStars({ score, label = true }) {
   const numericScore = Number(score);
   const valid = Number.isFinite(numericScore);
@@ -555,6 +569,10 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
   const [postitColor, setPostitColor] = useState("yellow");
   const [postitSaving, setPostitSaving] = useState(false);
   const [postitDeletingId, setPostitDeletingId] = useState(null);
+  const [progressThread, setProgressThread] = useState([]);
+  const [progressThreadLoading, setProgressThreadLoading] = useState(false);
+  const [progressThreadError, setProgressThreadError] = useState("");
+  const [revealedProgressNotes, setRevealedProgressNotes] = useState({});
   const postitComposerRef = useRef(null);
   const ratingPromptAnchorRef = useRef(null);
 
@@ -742,6 +760,34 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
       cancelled = true;
     };
   }, [currentBook?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProgressThread() {
+      if (!currentBook?.id || !isLoggedIn) {
+        setProgressThread([]);
+        setProgressThreadLoading(false);
+        setProgressThreadError("");
+        return;
+      }
+
+      setProgressThreadLoading(true);
+      setProgressThreadError("");
+
+      try {
+        const entries = await getBookProgressThread(currentBook.id);
+        if (!cancelled) setProgressThread(entries);
+      } catch (error) {
+        if (!cancelled) setProgressThreadError(error.message || "No se pudo cargar tu recorrido lector.");
+      } finally {
+        if (!cancelled) setProgressThreadLoading(false);
+      }
+    }
+
+    loadProgressThread();
+    return () => { cancelled = true; };
+  }, [currentBook?.id, isLoggedIn]);
 
   useEffect(() => {
     if (!postitComposerOpen) return undefined;
@@ -1562,6 +1608,61 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
                 ))}
               </div>
             </div>
+          </section>
+        )}
+
+        {isLoggedIn && (
+          <section className="book-progress-thread-section" aria-labelledby="book-progress-thread-title">
+            <div className="book-detail-section-heading book-progress-thread-heading">
+              <div>
+                <span className="book-progress-thread-kicker">Solo para ti</span>
+                <h2 id="book-progress-thread-title">Mi recorrido lector</h2>
+                <p>Cada cambio de progreso, comentario y fecha queda guardado como un hilo personal.</p>
+              </div>
+              <span className="book-progress-thread-count">{progressThread.length} {progressThread.length === 1 ? "avance" : "avances"}</span>
+            </div>
+
+            {progressThreadLoading && <p className="book-progress-thread-message">Cargando tu hilo lector…</p>}
+            {progressThreadError && <p className="book-progress-thread-message is-error">{progressThreadError}</p>}
+
+            {!progressThreadLoading && !progressThreadError && progressThread.length === 0 && (
+              <div className="book-progress-thread-empty">
+                <strong>Tu historia con este libro empieza aquí.</strong>
+                <p>Actualiza el progreso desde Inicio y podrás añadir una reflexión en cada avance.</p>
+              </div>
+            )}
+
+            {!progressThreadLoading && progressThread.length > 0 && (
+              <div className="book-progress-thread-list">
+                {progressThread.map((entry) => {
+                  const hidden = entry.spoiler && !revealedProgressNotes[entry.id];
+                  return (
+                    <article className="book-progress-thread-item" key={entry.id}>
+                      <span className="book-progress-thread-dot" aria-hidden="true" />
+                      <div className="book-progress-thread-card">
+                        <header>
+                          <div>
+                            <strong>{entry.previous_progress}% → {entry.new_progress}%</strong>
+                            {entry.pages_delta > 0 && <span>+{entry.pages_delta} páginas</span>}
+                          </div>
+                          <time>{progressDateTime(entry.created_at)}</time>
+                        </header>
+                        {entry.note ? (
+                          <p className={hidden ? "is-hidden-spoiler" : ""}>{hidden ? "Comentario oculto por spoilers" : entry.note}</p>
+                        ) : (
+                          <p className="is-muted">Guardaste este cambio de progreso sin comentario.</p>
+                        )}
+                        {entry.spoiler && (
+                          <button type="button" onClick={() => setRevealedProgressNotes((items) => ({ ...items, [entry.id]: !items[entry.id] }))}>
+                            {hidden ? "Mostrar comentario" : "Ocultar spoilers"}
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </section>
         )}
 
