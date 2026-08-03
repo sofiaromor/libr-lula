@@ -19,8 +19,9 @@ import {
 } from "./lib/session.js";
 
 const EMPTY_SESSION = EMPTY_SUPABASE_SESSION;
-const PROFILE_TABS = new Set(["summary", "activity", "favorites", "reviews"]);
+const PROFILE_TABS = new Set(["summary", "shelf", "activity", "favorites", "reviews"]);
 const CatalogJsonImport = lazy(() => import("./CatalogJsonImport.jsx"));
+const ClubesLectura = lazy(() => import("./ClubesLectura.jsx"));
 
 export default function App() {
   const [page, setPage] = useState("home");
@@ -28,6 +29,7 @@ export default function App() {
   const [selectedSaga, setSelectedSaga] = useState(null);
   const [detailBackPage, setDetailBackPage] = useState("catalog");
   const [profileTab, setProfileTab] = useState("summary");
+  const [profileUserId, setProfileUserId] = useState(null);
   const [newBookTitle, setNewBookTitle] = useState("");
   const [session, setSession] = useState(EMPTY_SESSION);
   const [sessionLoading, setSessionLoading] = useState(true);
@@ -141,6 +143,21 @@ useEffect(() => {
     setPage("catalog");
   }
 
+  function openClubs() {
+    if (!isLoggedIn) {
+      openLogin();
+      return;
+    }
+
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setNewBookTitle("");
+    setDetailBackPage("clubs");
+    setPage("clubs");
+  }
+
   function openProfile(tab = "summary") {
     const nextTab =
       typeof tab === "string" && PROFILE_TABS.has(tab) ? tab : "summary";
@@ -151,7 +168,21 @@ useEffect(() => {
     setSelectedSaga(null);
     setNewBookTitle("");
     setDetailBackPage("catalog");
+    setProfileUserId(null);
     setProfileTab(nextTab);
+    setPage("profile");
+  }
+
+  function openUserProfile(userId) {
+    if (!isLoggedIn || !userId) return;
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setNewBookTitle("");
+    setDetailBackPage("clubs");
+    setProfileUserId(String(userId));
+    setProfileTab("summary");
     setPage("profile");
   }
 
@@ -298,6 +329,18 @@ useEffect(() => {
       return;
     }
 
+    if (detailBackPage === "profile") {
+      updateBookQuery();
+      setPage("profile");
+      return;
+    }
+
+    if (detailBackPage === "clubs") {
+      updateBookQuery();
+      setPage("clubs");
+      return;
+    }
+
     if (detailBackPage === "profile-reviews") {
       updateBookQuery();
       setProfileTab("reviews");
@@ -360,7 +403,7 @@ useEffect(() => {
             </button>
               <button
                 type="button"
-                className={["catalog", "catalog-import", "detail", "saga"].includes(page) && !["library", "profile-reviews"].includes(detailBackPage) ? "is-active" : ""}
+                className={["catalog", "catalog-import", "detail", "saga"].includes(page) && !["library", "profile-reviews", "clubs"].includes(detailBackPage) ? "is-active" : ""}
                 onClick={openCatalog}
               >
                 Catálogo
@@ -368,6 +411,13 @@ useEffect(() => {
 
               {isLoggedIn && (
                 <>
+                  <button
+                    type="button"
+                    className={page === "clubs" || (page === "detail" && detailBackPage === "clubs") ? "is-active" : ""}
+                    onClick={openClubs}
+                  >
+                    Clubes
+                  </button>
                   <button
                     type="button"
                     className={page === "profile" && profileTab !== "reviews" ? "is-active" : ""}
@@ -436,6 +486,9 @@ useEffect(() => {
                     <button type="button" onClick={openAddFriends}>
                       Añadir amigos
                     </button>
+                    <button type="button" onClick={openClubs}>
+                      Clubes de lectura
+                    </button>
                     <button type="button" onClick={openLibrary}>
                       Mi biblioteca
                     </button>
@@ -503,15 +556,39 @@ useEffect(() => {
           />
         )}
 
+        {!sessionLoading && page === "clubs" && isLoggedIn && (
+          <Suspense
+            fallback={
+              <section className="lector-empty-state">
+                <h3>Preparando los clubes…</h3>
+                <p>Estamos colocando las mesas y abriendo los libros.</p>
+              </section>
+            }
+          >
+            <ClubesLectura
+              isLoggedIn={isLoggedIn}
+              onLogin={openLogin}
+              onSelectBook={(book) => openBookDetail(book, "clubs")}
+              onHome={openHome}
+              onCatalog={openCatalog}
+              onProfile={openProfile}
+              onOpenProfile={openUserProfile}
+            />
+          </Suspense>
+        )}
+
         {!sessionLoading && page === "profile" && isLoggedIn && (
           <PerfilSupabase
             activeTab={profileTab}
             onTabChange={setProfileTab}
             onOpenLibrary={openLibrary}
             onOpenCatalog={openCatalog}
+            onSelectBook={(book) => openBookDetail(book, "profile")}
             onSelectReviewBook={(book) =>
               openBookDetail(book, "profile-reviews")
             }
+            profileId={profileUserId}
+            onOpenOwnProfile={() => openProfile("summary")}
           />
         )}
 
@@ -589,4 +666,3 @@ useEffect(() => {
     </div>
   );
 }
-
