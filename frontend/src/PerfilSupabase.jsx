@@ -1,21 +1,37 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { publicUrl } from "./api.js";
 import MisResenas from "./MisResenas.jsx";
-import { getProfileOverview } from "./lib/profileApi.js";
+import {
+  getProfileOverview,
+  uploadProfileCover,
+} from "./lib/profileApi.js";
 import "./PerfilSupabase.css";
 
 const PROFILE_TABS = [
   { id: "summary", label: "Resumen" },
+  { id: "shelf", label: "Estantería" },
   { id: "activity", label: "Actividad" },
   { id: "favorites", label: "Favoritos" },
   { id: "reviews", label: "Reseñas" },
 ];
 
+const SHELF_FILTERS = [
+  { id: "all", label: "Todos" },
+  { id: "completed", label: "Leídos" },
+  { id: "reading", label: "Leyendo" },
+  { id: "planned", label: "Pendientes" },
+  { id: "dropped", label: "Abandonados" },
+];
+
+function clampProgress(value) {
+  return Math.min(100, Math.max(0, Number(value) || 0));
+}
+
 function formatNumber(value) {
   return new Intl.NumberFormat("es-ES").format(Number(value) || 0);
 }
 
-function formatDate(value) {
+function formatDate(value, withTime = false) {
   if (!value) return "Sin fecha";
 
   try {
@@ -23,6 +39,7 @@ function formatDate(value) {
       day: "numeric",
       month: "short",
       year: "numeric",
+      ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
     }).format(new Date(value));
   } catch {
     return "Sin fecha";
@@ -31,49 +48,472 @@ function formatDate(value) {
 
 function assetUrl(path, fallback = "images/librelula.png") {
   const clean = String(path || "").trim();
-
   if (!clean || clean === "default.jpg") {
     return publicUrl(fallback);
   }
 
-  if (/^https?:\/\//i.test(clean)) {
+  if (/^https?:\/\//i.test(clean) || clean.startsWith("blob:")) {
     return clean;
   }
 
   return publicUrl(clean);
 }
 
+function titleForStatus(status) {
+  if (["reading", "rereading"].includes(status)) return "Leyendo";
+  if (status === "completed") return "Leído";
+  if (status === "planned") return "Pendiente";
+  if (status === "paused") return "Pausado";
+  if (status === "dropped") return "Abandonado";
+  return "En tu biblioteca";
+}
+
 function EmptyBlock({ children }) {
   return <p className="profile-empty">{children}</p>;
 }
 
-function ProfileBookCard({ book }) {
-  if (!book) return null;
+function SectionHeading({ icon, title, meta, action, onAction }) {
+  return (
+    <div className="profile-section-heading">
+      <div className="profile-section-title">
+        {icon ? <span aria-hidden="true">{icon}</span> : null}
+        <h2>{title}</h2>
+        {meta ? <small>{meta}</small> : null}
+      </div>
+      {action ? (
+        <button type="button" className="profile-text-action" onClick={onAction}>
+          {action} <span aria-hidden="true">→</span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function CoverImage({ book, className = "" }) {
+  return (
+    <img
+      className={className}
+      src={assetUrl(book?.cover)}
+      alt={book?.title ? `Portada de ${book.title}` : "Portada del libro"}
+      loading="lazy"
+      onError={(event) => {
+        event.currentTarget.src = publicUrl("images/librelula.png");
+      }}
+    />
+  );
+}
+
+function ShelfPreview({ books, onSelectBook }) {
+  const visible = (books || []).slice(0, 4);
+  if (!visible.length) {
+    return <EmptyBlock>Tu estantería empezará a llenarse cuando añadas libros.</EmptyBlock>;
+  }
 
   return (
-    <article className="profile-book-card">
-      <div className="profile-book-cover">
-        <img
-          src={assetUrl(book.cover)}
-          alt={`Portada de ${book.title || "libro"}`}
-          loading="lazy"
-          onError={(event) => {
-            event.currentTarget.src = publicUrl("images/librelula.png");
-          }}
-        />
+    <div className="profile-shelf-preview" aria-label="Vista previa de tu estantería">
+      <div className="profile-shelf-books">
+        {visible.map((book) => (
+          <button
+            type="button"
+            key={`${book.id}-${book.status}`}
+            className="profile-shelf-book"
+            onClick={() => onSelectBook?.(book)}
+            title={book.title}
+          >
+            <CoverImage book={book} />
+          </button>
+        ))}
       </div>
+      <div className="profile-wood-shelf" aria-hidden="true" />
+    </div>
+  );
+}
 
-      <div className="profile-book-copy">
-        <h4>{book.title || "Libro sin título"}</h4>
-        <p>{book.author || "Autor desconocido"}</p>
+function ReadingCard({ book, onSelectBook }) {
+  const progress = clampProgress(book.progress);
+  return (
+    <button
+      type="button"
+      className="profile-reading-book"
+      onClick={() => onSelectBook?.(book)}
+    >
+      <CoverImage book={book} />
+      <span className="profile-reading-copy">
+        <strong>{book.title || "Libro sin título"}</strong>
+        <small>{book.author || "Autor desconocido"}</small>
+        <span className="profile-progress-row">
+          <span className="profile-progress-track">
+            <span style={{ width: `${progress}%` }} />
+          </span>
+          <em>{progress}%</em>
+        </span>
+      </span>
+    </button>
+  );
+}
 
-        {book.progress > 0 && (
-          <div className="profile-progress">
-            <span style={{ width: `${Math.min(100, Math.max(0, book.progress))}%` }} />
+function SmallBookCard({ book, onSelectBook, showDate = false }) {
+  return (
+    <button
+      type="button"
+      className="profile-small-book"
+      onClick={() => onSelectBook?.(book)}
+    >
+      <CoverImage book={book} />
+      <span>
+        <strong>{book.title || "Libro sin título"}</strong>
+        <small>{book.author || "Autor desconocido"}</small>
+        {showDate ? <time>{formatDate(book.added_at || book.activity_date)}</time> : null}
+      </span>
+    </button>
+  );
+}
+
+function StarRating({ score }) {
+  const safeScore = Math.max(0, Math.min(5, Number(score) || 0));
+  return (
+    <span className="profile-stars" aria-label={`${safeScore} de 5 estrellas`}>
+      {Array.from({ length: 5 }, (_, index) => (
+        <span key={index} className={index < safeScore ? "is-filled" : ""}>★</span>
+      ))}
+    </span>
+  );
+}
+
+function ReviewPreview({ review, onSelectBook }) {
+  return (
+    <button
+      type="button"
+      className="profile-review-preview"
+      onClick={() => onSelectBook?.(review.book)}
+    >
+      <CoverImage book={review.book} />
+      <span className="profile-review-copy">
+        <span className="profile-review-topline">
+          <strong>{review.book?.title || "Libro sin título"}</strong>
+          <StarRating score={review.score} />
+        </span>
+        <small>{review.book?.author || "Autor desconocido"}</small>
+        <p>{review.review || "Valoración guardada sin comentario."}</p>
+      </span>
+    </button>
+  );
+}
+
+function CircleReader({ reader }) {
+  const fallback = publicUrl("images/avatar/avatar1.png");
+  return (
+    <article className="profile-circle-reader">
+      <img
+        className="profile-circle-avatar"
+        src={assetUrl(reader.avatar, "images/avatar/avatar1.png")}
+        alt={`Avatar de ${reader.username || "lector"}`}
+        onError={(event) => {
+          event.currentTarget.src = fallback;
+        }}
+      />
+      <div>
+        <strong>{reader.display_name || reader.username || "Lectora"}</strong>
+        <p>
+          {reader.current_book
+            ? `Leyendo: ${reader.current_book.title}`
+            : "Todavía no ha marcado una lectura actual."}
+        </p>
+        {reader.current_book ? (
+          <div className="profile-circle-progress">
+            <span style={{ width: `${clampProgress(reader.current_book.progress)}%` }} />
           </div>
-        )}
+        ) : null}
       </div>
+      {reader.current_book ? <CoverImage book={reader.current_book} /> : null}
     </article>
+  );
+}
+
+function SummaryView({ data, onSelectBook, onTabChange }) {
+  const recentDays = (data.activityDays || []).slice(-7);
+
+  return (
+    <section className="profile-dashboard" id="profile-panel-summary" role="tabpanel">
+      <div className="profile-dashboard-main">
+        <article className="profile-panel profile-shelf-panel">
+          <SectionHeading
+            icon="▥"
+            title="Mi estantería"
+            action="Ver todo"
+            onAction={() => onTabChange?.("shelf")}
+          />
+          <div className="profile-shelf-counts">
+            <div><span>{formatNumber(data.shelfCounts.completed)}</span><small>Leídos</small></div>
+            <div><span>{formatNumber(data.shelfCounts.reading)}</span><small>Leyendo</small></div>
+            <div><span>{formatNumber(data.shelfCounts.planned)}</span><small>Pendientes</small></div>
+            <div><span>{formatNumber(data.shelfCounts.dropped)}</span><small>Abandonados</small></div>
+          </div>
+          <ShelfPreview books={data.shelfBooks} onSelectBook={onSelectBook} />
+        </article>
+
+        <article className="profile-panel profile-reading-panel">
+          <SectionHeading
+            title="Leyendo ahora"
+            meta={`${data.currentReadingBooks.length} libros`}
+            action="Ver todos"
+            onAction={() => onTabChange?.("shelf")}
+          />
+          {data.currentReadingBooks.length ? (
+            <div className="profile-reading-grid">
+              {data.currentReadingBooks.slice(0, 3).map((book) => (
+                <ReadingCard key={book.id} book={book} onSelectBook={onSelectBook} />
+              ))}
+            </div>
+          ) : (
+            <EmptyBlock>No tienes ningún libro marcado como leyendo ahora mismo.</EmptyBlock>
+          )}
+        </article>
+
+        <article className="profile-panel profile-latest-panel">
+          <SectionHeading
+            title="Últimas incorporaciones"
+            action="Ver todo"
+            onAction={() => onTabChange?.("shelf")}
+          />
+          {data.latestAdditions.length ? (
+            <div className="profile-latest-grid">
+              {data.latestAdditions.slice(0, 3).map((book) => (
+                <SmallBookCard
+                  key={`${book.id}-${book.status}`}
+                  book={book}
+                  onSelectBook={onSelectBook}
+                  showDate
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyBlock>Aún no hay incorporaciones recientes.</EmptyBlock>
+          )}
+        </article>
+
+        <article className="profile-panel profile-reviews-summary">
+          <SectionHeading
+            title="Reseñas recientes"
+            action="Ver todas"
+            onAction={() => onTabChange?.("reviews")}
+          />
+          {data.recentReviews.length ? (
+            <div className="profile-review-list">
+              {data.recentReviews.slice(0, 3).map((review) => (
+                <ReviewPreview key={review.id} review={review} onSelectBook={onSelectBook} />
+              ))}
+            </div>
+          ) : (
+            <EmptyBlock>Tus próximas reseñas aparecerán aquí.</EmptyBlock>
+          )}
+        </article>
+      </div>
+
+      <aside className="profile-dashboard-side">
+        <article className="profile-panel profile-streak-panel">
+          <SectionHeading title={`Racha de ${formatNumber(data.streak)} días`} />
+          <p>¡Sigue así!</p>
+          <div className="profile-week-dots" aria-label="Actividad de los últimos siete días">
+            {recentDays.map((day) => (
+              <span key={day.date} className={day.points > 0 ? "is-active" : ""} title={day.label} />
+            ))}
+          </div>
+          <div className="profile-week-labels" aria-hidden="true">
+            {recentDays.map((day) => (
+              <small key={day.date}>{new Date(day.date).toLocaleDateString("es-ES", { weekday: "narrow" })}</small>
+            ))}
+          </div>
+          <button type="button" className="profile-text-action" onClick={() => onTabChange?.("activity")}>Ver actividad →</button>
+        </article>
+
+        <article className="profile-panel profile-clubs-panel">
+          <SectionHeading title="Marcapáginas de clubes" />
+          {data.clubAchievements?.length ? (
+            <div className="profile-club-achievements">
+              {data.clubAchievements.slice(0, 4).map((achievement) => (
+                <article key={achievement.id}>
+                  <span aria-hidden="true">❧</span>
+                  <div>
+                    <strong>{achievement.label}</strong>
+                    <small>{achievement.club?.name || "Club de lectura"}</small>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="profile-coming-soon">
+              <span aria-hidden="true">❧</span>
+              <strong>Tu colección empezará aquí</strong>
+              <p>Los marcapáginas que consigas en tus clubes aparecerán en este espacio.</p>
+            </div>
+          )}
+        </article>
+
+        <article className="profile-panel profile-circle-panel">
+          <SectionHeading title="Círculo lector" />
+          {data.readerCircle.length ? (
+            <div className="profile-circle-list">
+              {data.readerCircle.slice(0, 3).map((reader) => (
+                <CircleReader key={reader.id} reader={reader} />
+              ))}
+            </div>
+          ) : (
+            <EmptyBlock>Sigue a otras lectoras para ver qué están leyendo.</EmptyBlock>
+          )}
+        </article>
+      </aside>
+    </section>
+  );
+}
+
+function ShelfView({ data, shelfFilter, onShelfFilter, onSelectBook }) {
+  const visibleBooks = useMemo(() => {
+    if (shelfFilter === "all") return data.shelfBooks;
+    if (shelfFilter === "reading") {
+      return data.shelfBooks.filter((book) => ["reading", "rereading", "paused"].includes(book.status));
+    }
+    return data.shelfBooks.filter((book) => book.status === shelfFilter);
+  }, [data.shelfBooks, shelfFilter]);
+
+  return (
+    <section className="profile-tab-view" id="profile-panel-shelf" role="tabpanel">
+      <div className="profile-tab-intro">
+        <div>
+          <span className="profile-eyebrow">Tu biblioteca personal</span>
+          <h2>Estantería</h2>
+          <p>Todos tus libros reunidos por estado de lectura.</p>
+        </div>
+        <strong>{formatNumber(visibleBooks.length)} libros</strong>
+      </div>
+      <div className="profile-filter-row" role="group" aria-label="Filtrar estantería">
+        {SHELF_FILTERS.map((filter) => (
+          <button
+            type="button"
+            key={filter.id}
+            className={shelfFilter === filter.id ? "is-active" : ""}
+            onClick={() => onShelfFilter(filter.id)}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+      {visibleBooks.length ? (
+        <div className="profile-library-grid">
+          {visibleBooks.map((book) => (
+            <button
+              type="button"
+              className="profile-library-book"
+              key={`${book.id}-${book.status}`}
+              onClick={() => onSelectBook?.(book)}
+            >
+              <CoverImage book={book} />
+              <span>
+                <strong>{book.title || "Libro sin título"}</strong>
+                <small>{book.author || "Autor desconocido"}</small>
+                <em>{titleForStatus(book.status)}</em>
+                {book.progress > 0 ? (
+                  <span className="profile-progress-track">
+                    <span style={{ width: `${clampProgress(book.progress)}%` }} />
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <EmptyBlock>No hay libros en esta sección.</EmptyBlock>
+      )}
+    </section>
+  );
+}
+
+function ActivityView({ data, onSelectBook }) {
+  return (
+    <section className="profile-tab-view" id="profile-panel-activity" role="tabpanel">
+      <div className="profile-tab-intro">
+        <div>
+          <span className="profile-eyebrow">Tus huellas lectoras</span>
+          <h2>Actividad</h2>
+          <p>Lecturas empezadas, avances, pausas y libros terminados.</p>
+        </div>
+      </div>
+      {data.recentActivity.length ? (
+        <div className="profile-timeline">
+          {data.recentActivity.map((item) => (
+            <button
+              type="button"
+              key={`${item.book_id}-${item.status}-${item.date}`}
+              className="profile-timeline-item"
+              onClick={() => onSelectBook?.(item)}
+            >
+              <span className="profile-timeline-dot" />
+              <CoverImage book={item} />
+              <span>
+                <strong>{item.action} {item.title}</strong>
+                <small>{item.author || "Autor desconocido"} · {formatDate(item.date, true)}</small>
+                {item.progress > 0 ? <em>{clampProgress(item.progress)}% completado</em> : null}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <EmptyBlock>Aún no hay actividad reciente para mostrar.</EmptyBlock>
+      )}
+    </section>
+  );
+}
+
+function FavoritesView({ data, onSelectBook }) {
+  return (
+    <section className="profile-tab-view" id="profile-panel-favorites" role="tabpanel">
+      <div className="profile-tab-intro">
+        <div>
+          <span className="profile-eyebrow">Tu mapa de afinidades</span>
+          <h2>Favoritos</h2>
+          <p>Libros, autores y géneros que más se repiten en tus mejores lecturas.</p>
+        </div>
+      </div>
+      <div className="profile-favorites-layout">
+        <article className="profile-panel">
+          <SectionHeading title="Libros favoritos" />
+          {data.favoriteBooks.length ? (
+            <div className="profile-favorite-books-grid">
+              {data.favoriteBooks.map((book) => (
+                <SmallBookCard key={book.id} book={book} onSelectBook={onSelectBook} />
+              ))}
+            </div>
+          ) : (
+            <EmptyBlock>Aún no has elegido libros favoritos.</EmptyBlock>
+          )}
+        </article>
+        <article className="profile-panel">
+          <SectionHeading title="Autores favoritos" />
+          {data.favoriteAuthors.length ? (
+            <div className="profile-tag-cloud">
+              {data.favoriteAuthors.map((author) => <span key={author}>{author}</span>)}
+            </div>
+          ) : (
+            <EmptyBlock>Aún no has elegido autores favoritos.</EmptyBlock>
+          )}
+        </article>
+        <article className="profile-panel">
+          <SectionHeading title="Géneros más leídos" />
+          {data.favoriteGenres.length ? (
+            <div className="profile-genre-bars">
+              {data.favoriteGenres.map((genre) => (
+                <div key={genre.name}>
+                  <span><strong>{genre.name}</strong><small>{genre.count}</small></span>
+                  <div><i style={{ width: `${Math.min(100, genre.share || genre.count * 12)}%` }} /></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyBlock>Todavía no hay géneros destacados.</EmptyBlock>
+          )}
+        </article>
+      </div>
+    </section>
   );
 }
 
@@ -82,25 +522,36 @@ export default function PerfilSupabase({
   onTabChange,
   onOpenLibrary,
   onOpenCatalog,
+  onSelectBook,
   onSelectReviewBook,
+  profileId = null,
+  onOpenOwnProfile,
 }) {
-  const [state, setState] = useState({
-    loading: true,
-    error: "",
-    data: null,
-  });
+  const fileInputRef = useRef(null);
+  const [state, setState] = useState({ loading: true, error: "", data: null });
+  const [coverState, setCoverState] = useState({ saving: false, error: "" });
+  const [shelfFilter, setShelfFilter] = useState("all");
+
+  async function loadProfile() {
+    try {
+      const data = await getProfileOverview(profileId);
+      setState({ loading: false, error: "", data });
+    } catch (error) {
+      setState({
+        loading: false,
+        error: error?.message || "No se pudo cargar tu perfil.",
+        data: null,
+      });
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
-
-    async function loadProfile() {
-      try {
-        const data = await getProfileOverview();
-
-        if (!cancelled) {
-          setState({ loading: false, error: "", data });
-        }
-      } catch (error) {
+    getProfileOverview(profileId)
+      .then((data) => {
+        if (!cancelled) setState({ loading: false, error: "", data });
+      })
+      .catch((error) => {
         if (!cancelled) {
           setState({
             loading: false,
@@ -108,15 +559,11 @@ export default function PerfilSupabase({
             data: null,
           });
         }
-      }
-    }
-
-    loadProfile();
-
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [profileId]);
 
   const data = state.data;
   const profile = data?.profile;
@@ -124,13 +571,35 @@ export default function PerfilSupabase({
     ? activeTab
     : "summary";
 
-  const visibleActivityDays = useMemo(() => {
-    return (data?.activityDays || []).slice(-126);
-  }, [data?.activityDays]);
+  async function handleCoverSelected(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setCoverState({ saving: true, error: "" });
+    try {
+      const coverImage = await uploadProfileCover(file);
+      setState((current) => ({
+        ...current,
+        data: current.data
+          ? {
+              ...current.data,
+              profile: { ...current.data.profile, cover_image: coverImage },
+            }
+          : current.data,
+      }));
+      setCoverState({ saving: false, error: "" });
+    } catch (error) {
+      setCoverState({
+        saving: false,
+        error: error?.message || "No se pudo cambiar la portada.",
+      });
+    }
+  }
 
   if (state.loading) {
     return (
-      <main className="reader-profile">
+      <main className="reader-profile profile-redesign">
         <section className="profile-shell">
           <div className="profile-loading-card">
             <span className="profile-loader" />
@@ -143,14 +612,15 @@ export default function PerfilSupabase({
 
   if (state.error) {
     return (
-      <main className="reader-profile">
+      <main className="reader-profile profile-redesign">
         <section className="profile-shell">
           <div className="profile-error-card">
             <h1>No se pudo abrir Mi rincón</h1>
             <p>{state.error}</p>
-            <button type="button" onClick={onOpenCatalog}>
-              Volver al catálogo
-            </button>
+            <div className="profile-error-actions">
+              <button type="button" onClick={loadProfile}>Reintentar</button>
+              <button type="button" className="is-secondary" onClick={onOpenCatalog}>Volver al catálogo</button>
+            </div>
           </div>
         </section>
       </main>
@@ -159,14 +629,12 @@ export default function PerfilSupabase({
 
   if (!data?.authenticated || !profile) {
     return (
-      <main className="reader-profile">
+      <main className="reader-profile profile-redesign">
         <section className="profile-shell">
           <div className="profile-error-card">
             <h1>Inicia sesión para ver tu rincón</h1>
             <p>Tu perfil lector se carga con tu cuenta de Librélula.</p>
-            <button type="button" onClick={onOpenCatalog}>
-              Volver al catálogo
-            </button>
+            <button type="button" onClick={onOpenCatalog}>Volver al catálogo</button>
           </div>
         </section>
       </main>
@@ -174,46 +642,76 @@ export default function PerfilSupabase({
   }
 
   const avatarUrl = assetUrl(profile.avatar, "images/avatar/avatar1.png");
+  const coverUrl = assetUrl(profile.cover_image, "images/fondo.png");
+  const displayName = profile.display_name || profile.username || "Mi rincón";
+  const handle = String(profile.username || "lectora").replace(/^@/, "");
 
   return (
-    <main className="reader-profile">
+    <main className="reader-profile profile-redesign">
       <section className="profile-shell">
-        <header className="profile-banner">
-          <div className="profile-banner-glow" />
-
-          <div className="profile-heading">
-            <div className="profile-avatar-large">
+        <header
+          className="profile-hero"
+          style={{ "--profile-cover": `url("${coverUrl}")` }}
+        >
+          <div className="profile-hero-overlay" />
+          {data.isOwner ? (
+            <>
+              <button
+                type="button"
+                className="profile-change-cover"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={coverState.saving}
+              >
+                <span aria-hidden="true">▣</span>
+                {coverState.saving ? "Guardando…" : "Cambiar portada"}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+                onChange={handleCoverSelected}
+              />
+            </>
+          ) : null}
+          <div className="profile-identity">
+            <div className="profile-avatar-frame">
               <img
                 src={avatarUrl}
-                alt={`Avatar de ${profile.username}`}
+                alt={`Avatar de ${displayName}`}
                 onError={(event) => {
                   event.currentTarget.src = publicUrl("images/avatar/avatar1.png");
                 }}
               />
             </div>
-
-            <div className="profile-title-block">
-              <span className="profile-kicker">Mi rincón</span>
-              <h1>{profile.username}</h1>
-              <p>{profile.bio || "Lecturas, favoritos y pequeñas huellas de tu biblioteca personal."}</p>
+            <div className="profile-identity-copy">
+              <h1>{displayName}</h1>
+              <span>@{handle}</span>
+              <p>{profile.bio || "Lecturas, favoritos y pequeñas huellas de mi biblioteca personal."}</p>
+              <div className="profile-social-counts">
+                <button type="button"><strong>{formatNumber(data.social.followers)}</strong> seguidores</button>
+                <button type="button"><strong>{formatNumber(data.social.following)}</strong> siguiendo</button>
+              </div>
             </div>
-
-            <div className="profile-actions">
-              <button type="button" onClick={onOpenLibrary}>
-                Ver mi biblioteca
-              </button>
-              <button type="button" className="ghost" onClick={onOpenCatalog}>
-                Explorar catálogo
-              </button>
+            <div className="profile-owner-actions">
+              {data.isOwner ? (
+                <>
+                  <button type="button" onClick={onOpenLibrary}>Ver biblioteca</button>
+                  <button type="button" className="is-secondary" onClick={onOpenCatalog}>Explorar catálogo</button>
+                </>
+              ) : (
+                <>
+                  <button type="button" onClick={onOpenOwnProfile}>Volver a mi perfil</button>
+                  <button type="button" className="is-secondary" onClick={onOpenCatalog}>Explorar catálogo</button>
+                </>
+              )}
             </div>
           </div>
         </header>
 
-        <nav
-          className="profile-tabs"
-          aria-label="Secciones del perfil"
-          role="tablist"
-        >
+        {coverState.error ? <p className="profile-inline-error">{coverState.error}</p> : null}
+
+        <nav className="profile-tabs" aria-label="Secciones del perfil" role="tablist">
           {PROFILE_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -230,194 +728,51 @@ export default function PerfilSupabase({
           ))}
         </nav>
 
-        {currentTab === "summary" && (
-          <section className="profile-stats-grid" aria-label="Estadísticas de lectura">
-          <article>
-            <span>{formatNumber(data.stats.completed)}</span>
-            <p>Libros leídos</p>
-          </article>
-          <article>
-            <span>{formatNumber(data.stats.favorites)}</span>
-            <p>Favoritos 5★</p>
-          </article>
-          <article>
-            <span>{formatNumber(data.stats.pages_read)}</span>
-            <p>Páginas leídas</p>
-          </article>
-          <article>
-            <span>{formatNumber(data.streak)}</span>
-            <p>Racha actual</p>
-          </article>
-          </section>
-        )}
-
-        {currentTab !== "reviews" && (
-        <section
-          id={`profile-panel-${currentTab}`}
-          className={`profile-grid profile-view-${currentTab}`}
-          role="tabpanel"
-          aria-labelledby={`profile-tab-${currentTab}`}
-        >
-          <div className="profile-column-main">
-            <article className="profile-card profile-reading-card">
-              <div className="profile-card-heading">
-                <div>
-                  <span className="profile-eyebrow">Ahora</span>
-                  <h2>Leyendo actualmente</h2>
-                </div>
-              </div>
-
-              {data.currentReadingBooks.length > 0 ? (
-                <div className="profile-current-list">
-                  {data.currentReadingBooks.map((book) => (
-                    <ProfileBookCard key={book.id} book={book} />
-                  ))}
-                </div>
-              ) : (
-                <EmptyBlock>No tienes ningún libro marcado como leyendo ahora mismo.</EmptyBlock>
-              )}
-            </article>
-
-            <article className="profile-card profile-activity-card">
-              <div className="profile-card-heading">
-                <div>
-                  <span className="profile-eyebrow">Últimos movimientos</span>
-                  <h2>Actividad reciente</h2>
-                </div>
-              </div>
-
-              {data.recentActivity.length > 0 ? (
-                <div className="profile-activity-list">
-                  {data.recentActivity.map((item) => (
-                    <article className="profile-activity-item" key={`${item.book_id}-${item.status}-${item.date}`}>
-                      <img
-                        src={assetUrl(item.cover)}
-                        alt=""
-                        loading="lazy"
-                        onError={(event) => {
-                          event.currentTarget.src = publicUrl("images/librelula.png");
-                        }}
-                      />
-                      <div>
-                        <strong>{item.action} {item.title}</strong>
-                        <p>{item.author || "Autor desconocido"} · {formatDate(item.date)}</p>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <EmptyBlock>Aún no hay actividad reciente para mostrar.</EmptyBlock>
-              )}
-            </article>
-          </div>
-
-          <aside className="profile-column-side">
-            <article className="profile-card profile-heatmap-card">
-              <div className="profile-card-heading">
-                <div>
-                  <span className="profile-eyebrow">Mapa lector</span>
-                  <h2>Actividad</h2>
-                </div>
-              </div>
-
-              <div className="profile-heatmap" aria-label="Actividad lectora de los últimos meses">
-                {visibleActivityDays.map((day) => (
-                  <span
-                    key={day.date}
-                    className={`level-${day.level}`}
-                    title={`${day.label}: ${day.points} movimientos`}
-                  />
-                ))}
-              </div>
-            </article>
-
-            <article className="profile-card profile-genres-card">
-              <div className="profile-card-heading">
-                <div>
-                  <span className="profile-eyebrow">Géneros</span>
-                  <h2>Más leídos</h2>
-                </div>
-              </div>
-
-              {data.favoriteGenres.length > 0 ? (
-                <div className="profile-tags">
-                  {data.favoriteGenres.map((genre) => (
-                    <span key={genre.name}>
-                      {genre.name} <small>{genre.count}</small>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <EmptyBlock>Todavía no hay géneros destacados.</EmptyBlock>
-              )}
-            </article>
-
-            <article className="profile-card profile-favorite-books-card">
-              <div className="profile-card-heading">
-                <div>
-                  <span className="profile-eyebrow">Favoritos</span>
-                  <h2>Libros</h2>
-                </div>
-              </div>
-
-              {data.favoriteBooks.length > 0 ? (
-                <div className="profile-mini-books">
-                  {data.favoriteBooks.map((book) => (
-                    <img
-                      key={book.id}
-                      src={assetUrl(book.cover)}
-                      alt={book.title || "Libro favorito"}
-                      title={book.title || "Libro favorito"}
-                      loading="lazy"
-                      onError={(event) => {
-                        event.currentTarget.src = publicUrl("images/librelula.png");
-                      }}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyBlock>Aún no has elegido libros favoritos.</EmptyBlock>
-              )}
-            </article>
-
-            <article className="profile-card profile-favorite-authors-card">
-              <div className="profile-card-heading">
-                <div>
-                  <span className="profile-eyebrow">Favoritos</span>
-                  <h2>Autores</h2>
-                </div>
-              </div>
-
-              {data.favoriteAuthors.length > 0 ? (
-                <div className="profile-author-list">
-                  {data.favoriteAuthors.map((author) => (
-                    <span key={author}>{author}</span>
-                  ))}
-                </div>
-              ) : (
-                <EmptyBlock>Aún no has elegido autores favoritos.</EmptyBlock>
-              )}
-            </article>
-          </aside>
-        </section>
-        )}
-
-        {currentTab === "reviews" && (
+        {currentTab === "summary" ? (
+          <SummaryView
+            data={data}
+            onSelectBook={onSelectBook}
+            onTabChange={onTabChange}
+          />
+        ) : null}
+        {currentTab === "shelf" ? (
+          <ShelfView
+            data={data}
+            shelfFilter={shelfFilter}
+            onShelfFilter={setShelfFilter}
+            onSelectBook={onSelectBook}
+          />
+        ) : null}
+        {currentTab === "activity" ? (
+          <ActivityView data={data} onSelectBook={onSelectBook} />
+        ) : null}
+        {currentTab === "favorites" ? (
+          <FavoritesView data={data} onSelectBook={onSelectBook} />
+        ) : null}
+        {currentTab === "reviews" ? (
           <section
             id="profile-panel-reviews"
-            className="profile-tab-panel"
+            className="profile-tab-view profile-reviews-card"
             role="tabpanel"
             aria-labelledby="profile-tab-reviews"
           >
-            <article className="profile-card profile-reviews-card">
+            {data.isOwner ? (
               <MisResenas
                 embedded
                 onOpenCatalog={onOpenCatalog}
                 onSelectBook={onSelectReviewBook}
               />
-            </article>
+            ) : data.recentReviews.length ? (
+              <div className="profile-review-list profile-public-reviews">
+                {data.recentReviews.map((review) => (
+                  <ReviewPreview key={review.id} review={review} onSelectBook={onSelectBook} />
+                ))}
+              </div>
+            ) : (
+              <EmptyBlock>Esta persona todavía no ha publicado reseñas.</EmptyBlock>
+            )}
           </section>
-        )}
+        ) : null}
       </section>
     </main>
   );
