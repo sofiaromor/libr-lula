@@ -526,6 +526,7 @@ export default function PerfilSupabase({
   onSelectReviewBook,
   profileId = null,
   onOpenOwnProfile,
+  onBackToClub,
 }) {
   const fileInputRef = useRef(null);
   const [state, setState] = useState({ loading: true, error: "", data: null });
@@ -649,6 +650,11 @@ export default function PerfilSupabase({
   return (
     <main className="reader-profile profile-redesign">
       <section className="profile-shell">
+        {onBackToClub ? (
+          <button type="button" className="profile-back-to-club" onClick={onBackToClub}>
+            <span aria-hidden="true">←</span> Volver al club
+          </button>
+        ) : null}
         <header
           className="profile-hero"
           style={{ "--profile-cover": `url("${coverUrl}")` }}
