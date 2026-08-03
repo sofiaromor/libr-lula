@@ -1090,3 +1090,30 @@
 .profile-public-reviews {
   padding: 8px;
 }
+
+/* Perfil abierto desde un club */
+.profile-back-to-club {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  border: 1px solid rgba(119, 77, 48, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 251, 244, 0.92);
+  color: #74452f;
+  padding: 9px 14px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(90, 57, 35, 0.08);
+}
+
+.profile-back-to-club:hover {
+  background: #fff5e8;
+  border-color: rgba(119, 77, 48, 0.42);
+}
+
+.profile-back-to-club > span {
+  font-size: 1.15rem;
+  line-height: 1;
+}

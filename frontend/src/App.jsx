@@ -30,6 +30,7 @@ export default function App() {
   const [detailBackPage, setDetailBackPage] = useState("catalog");
   const [profileTab, setProfileTab] = useState("summary");
   const [profileUserId, setProfileUserId] = useState(null);
+  const [profileReturnClubId, setProfileReturnClubId] = useState(null);
   const [newBookTitle, setNewBookTitle] = useState("");
   const [session, setSession] = useState(EMPTY_SESSION);
   const [sessionLoading, setSessionLoading] = useState(true);
@@ -154,6 +155,7 @@ useEffect(() => {
     setSelectedBook(null);
     setSelectedSaga(null);
     setNewBookTitle("");
+    setProfileReturnClubId(null);
     setDetailBackPage("clubs");
     setPage("clubs");
   }
@@ -169,11 +171,12 @@ useEffect(() => {
     setNewBookTitle("");
     setDetailBackPage("catalog");
     setProfileUserId(null);
+    setProfileReturnClubId(null);
     setProfileTab(nextTab);
     setPage("profile");
   }
 
-  function openUserProfile(userId) {
+  function openUserProfile(userId, clubId = null) {
     if (!isLoggedIn || !userId) return;
     closeNavigation();
     updateBookQuery();
@@ -181,9 +184,21 @@ useEffect(() => {
     setSelectedSaga(null);
     setNewBookTitle("");
     setDetailBackPage("clubs");
+    setProfileReturnClubId(clubId ? String(clubId) : null);
     setProfileUserId(String(userId));
     setProfileTab("summary");
     setPage("profile");
+  }
+
+  function returnToClubFromProfile() {
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setNewBookTitle("");
+    setProfileUserId(null);
+    setProfileTab("summary");
+    setPage("clubs");
   }
 
     function openAddFriends() {
@@ -573,6 +588,8 @@ useEffect(() => {
               onCatalog={openCatalog}
               onProfile={openProfile}
               onOpenProfile={openUserProfile}
+              initialClubId={profileReturnClubId}
+              onInitialClubConsumed={() => setProfileReturnClubId(null)}
             />
           </Suspense>
         )}
@@ -589,6 +606,7 @@ useEffect(() => {
             }
             profileId={profileUserId}
             onOpenOwnProfile={() => openProfile("summary")}
+            onBackToClub={profileReturnClubId ? returnToClubFromProfile : null}
           />
         )}
 

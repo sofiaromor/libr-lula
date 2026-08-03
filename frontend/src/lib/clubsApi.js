@@ -1,6 +1,6 @@
 import { supabase } from "./supabase.js";
 
-const PROFILE_FIELDS = "id, username, display_name, avatar";
+const PROFILE_FIELDS = "id, legacy_id, username, display_name, avatar";
 const BOOK_FIELDS = "id, title, author, cover, pages, genre, year, saga_name, saga_number";
 const CLUB_FIELDS = `
   id,
@@ -16,6 +16,11 @@ const CLUB_FIELDS = `
   next_meeting_at,
   meeting_label,
   rules,
+  reading_plan_enabled,
+  reading_plan_unlocked_chapter,
+  reading_plan_next_unlock_at,
+  reading_plan_interval_days,
+  reading_plan_chapters_per_period,
   created_at,
   updated_at
 `;
@@ -26,6 +31,52 @@ function unique(values) {
 
 function mapById(rows) {
   return new Map((rows || []).map((row) => [String(row.id), row]));
+}
+
+function isPlaceholderAvatar(value) {
+  const clean = String(value || "").trim().toLowerCase();
+  return (
+    !clean ||
+    clean === "default.jpg" ||
+    clean === "default.png" ||
+    clean === "images/avatar/default.jpg" ||
+    clean === "images/avatar/avatar1.png"
+  );
+}
+
+async function mergeLegacyProfileData(profiles) {
+  const rows = profiles || [];
+  const legacyIds = unique(rows.map((profile) => profile?.legacy_id));
+  if (!legacyIds.length) return rows;
+
+  const { data: legacyRows, error } = await supabase
+    .from("legacy_users")
+    .select("legacy_id, username, avatar, bio")
+    .in("legacy_id", legacyIds);
+
+  // Los perfiles siguen funcionando aunque una instalación antigua no permita
+  // consultar legacy_users. En ese caso usamos los datos de profiles tal cual.
+  if (error) return rows;
+
+  const legacyMap = new Map(
+    (legacyRows || []).map((legacy) => [String(legacy.legacy_id), legacy]),
+  );
+
+  return rows.map((profile) => {
+    const legacy = legacyMap.get(String(profile?.legacy_id || ""));
+    const profileAvatar = String(profile?.avatar || "").trim();
+    const legacyAvatar = String(legacy?.avatar || "").trim();
+    const avatar =
+      isPlaceholderAvatar(profileAvatar) && !isPlaceholderAvatar(legacyAvatar)
+        ? legacyAvatar
+        : profileAvatar || legacyAvatar || "images/avatar/avatar1.png";
+
+    return {
+      ...profile,
+      username: profile?.username || legacy?.username || "lectora",
+      avatar,
+    };
+  });
 }
 
 function cleanSearch(value) {
@@ -53,7 +104,7 @@ async function currentProfile() {
   const user = await currentUser();
   const { data, error } = await supabase
     .from("profiles")
-    .select(`${PROFILE_FIELDS}, legacy_id`)
+    .select(PROFILE_FIELDS)
     .eq("id", user.id)
     .single();
 
@@ -61,7 +112,8 @@ async function currentProfile() {
     throw new Error(error.message || "No se pudo cargar tu perfil lector.");
   }
 
-  return data;
+  const [profile] = await mergeLegacyProfileData([data]);
+  return profile || data;
 }
 
 async function booksByIds(ids) {
@@ -87,7 +139,7 @@ async function profilesByIds(ids) {
     .in("id", cleanIds);
 
   if (error) throw error;
-  return data || [];
+  return mergeLegacyProfileData(data || []);
 }
 
 function decorateClubs(clubs, memberships, books, memberRows, profile) {
@@ -356,29 +408,55 @@ export async function updateClubSettings({
   return true;
 }
 
-export async function replaceClubChapters(clubId, titles = []) {
-  const profile = await currentProfile();
-  const cleanTitles = (titles || [])
-    .map((title) => String(title || "").trim())
-    .filter(Boolean)
-    .slice(0, 120);
-  if (!cleanTitles.length) throw new Error("Añade al menos un capítulo.");
+export async function replaceClubChapters(clubId, chapters = []) {
+  const cleanRows = (chapters || [])
+    .map((item, index) => {
+      const row = typeof item === "string" ? { title: item } : item || {};
+      const title = String(row.title || `Capítulo ${index + 1}`).trim();
+      const rawEndPage = row.endPage ?? row.end_page ?? null;
+      const parsedEndPage = rawEndPage === "" || rawEndPage === null
+        ? null
+        : Math.max(1, Number.parseInt(rawEndPage, 10) || 0);
+      return { title, end_page: parsedEndPage };
+    })
+    .filter((item) => item.title)
+    .slice(0, 160);
 
-  const { error: deleteError } = await supabase
-    .from("reading_club_chapters")
-    .delete()
-    .eq("club_id", Number(clubId));
-  if (deleteError) throw new Error(deleteError.message || "No se pudieron actualizar los capítulos.");
+  if (!cleanRows.length) throw new Error("Añade al menos un capítulo.");
 
-  const { error } = await supabase.from("reading_club_chapters").insert(
-    cleanTitles.map((title, index) => ({
-      club_id: Number(clubId),
-      chapter_number: index + 1,
-      title,
-      created_by: profile.id,
-    })),
-  );
+  let previousPage = 0;
+  for (const row of cleanRows) {
+    if (row.end_page !== null && row.end_page <= previousPage) {
+      throw new Error("Las páginas finales deben crecer de un capítulo al siguiente.");
+    }
+    if (row.end_page !== null) previousPage = row.end_page;
+  }
+
+  const { error } = await supabase.rpc("replace_reading_club_chapters", {
+    p_club_id: Number(clubId),
+    p_chapters: cleanRows,
+  });
   if (error) throw new Error(error.message || "No se pudieron guardar los capítulos.");
+  return true;
+}
+
+export async function updateClubReadingPlan({
+  clubId,
+  enabled,
+  unlockedChapter,
+  nextUnlockAt,
+  intervalDays,
+  chaptersPerPeriod,
+}) {
+  const { error } = await supabase.rpc("update_reading_club_plan", {
+    p_club_id: Number(clubId),
+    p_enabled: Boolean(enabled),
+    p_unlocked_chapter: Math.max(1, Number.parseInt(unlockedChapter, 10) || 1),
+    p_next_unlock_at: nextUnlockAt || null,
+    p_interval_days: Math.max(1, Number.parseInt(intervalDays, 10) || 7),
+    p_chapters_per_period: Math.max(1, Number.parseInt(chaptersPerPeriod, 10) || 1),
+  });
+  if (error) throw new Error(error.message || "No se pudo guardar el plan de lectura.");
   return true;
 }
 
@@ -551,6 +629,35 @@ export async function toggleClubPostReaction(postId, reaction = "heart") {
   return true;
 }
 
+export async function moderateClubPost(postId, action) {
+  const safeAction = ["delete", "spoiler", "safe"].includes(action) ? action : "spoiler";
+  const { error } = await supabase.rpc("moderate_reading_club_post", {
+    p_post_id: Number(postId),
+    p_action: safeAction,
+  });
+  if (error) throw new Error(error.message || "No se pudo moderar el mensaje.");
+  return true;
+}
+
+export async function awardClubBookmark(clubId, userId, label, description = "") {
+  const { data, error } = await supabase.rpc("award_reading_club_bookmark", {
+    p_club_id: Number(clubId),
+    p_user_id: userId,
+    p_label: String(label || "").trim(),
+    p_description: String(description || "").trim(),
+  });
+  if (error) throw new Error(error.message || "No se pudo conceder el marcapáginas.");
+  return Number(data);
+}
+
+export async function revokeClubBookmark(achievementId) {
+  const { error } = await supabase.rpc("revoke_reading_club_bookmark", {
+    p_achievement_id: Number(achievementId),
+  });
+  if (error) throw new Error(error.message || "No se pudo retirar el marcapáginas.");
+  return true;
+}
+
 export async function getClubDetail(clubId) {
   const profile = await currentProfile();
   const id = Number(clubId);
@@ -581,7 +688,7 @@ export async function getClubDetail(clubId) {
     };
   }
 
-  const [bookRows, membersResult, chaptersResult, postsResult, meetingsResult, achievementsResult] = await Promise.all([
+  const [bookRows, membersResult, chaptersResult, postsResult, meetingsResult, achievementsResult, unlockedResult] = await Promise.all([
     booksByIds([club.current_book_id]),
     supabase
       .from("reading_club_members")
@@ -591,7 +698,7 @@ export async function getClubDetail(clubId) {
       .order("joined_at", { ascending: true }),
     supabase
       .from("reading_club_chapters")
-      .select("id, club_id, chapter_number, title")
+      .select("id, club_id, chapter_number, title, end_page")
       .eq("club_id", id)
       .order("chapter_number", { ascending: true }),
     supabase
@@ -611,6 +718,7 @@ export async function getClubDetail(clubId) {
       .select("id, club_id, user_id, badge_key, label, description, image_url, awarded_at")
       .eq("club_id", id)
       .order("awarded_at", { ascending: false }),
+    supabase.rpc("reading_club_unlocked_chapter", { p_club_id: id }),
   ]);
 
   for (const result of [membersResult, chaptersResult, postsResult, meetingsResult, achievementsResult]) {
@@ -648,7 +756,13 @@ export async function getClubDetail(clubId) {
 
   return {
     profile,
-    club: { ...club, book: bookRows[0] || null },
+    club: {
+      ...club,
+      book: bookRows[0] || null,
+      unlocked_chapter: unlockedResult.error
+        ? Math.max(1, Number(club.reading_plan_unlocked_chapter) || 1)
+        : Math.max(1, Number(unlockedResult.data) || 1),
+    },
     membership,
     members: members.map((member) => ({
       ...member,
