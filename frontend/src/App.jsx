@@ -11,6 +11,7 @@ import EditBook from "./EditBook.jsx";
 import GoodreadsImport from "./GoodreadsImport.jsx";
 import SagaBooks from "./SagaBooks.jsx";
 import { appUrl, publicUrl } from "./api.js";
+import { searchReaderPostBooks } from "./lib/homeDashboardApi.js";
 import {
   EMPTY_SUPABASE_SESSION,
   getSupabaseAppSession,
@@ -33,11 +34,20 @@ export default function App() {
   const [profileUserId, setProfileUserId] = useState(null);
   const [profileReturnClubId, setProfileReturnClubId] = useState(null);
   const [newBookTitle, setNewBookTitle] = useState("");
+  const [bookReviewIntent, setBookReviewIntent] = useState(false);
+  const [catalogSearchKey, setCatalogSearchKey] = useState(0);
+  const [navBookSearch, setNavBookSearch] = useState(
+    () => new URLSearchParams(window.location.search).get("q") || "",
+  );
+  const [navBookSuggestions, setNavBookSuggestions] = useState([]);
+  const [navBookSuggestionsOpen, setNavBookSuggestionsOpen] = useState(false);
+  const [navBookSuggestionsLoading, setNavBookSuggestionsLoading] = useState(false);
   const [session, setSession] = useState(EMPTY_SESSION);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [navOpen, setNavOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const navBookSearchRef = useRef(null);
 
   const isAdmin = Boolean(session.is_admin);
   const isLoggedIn = Boolean(session.authenticated);
@@ -50,15 +60,50 @@ export default function App() {
       : publicUrl(avatarValue);
 
 useEffect(() => {
-    function closeUserMenu(event) {
+    function closeFloatingMenus(event) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false);
       }
+      if (navBookSearchRef.current && !navBookSearchRef.current.contains(event.target)) {
+        setNavBookSuggestionsOpen(false);
+      }
     }
 
-    document.addEventListener("pointerdown", closeUserMenu);
-    return () => document.removeEventListener("pointerdown", closeUserMenu);
+    document.addEventListener("pointerdown", closeFloatingMenus);
+    return () => document.removeEventListener("pointerdown", closeFloatingMenus);
   }, []);
+
+  useEffect(() => {
+    const cleanSearch = navBookSearch.trim();
+
+    if (cleanSearch.length < 2) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setNavBookSuggestionsLoading(true);
+      try {
+        const books = await searchReaderPostBooks(cleanSearch);
+        if (!cancelled) {
+          setNavBookSuggestions(books.slice(0, 6));
+        }
+      } catch {
+        if (!cancelled) {
+          setNavBookSuggestions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setNavBookSuggestionsLoading(false);
+        }
+      }
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [navBookSearch]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -295,6 +340,18 @@ useEffect(() => {
     updateBookQuery(book?.id || null);
     setSelectedBook(book);
     setBookThreadTarget(null);
+    setBookReviewIntent(false);
+    setDetailBackPage(backPage);
+    setPage("detail");
+  }
+
+  function openBookReview(book, backPage = "home") {
+    if (!book?.id) return;
+    closeNavigation();
+    updateBookQuery(book.id);
+    setSelectedBook(book);
+    setBookThreadTarget(null);
+    setBookReviewIntent(true);
     setDetailBackPage(backPage);
     setPage("detail");
   }
@@ -305,6 +362,7 @@ useEffect(() => {
     closeNavigation();
     updateBookQuery(book.id);
     setSelectedBook(book);
+    setBookReviewIntent(false);
     setBookThreadTarget({
       id: String(profile.id),
       username: profile.display_name || profile.username || "Lectora de Librélula",
@@ -313,6 +371,59 @@ useEffect(() => {
     setProfileReturnClubId(clubId ? String(clubId) : null);
     setDetailBackPage(backPage);
     setPage("detail");
+  }
+
+  function openNavBookSuggestion(book) {
+    if (!book?.id) return;
+
+    setNavBookSearch(book.title || "");
+    setNavBookSuggestions([]);
+    setNavBookSuggestionsOpen(false);
+
+    const backPage =
+      page === "home"
+        ? "home"
+        : page === "library"
+          ? "library"
+          : page === "clubs"
+            ? "clubs"
+            : page === "profile"
+              ? "profile"
+              : "catalog";
+
+    openBookDetail(book, backPage);
+  }
+
+  function submitNavBookSearch(event) {
+    event.preventDefault();
+
+    const cleanSearch = navBookSearch.trim();
+    setNavBookSuggestionsOpen(false);
+    const url = new URL(window.location.href);
+
+    url.searchParams.delete("book");
+    url.searchParams.delete("page");
+    url.searchParams.delete("genre");
+    url.searchParams.delete("genres");
+    url.searchParams.delete("genre_mode");
+    url.searchParams.delete("year");
+
+    if (cleanSearch) {
+      url.searchParams.set("q", cleanSearch);
+    } else {
+      url.searchParams.delete("q");
+    }
+
+    window.history.replaceState({}, "", url);
+    closeNavigation();
+    setSelectedBook(null);
+    setBookThreadTarget(null);
+    setBookReviewIntent(false);
+    setSelectedSaga(null);
+    setNewBookTitle("");
+    setDetailBackPage("catalog");
+    setCatalogSearchKey((current) => current + 1);
+    setPage("catalog");
   }
 
   function openEditBook(book) {
@@ -462,28 +573,104 @@ useEffect(() => {
                   </button>
                   <button
                     type="button"
-                    className={page === "profile" && profileTab !== "reviews" ? "is-active" : ""}
-                    onClick={openProfile}
-                  >
-                    Mi rincón
-                  </button>
-                  <button
-                    type="button"
                     className={page === "library" ? "is-active" : ""}
                     onClick={openLibrary}
                   >
                     Mi biblioteca
                   </button>
-                  <button
-                    type="button"
-                    className={(page === "profile" && profileTab === "reviews") || (page === "detail" && detailBackPage === "profile-reviews") ? "is-active" : ""}
-                    onClick={openMyReviews}
-                  >
-                    Mis reseñas
-                  </button>
                 </>
               )}
             </div>
+
+            <form
+              className="site-nav-book-search"
+              role="search"
+              onSubmit={submitNavBookSearch}
+              ref={navBookSearchRef}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5" />
+                <path d="m16 16 4 4" />
+              </svg>
+              <input
+                type="search"
+                value={navBookSearch}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setNavBookSearch(value);
+                  if (value.trim().length < 2) {
+                    setNavBookSuggestions([]);
+                    setNavBookSuggestionsLoading(false);
+                    setNavBookSuggestionsOpen(false);
+                  } else {
+                    setNavBookSuggestionsOpen(true);
+                  }
+                }}
+                onFocus={() => {
+                  if (navBookSearch.trim().length >= 2) setNavBookSuggestionsOpen(true);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setNavBookSuggestionsOpen(false);
+                }}
+                placeholder="Buscar libros…"
+                aria-label="Buscar libros"
+                aria-autocomplete="list"
+                aria-expanded={navBookSuggestionsOpen}
+                aria-controls="site-nav-book-suggestions"
+              />
+              <button type="submit" aria-label="Buscar en el catálogo">
+                Buscar
+              </button>
+
+              {navBookSuggestionsOpen && navBookSearch.trim().length >= 2 && (
+                <div
+                  className="site-nav-book-suggestions"
+                  id="site-nav-book-suggestions"
+                  role="listbox"
+                  aria-label="Sugerencias de libros"
+                >
+                  {navBookSuggestionsLoading ? (
+                    <div className="site-nav-book-suggestions-state">
+                      Buscando en tu estantería infinita…
+                    </div>
+                  ) : navBookSuggestions.length ? (
+                    navBookSuggestions.map((book) => (
+                      <button
+                        key={book.id}
+                        type="button"
+                        className="site-nav-book-suggestion"
+                        role="option"
+                        onClick={() => openNavBookSuggestion(book)}
+                      >
+                        <span className="site-nav-book-suggestion-cover">
+                          {book.cover ? (
+                            <img
+                              src={book.cover}
+                              alt=""
+                              loading="lazy"
+                              onError={(event) => {
+                                event.currentTarget.style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <span aria-hidden="true">⌑</span>
+                          )}
+                        </span>
+                        <span className="site-nav-book-suggestion-copy">
+                          <strong>{book.title || "Libro sin título"}</strong>
+                          <small>{book.author || "Autor desconocido"}</small>
+                        </span>
+                        <span className="site-nav-book-suggestion-arrow" aria-hidden="true">→</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="site-nav-book-suggestions-state">
+                      No encontramos coincidencias. Pulsa Buscar para ver el catálogo.
+                    </div>
+                  )}
+                </div>
+              )}
+            </form>
 
             <div className="site-nav-actions">
               {!sessionLoading && isLoggedIn && (
@@ -585,6 +772,7 @@ useEffect(() => {
             onProfile={openProfile}
             onLibrary={openLibrary}
             onReviews={openMyReviews}
+            onReviewBook={(book) => openBookReview(book, "home")}
             onClubs={openClubs}
             onSelectBook={(book) => openBookDetail(book, "home")}
             onOpenBookThread={(book, profile) => openBookThread(book, profile, "home")}
@@ -593,6 +781,7 @@ useEffect(() => {
 
         {!sessionLoading && page === "catalog" && (
           <BooksCatalog
+            key={`catalog-${catalogSearchKey}`}
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
             onAddBook={openAddBook}
@@ -692,6 +881,7 @@ useEffect(() => {
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
             threadTarget={bookThreadTarget}
+            openReviewOnLoad={bookReviewIntent}
           />
         )}
 

@@ -557,7 +557,7 @@ function RatingStars({ score, label = true }) {
 }
 
 
-export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyReviews, isAdmin, isLoggedIn, threadTarget = null }) {
+export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyReviews, isAdmin, isLoggedIn, threadTarget = null, openReviewOnLoad = false }) {
   const currentBook = book;
   const [coverFailed, setCoverFailed] = useState(false);
   const [editions, setEditions] = useState([]);
@@ -586,6 +586,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
   });
   const [ratingSaveError, setRatingSaveError] = useState("");
   const [reviewDeleteOpen, setReviewDeleteOpen] = useState(false);
+  const autoReviewHandledRef = useRef(false);
   const [reviewDeleting, setReviewDeleting] = useState(false);
   const [reviewDeleteError, setReviewDeleteError] = useState("");
   const [readingStatusItem, setReadingStatusItem] = useState(null);
@@ -704,6 +705,28 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
       cancelled = true;
     };
   }, [currentBook?.id]);
+
+  useEffect(() => {
+    if (
+      !openReviewOnLoad
+      || autoReviewHandledRef.current
+      || reviewsLoading
+      || !reviewData?.authenticated
+    ) {
+      return;
+    }
+
+    autoReviewHandledRef.current = true;
+    setReviewScore(reviewData?.my_review?.score ?? null);
+    setReviewText(reviewData?.my_review?.review ?? "");
+    setReviewVibes(reviewVibeDraft(reviewData));
+    setReviewAtmosphere(reviewAtmosphereDraft(reviewData));
+    setReviewSaveError("");
+    setReviewSaveMessage("");
+    setActiveVibeCategory("rhythm");
+    setRatingPromptOpen(false);
+    setReviewEditorOpen(true);
+  }, [openReviewOnLoad, reviewData, reviewsLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1302,7 +1325,10 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
     currentBook.pages ? `${currentBook.pages} páginas` : null,
   ].filter(Boolean);
   const insightVibes = Array.isArray(reviewData?.insights?.vibes)
-    ? reviewData.insights.vibes.slice(0, 4)
+    ? reviewData.insights.vibes.slice(0, 4).map((vibe) => {
+        const canonical = VIBE_OPTIONS.find((option) => option.key === vibe?.key);
+        return canonical ? { ...vibe, ...canonical } : vibe;
+      })
     : [];
   const insightAtmosphere = reviewData?.insights?.atmosphere || EMPTY_ATMOSPHERE;
   const atmosphereDisplay = ATMOSPHERE_FIELDS.map((field) => ({

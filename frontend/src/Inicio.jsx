@@ -198,6 +198,7 @@ export default function Inicio({
   onProfile,
   onLibrary,
   onReviews,
+  onReviewBook,
   onClubs,
   onSelectBook,
   onOpenBookThread,
@@ -209,6 +210,7 @@ export default function Inicio({
         onProfile={onProfile}
         onLibrary={onLibrary || onProfile}
         onReviews={onReviews || onProfile}
+        onReviewBook={onReviewBook}
         onClubs={onClubs}
         onSelectBook={onSelectBook}
         onOpenBookThread={onOpenBookThread}
@@ -322,7 +324,7 @@ function FeedIcon({ name }) {
   );
 }
 
-function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs, onSelectBook, onOpenBookThread }) {
+function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook, onClubs, onSelectBook, onOpenBookThread }) {
   const [homeData, setHomeData] = useState(null);
   const [socialData, setSocialData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -904,7 +906,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs, onS
 
                         <div className="home-reading-actions">
                           <small>{progressComposerBookId === bookKey ? "Añade una nota o guarda directamente." : "Arrastra la barra para preparar tu avance."}</small>
-                          <button type="button" onClick={onReviews}>Escribir reseña</button>
+                          <button type="button" onClick={() => { if (onReviewBook) onReviewBook(book); else onReviews?.(); }}>Escribir reseña</button>
                         </div>
 
                         {progressComposerBookId === bookKey && (
@@ -1481,7 +1483,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs, onS
               </div>
               <div className="lector-completion-actions">
                 <button type="button" onClick={() => setCompletedBook(null)}>Cerrar</button>
-                <button type="button" className="is-primary" onClick={() => { setCompletedBook(null); onReviews(); }}>Escribir reseña</button>
+                <button type="button" className="is-primary" onClick={() => { const book = completedBook; setCompletedBook(null); if (onReviewBook) onReviewBook(book); else onReviews?.(); }}>Escribir reseña</button>
               </div>
             </div>
           </article>

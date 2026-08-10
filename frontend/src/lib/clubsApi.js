@@ -87,6 +87,68 @@ function cleanSearch(value) {
     .slice(0, 80);
 }
 
+
+function clubMediaObjectPath(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const clean = raw.split("?")[0];
+  const markers = [
+    "/storage/v1/object/public/club-media/",
+    "/storage/v1/object/sign/club-media/",
+    "/storage/v1/object/authenticated/club-media/",
+  ];
+
+  for (const marker of markers) {
+    const index = clean.indexOf(marker);
+    if (index >= 0) {
+      return clean.slice(index + marker.length).replace(/^\/+/, "");
+    }
+  }
+
+  if (/^https?:\/\//i.test(clean)) return "";
+  return clean.replace(/^\/+/, "");
+}
+
+async function resolveClubMediaAsset(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const path = clubMediaObjectPath(raw);
+
+  // URL externa que no pertenece a club-media.
+  if (!path && /^https?:\/\//i.test(raw)) return raw;
+  if (!path) return raw;
+
+  // Si el bucket es privado (V7), esta será la URL válida.
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from("club-media")
+    .createSignedUrl(path, 60 * 60);
+
+  if (!signedError && signedData?.signedUrl) {
+    return signedData.signedUrl;
+  }
+
+  // Compatibilidad con instalaciones donde club-media sigue siendo público.
+  const publicUrl = supabase.storage.from("club-media").getPublicUrl(path).data.publicUrl || "";
+  return publicUrl || raw;
+}
+
+async function withResolvedClubMedia(club) {
+  if (!club) return club;
+
+  const [bannerAssetUrl, iconAssetUrl] = await Promise.all([
+    resolveClubMediaAsset(club.banner_url),
+    resolveClubMediaAsset(club.icon_url),
+  ]);
+
+  return {
+    ...club,
+    banner_asset_url: bannerAssetUrl,
+    icon_asset_url: iconAssetUrl,
+  };
+}
+
 async function currentUser() {
   const {
     data: { user },
@@ -282,7 +344,8 @@ export async function getClubsHub() {
     memberCountsResult.data || [],
     profile,
   );
-  const decoratedMap = new Map(decorated.map((club) => [String(club.id), club]));
+  const decoratedWithMedia = await Promise.all(decorated.map(withResolvedClubMedia));
+  const decoratedMap = new Map(decoratedWithMedia.map((club) => [String(club.id), club]));
 
   return {
     profile,
@@ -414,6 +477,53 @@ export async function updateClubProgress(clubId, currentChapter, currentPage, pr
   return true;
 }
 
+export async function finishClubReading({ clubId, nextBookId = null, chapterCount = 10 }) {
+  const cleanBookId = String(nextBookId || "").trim() || null;
+  const safeChapters = Math.min(160, Math.max(1, Number.parseInt(chapterCount, 10) || 10));
+  const chapters = cleanBookId
+    ? Array.from({ length: safeChapters }, (_, index) => ({
+        title: `Capítulo ${index + 1}`,
+        end_page: null,
+      }))
+    : [];
+
+  const { data, error } = await supabase.rpc("finish_reading_club_book", {
+    p_club_id: Number(clubId),
+    p_next_book_id: cleanBookId,
+    p_next_chapters: chapters,
+  });
+
+  if (error) {
+    throw new Error(error.message || "No se pudo cerrar la lectura del club.");
+  }
+
+  return Number(data);
+}
+
+export async function startClubReading({ clubId, bookId, chapterCount = 10 }) {
+  const cleanBookId = String(bookId || "").trim();
+  const safeChapters = Math.min(160, Math.max(1, Number.parseInt(chapterCount, 10) || 10));
+
+  if (!cleanBookId) throw new Error("Elige el libro con el que empezará la nueva lectura.");
+
+  const chapters = Array.from({ length: safeChapters }, (_, index) => ({
+    title: `Capítulo ${index + 1}`,
+    end_page: null,
+  }));
+
+  const { data, error } = await supabase.rpc("start_reading_club_book", {
+    p_club_id: Number(clubId),
+    p_book_id: cleanBookId,
+    p_chapters: chapters,
+  });
+
+  if (error) {
+    throw new Error(error.message || "No se pudo empezar la nueva lectura del club.");
+  }
+
+  return Number(data);
+}
+
 export async function uploadClubAsset(clubId, file, kind = "banner") {
   if (!file) return "";
   if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type || "")) {
@@ -431,7 +541,7 @@ export async function uploadClubAsset(clubId, file, kind = "banner") {
     upsert: false,
   });
   if (error) throw new Error(error.message || "No se pudo subir la imagen del club.");
-  return clubMediaUrl(path);
+  return path;
 }
 
 export async function updateClubSettings({
@@ -716,7 +826,7 @@ export async function getClubDetail(clubId) {
       supabase.from("reading_clubs").select(CLUB_FIELDS).eq("id", id).single(),
       supabase
         .from("reading_club_members")
-        .select("club_id, user_id, role, status, current_chapter, current_page, progress, joined_at")
+        .select("club_id, user_id, role, status, current_chapter, current_page, progress, joined_at, last_general_chat_read_at")
         .eq("club_id", id)
         .eq("user_id", profile.id)
         .maybeSingle(),
@@ -725,9 +835,11 @@ export async function getClubDetail(clubId) {
   if (clubError) throw new Error(clubError.message || "No se pudo abrir el club.");
   if (membershipError) throw membershipError;
 
+  const clubWithMedia = await withResolvedClubMedia(club);
+
   if (!membership || membership.status !== "active") {
     return {
-      club: { ...club, book: (await booksByIds([club.current_book_id]))[0] || null },
+      club: { ...clubWithMedia, book: (await booksByIds([club.current_book_id]))[0] || null },
       membership: null,
       profile,
       members: [],
@@ -737,11 +849,11 @@ export async function getClubDetail(clubId) {
     };
   }
 
-  const [bookRows, membersResult, chaptersResult, postsResult, meetingsResult, achievementsResult, unlockedResult] = await Promise.all([
+  const [bookRows, membersResult, chaptersResult, postsResult, meetingsResult, achievementsResult, unlockedResult, shelfResult, unreadResult] = await Promise.all([
     booksByIds([club.current_book_id]),
     supabase
       .from("reading_club_members")
-      .select("club_id, user_id, role, status, current_chapter, current_page, progress, joined_at")
+      .select("club_id, user_id, role, status, current_chapter, current_page, progress, joined_at, last_general_chat_read_at")
       .eq("club_id", id)
       .eq("status", "active")
       .order("joined_at", { ascending: true }),
@@ -752,10 +864,10 @@ export async function getClubDetail(clubId) {
       .order("chapter_number", { ascending: true }),
     supabase
       .from("reading_club_posts")
-      .select("id, club_id, user_id, channel, chapter_number, content, quote_text, image_path, contains_spoilers, parent_post_id, created_at")
+      .select("id, club_id, reading_id, user_id, channel, chapter_number, content, quote_text, image_path, contains_spoilers, parent_post_id, created_at")
       .eq("club_id", id)
       .order("created_at", { ascending: false })
-      .limit(150),
+      .limit(240),
     supabase
       .from("reading_club_meetings")
       .select("id, club_id, title, starts_at, ends_at, location, description, event_type, created_at, updated_at")
@@ -768,17 +880,31 @@ export async function getClubDetail(clubId) {
       .eq("club_id", id)
       .order("awarded_at", { ascending: false }),
     supabase.rpc("reading_club_unlocked_chapter", { p_club_id: id }),
+    supabase.rpc("reading_club_bookshelf", { p_club_id: id }),
+    supabase.rpc("reading_club_general_unread_count", { p_club_id: id }),
   ]);
 
-  for (const result of [membersResult, chaptersResult, postsResult, meetingsResult, achievementsResult]) {
+  for (const result of [membersResult, chaptersResult, postsResult, meetingsResult, achievementsResult, shelfResult]) {
     if (result.error) throw result.error;
   }
+  if (unreadResult.error) throw unreadResult.error;
 
+  const shelfRows = shelfResult.data || [];
+  const currentReading = shelfRows.find((row) => row.reading_status === "current") || null;
   const members = membersResult.data || [];
-  const posts = [...(postsResult.data || [])].reverse();
+  const posts = [...(postsResult.data || [])]
+    .filter((post) => currentReading
+      ? String(post.reading_id) === String(currentReading.reading_id)
+      : post.reading_id === null)
+    .slice(0, 150)
+    .reverse();
+  const shelfReviewerIds = shelfRows.flatMap((row) =>
+    Array.isArray(row.reviews) ? row.reviews.map((review) => review.profile_id) : [],
+  );
   const profileIds = unique([
     ...members.map((member) => member.user_id),
     ...posts.map((post) => post.user_id),
+    ...shelfReviewerIds,
   ]);
   const postIds = posts.map((post) => post.id);
 
@@ -804,10 +930,33 @@ export async function getClubDetail(clubId) {
     reactionsByPost.set(key, current);
   });
 
+  const library = shelfRows.map((row) => ({
+    id: Number(row.reading_id),
+    status: row.reading_status,
+    started_at: row.started_at || null,
+    finished_at: row.finished_at || null,
+    participant_count: Math.max(0, Number(row.participant_count) || 0),
+    rating_count: Math.max(0, Number(row.rating_count) || 0),
+    review_count: Math.max(0, Number(row.review_count) || 0),
+    avg_rating: row.avg_rating === null ? null : Number(row.avg_rating),
+    book: {
+      id: row.book_id,
+      title: row.book_title || "Libro del club",
+      author: row.book_author || "",
+      cover: row.book_cover || "",
+      pages: Number(row.book_pages) || null,
+    },
+    reviews: (Array.isArray(row.reviews) ? row.reviews : []).map((review) => ({
+      ...review,
+      score: review.score === null ? null : Number(review.score),
+      profile: profileMap.get(String(review.profile_id)) || null,
+    })),
+  }));
+
   return {
     profile,
     club: {
-      ...club,
+      ...clubWithMedia,
       book: bookRows[0] || null,
       unlocked_chapter: unlockedResult.error
         ? Math.max(1, Number(club.reading_plan_unlocked_chapter) || 1)
@@ -839,5 +988,15 @@ export async function getClubDetail(clubId) {
     }),
     meetings: meetingsResult.data || [],
     achievements: achievementsResult.data || [],
+    library,
+    generalUnreadCount: Math.max(0, Number(unreadResult.data) || 0),
   };
+}
+
+export async function markClubGeneralChatRead(clubId) {
+  const { error } = await supabase.rpc("mark_reading_club_general_chat_read", {
+    p_club_id: Number(clubId),
+  });
+  if (error) throw new Error(error.message || "No se pudo marcar el chat como leído.");
+  return true;
 }
