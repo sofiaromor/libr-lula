@@ -363,11 +363,70 @@
   gap: 13px;
 }
 
-.clubs-preview-reading img {
+.clubs-preview-reading img,
+.clubs-preview-reading .club-empty-book-cover {
   width: 82px;
   height: 120px;
+  border-radius: 8px;
+}
+
+.clubs-preview-reading img {
   object-fit: cover;
-  border-radius: 6px;
+}
+
+.club-empty-book-cover {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 11px;
+  overflow: hidden;
+  border: 1px solid #e3d2be;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, .92), transparent 34%),
+    linear-gradient(155deg, #f7efe4, #eadbc8);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .48);
+  color: #8b674f;
+  text-align: center;
+}
+
+.club-empty-book-cover small {
+  max-width: 74px;
+  color: #8b674f;
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: .72rem;
+  font-style: normal;
+  line-height: 1.05;
+}
+
+.club-empty-book-mark {
+  position: relative;
+  width: 42px;
+  height: 31px;
+  display: block;
+}
+
+.club-empty-book-mark i {
+  position: absolute;
+  top: 2px;
+  width: 21px;
+  height: 27px;
+  border: 1.5px solid currentColor;
+  background: rgba(255, 252, 247, .42);
+}
+
+.club-empty-book-mark i:first-child {
+  left: 1px;
+  border-radius: 7px 2px 2px 7px;
+  transform: skewY(7deg);
+  transform-origin: right center;
+}
+
+.club-empty-book-mark i:last-child {
+  right: 1px;
+  border-radius: 2px 7px 7px 2px;
+  transform: skewY(-7deg);
+  transform-origin: left center;
 }
 
 .clubs-preview-reading span {
@@ -4326,3 +4385,1043 @@
   font-variant-numeric: tabular-nums;
 }
 
+
+/* -------------------------------------------------------------------------- */
+/* V12 · Estantería e historial de lecturas                                  */
+/* -------------------------------------------------------------------------- */
+
+.club-shelf-tab {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.club-shelf-current,
+.club-shelf-history,
+.club-shelf-book {
+  border: 1px solid rgba(139, 79, 43, 0.2);
+  border-radius: 26px;
+  background: rgba(255, 252, 247, 0.88);
+  box-shadow: 0 18px 42px rgba(91, 63, 43, 0.05);
+}
+
+.club-shelf-current {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  align-items: center;
+  gap: 1.75rem;
+  padding: 1.6rem;
+  overflow: hidden;
+}
+
+.club-shelf-current-copy h2 {
+  margin: 0.25rem 0 0.2rem;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(1.7rem, 3vw, 2.45rem);
+  line-height: 1;
+  color: #241811;
+}
+
+.club-shelf-current-copy > p {
+  margin: 0;
+  color: #815b46;
+}
+
+.club-shelf-current-cover {
+  width: 138px;
+  justify-self: end;
+  filter: drop-shadow(0 16px 16px rgba(70, 43, 28, 0.14));
+}
+
+.club-shelf-current-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 1.15rem 0;
+}
+
+.club-shelf-current-stats span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  padding: 0.48rem 0.72rem;
+  border: 1px solid rgba(139, 79, 43, 0.14);
+  border-radius: 999px;
+  background: #fffaf3;
+  color: #76513d;
+  font-size: 0.78rem;
+}
+
+.club-shelf-current-stats strong {
+  color: #9d4c2c;
+}
+
+.club-shelf-current-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.club-shelf-current-copy > small {
+  display: block;
+  margin-top: 0.75rem;
+  color: #9a806f;
+}
+
+.club-shelf-history {
+  padding: 1.5rem;
+}
+
+.club-shelf-history > header,
+.club-shelf-review-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.club-shelf-history > header h2,
+.club-shelf-review-heading h3 {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-display, Georgia, serif);
+  color: #281a12;
+}
+
+.club-shelf-history > header > span {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: #f6ecdf;
+  color: #8d6046;
+  font-size: 0.78rem;
+}
+
+.club-shelf-empty {
+  display: grid;
+  place-items: center;
+  min-height: 230px;
+  margin-top: 1rem;
+  padding: 1.5rem;
+  border: 1px dashed rgba(139, 79, 43, 0.25);
+  border-radius: 22px;
+  text-align: center;
+  color: #866b5a;
+}
+
+.club-shelf-empty > span {
+  font-size: 2rem;
+  color: #b45a35;
+}
+
+.club-shelf-empty h3,
+.club-shelf-empty p {
+  margin: 0;
+}
+
+.club-shelf-books {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.club-shelf-book {
+  padding: 1.1rem;
+}
+
+.club-shelf-book-heading {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.club-shelf-book-cover {
+  width: 88px;
+}
+
+.club-shelf-book-heading > div > span {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #a07054;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.club-shelf-book-heading > div > button {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #2f1c12;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.club-shelf-book-heading > div > button:hover {
+  color: #a44f2d;
+}
+
+.club-shelf-book-heading > div > small {
+  display: block;
+  margin-top: 0.1rem;
+  color: #866551;
+}
+
+.club-shelf-rating {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.club-shelf-rating strong {
+  color: #a84f2d;
+  font-size: 1rem;
+}
+
+.club-shelf-rating span {
+  color: #927766;
+  font-size: 0.76rem;
+}
+
+.club-shelf-review-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(139, 79, 43, 0.13);
+}
+
+.club-shelf-review-heading h3 {
+  font-size: 1.2rem;
+}
+
+.club-shelf-review-heading > button {
+  border: 0;
+  background: none;
+  color: #9f4e2d;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.club-shelf-reviews {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+}
+
+.club-shelf-reviews > article {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.8rem;
+  border: 1px solid rgba(139, 79, 43, 0.13);
+  border-radius: 17px;
+  background: #fffdf9;
+}
+
+.club-shelf-reviews img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(139, 79, 43, 0.17);
+}
+
+.club-shelf-reviews header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.club-shelf-reviews header strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #2c1b12;
+}
+
+.club-shelf-reviews header span {
+  flex: 0 0 auto;
+  color: #b25732;
+  font-size: 0.78rem;
+}
+
+.club-shelf-reviews p,
+
+.club-shelf-more-reviews {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding: 0.2rem 0;
+  border: 0;
+  background: none;
+  color: #9f4e2d;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.club-shelf-no-reviews {
+  margin: 0.35rem 0 0;
+  color: #674b3b;
+  line-height: 1.45;
+}
+
+.club-shelf-no-reviews {
+  padding: 0.85rem 0;
+  color: #9a7c69;
+  font-size: 0.85rem;
+}
+
+.club-finish-reading-dialog {
+  width: min(760px, calc(100vw - 2rem));
+  max-height: min(88vh, 860px);
+  overflow: auto;
+  padding: 1.35rem;
+  border: 1px solid rgba(139, 79, 43, 0.2);
+  border-radius: 26px;
+  background: #fffaf3;
+  box-shadow: 0 30px 80px rgba(58, 35, 22, 0.2);
+}
+
+.club-finish-reading-dialog > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.club-finish-reading-dialog h2 {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-display, Georgia, serif);
+  color: #281910;
+  font-size: 1.75rem;
+}
+
+.club-finish-current-book {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.85rem;
+  border: 1px solid rgba(139, 79, 43, 0.14);
+  border-radius: 18px;
+  background: #fffdf9;
+}
+
+.club-finish-current-cover {
+  width: 64px;
+}
+
+.club-finish-current-book small,
+.club-finish-current-book span {
+  display: block;
+  color: #96735e;
+}
+
+.club-finish-current-book strong {
+  display: block;
+  margin: 0.15rem 0;
+  color: #2c1b12;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 1.15rem;
+}
+
+.club-finish-explainer {
+  margin: 1rem 0;
+  color: #725442;
+  line-height: 1.5;
+}
+
+.club-next-book-picker {
+  margin: 0;
+}
+
+.club-next-chapters-field {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  color: #4d3426;
+  font-weight: 600;
+}
+
+.club-next-chapters-field input {
+  width: min(160px, 100%);
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(139, 79, 43, 0.2);
+  border-radius: 12px;
+  background: #fffdf9;
+  color: #2d1e15;
+}
+
+.club-next-chapters-field small {
+  color: #9a7c69;
+  font-weight: 400;
+}
+
+.club-finish-reading-dialog form > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-top: 1.2rem;
+}
+
+@media (max-width: 760px) {
+  .club-shelf-current {
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .club-shelf-current-cover {
+    width: 88px;
+  }
+
+  .club-shelf-current-actions,
+  .club-finish-reading-dialog form > footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .club-shelf-current-actions button,
+  .club-finish-reading-dialog form > footer button {
+    width: 100%;
+  }
+
+  .club-shelf-history {
+    padding: 1rem;
+  }
+
+  .club-shelf-reviews {
+    grid-template-columns: 1fr;
+  }
+
+  .club-shelf-history > header,
+  .club-shelf-review-heading {
+    align-items: start;
+  }
+}
+
+@media (max-width: 520px) {
+  .club-shelf-current {
+    grid-template-columns: 1fr;
+  }
+
+  .club-shelf-current-cover {
+    grid-row: 1;
+    justify-self: start;
+    width: 78px;
+  }
+
+  .club-shelf-book-heading {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .club-shelf-book-cover {
+    width: 68px;
+  }
+
+  .club-shelf-review-heading > button {
+    display: none;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* V14 · Estantería visual, cierre flexible y recuerdo de cada lectura        */
+/* -------------------------------------------------------------------------- */
+
+.club-bookshelf-display {
+  margin-top: 1.45rem;
+  padding: 1.2rem 1.1rem 0;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 252, 247, 0.45), rgba(244, 232, 215, 0.22));
+  overflow: hidden;
+}
+
+.club-bookshelf-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.15rem;
+  min-height: 255px;
+  padding: 0.8rem 0.45rem 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(143, 74, 35, 0.4) transparent;
+}
+
+.club-bookshelf-volume {
+  flex: 0 0 138px;
+  display: grid;
+  justify-items: center;
+  gap: 0.48rem;
+  padding: 0 0 0.55rem;
+  border: 0;
+  background: transparent;
+  color: #2d1c13;
+  font: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+
+.club-bookshelf-cover-wrap {
+  position: relative;
+  display: grid;
+  place-items: end center;
+  width: 124px;
+  min-height: 180px;
+  margin-bottom: 0.95rem;
+  transition: transform 160ms ease;
+}
+
+.club-bookshelf-volume:hover .club-bookshelf-cover-wrap,
+.club-bookshelf-volume:focus-visible .club-bookshelf-cover-wrap {
+  transform: translateY(-5px);
+}
+
+.club-bookshelf-cover {
+  width: 118px;
+  max-height: 184px;
+  object-fit: cover;
+  border-radius: 10px 10px 8px 8px;
+  box-shadow: 0 14px 22px rgba(59, 35, 22, 0.16);
+}
+
+.club-bookshelf-rating-badge {
+  position: absolute;
+  left: 50%;
+  bottom: -0.78rem;
+  z-index: 2;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 104px;
+  padding: 0.4rem 0.62rem;
+  border: 1px solid rgba(180, 90, 50, 0.22);
+  border-radius: 999px;
+  background: #fffaf3;
+  box-shadow: 0 7px 18px rgba(81, 45, 26, 0.14);
+  white-space: nowrap;
+}
+
+.club-bookshelf-rating-badge .club-shelf-stars {
+  gap: 0.36rem;
+}
+
+.club-bookshelf-rating-badge .club-shelf-stars-glyphs {
+  font-size: 0.92rem;
+}
+
+.club-bookshelf-rating-badge .club-shelf-stars > em {
+  color: #7b3d22;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.club-bookshelf-volume > strong {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 0.88rem;
+}
+
+.club-bookshelf-board {
+  position: relative;
+  height: 16px;
+  margin: 0 -0.15rem;
+  border-radius: 5px 5px 12px 12px;
+  background: linear-gradient(180deg, #bf6b39 0%, #9f4b26 48%, #73351d 100%);
+  box-shadow: 0 7px 11px rgba(80, 41, 21, 0.2), inset 0 2px 1px rgba(255, 225, 190, 0.35);
+}
+
+.club-bookshelf-board::after {
+  content: "";
+  position: absolute;
+  left: 2.5%;
+  right: 2.5%;
+  bottom: -7px;
+  height: 7px;
+  border-radius: 0 0 12px 12px;
+  background: rgba(90, 42, 22, 0.34);
+  filter: blur(1px);
+}
+
+.club-shelf-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48rem;
+  min-width: 0;
+}
+
+.club-shelf-stars-glyphs {
+  position: relative;
+  display: inline-block;
+  color: #ded2c5;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.club-shelf-stars-glyphs > b {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  overflow: hidden;
+  color: #b45a32;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.club-shelf-stars > em {
+  color: #8a6956;
+  font-size: 0.78rem;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.club-shelf-stars.is-compact {
+  gap: 0.34rem;
+}
+
+.club-shelf-stars.is-compact .club-shelf-stars-glyphs {
+  font-size: 0.82rem;
+}
+
+.club-shelf-stars.is-compact > em {
+  font-size: 0.72rem;
+}
+
+.club-shelf-between-readings {
+  grid-template-columns: minmax(0, 1fr) 120px;
+  padding: 1.8rem;
+}
+
+.club-shelf-between-readings .clubs-primary-button {
+  margin-top: 1rem;
+}
+
+.club-shelf-between-mark {
+  display: grid;
+  place-items: center;
+  width: 100px;
+  height: 132px;
+  justify-self: end;
+  border: 1px dashed rgba(139, 79, 43, 0.24);
+  border-radius: 20px;
+  color: #b45a35;
+  background: rgba(250, 240, 226, 0.6);
+  font-size: 2.2rem;
+}
+
+.club-finish-reading-dialog {
+  width: min(820px, calc(100vw - 2.5rem));
+  padding: clamp(1.4rem, 3vw, 2.25rem);
+}
+
+.club-finish-reading-dialog > header {
+  margin-bottom: 1.35rem;
+}
+
+.club-finish-current-book {
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.15rem;
+}
+
+.club-finish-explainer {
+  margin: 0 0 1.35rem;
+  max-width: 68ch;
+}
+
+.club-next-book-picker {
+  padding: 1.15rem;
+  border: 1px solid rgba(139, 79, 43, 0.18);
+  border-radius: 20px;
+  background: rgba(255, 253, 249, 0.72);
+}
+
+.club-next-book-picker > legend {
+  padding: 0 0.5rem;
+}
+
+.club-next-book-optional-note {
+  margin: 0 0 0.9rem;
+  color: #947460;
+  font-size: 0.83rem;
+  line-height: 1.45;
+}
+
+.club-next-book-picker > input {
+  margin-bottom: 0.9rem;
+}
+
+.club-next-book-results {
+  max-height: 300px;
+  padding-right: 0.25rem;
+}
+
+.club-next-chapters-field {
+  margin-top: 1.3rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(139, 79, 43, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 253, 249, 0.72);
+}
+
+.club-finish-reading-dialog form > footer {
+  margin-top: 1.55rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid rgba(139, 79, 43, 0.12);
+}
+
+.club-shelf-reading-dialog {
+  width: min(820px, calc(100vw - 2.5rem));
+  max-height: min(88vh, 900px);
+  overflow: auto;
+  padding: clamp(1.4rem, 3vw, 2.15rem);
+  border: 1px solid rgba(139, 79, 43, 0.2);
+  border-radius: 28px;
+  background: #fffaf3;
+  box-shadow: 0 30px 80px rgba(58, 35, 22, 0.22);
+}
+
+.club-shelf-reading-dialog > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.3rem;
+}
+
+.club-shelf-reading-dialog > header h2 {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(1.7rem, 3vw, 2.35rem);
+  color: #2a1a11;
+}
+
+.club-shelf-reading-dialog > header p {
+  margin: 0.18rem 0 0;
+  color: #8c6750;
+}
+
+.club-shelf-reading-hero {
+  display: grid;
+  grid-template-columns: 126px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: center;
+  padding: 1.15rem;
+  border: 1px solid rgba(139, 79, 43, 0.15);
+  border-radius: 22px;
+  background: #fffdf9;
+}
+
+.club-shelf-reading-cover {
+  width: 116px;
+  filter: drop-shadow(0 12px 14px rgba(70, 43, 28, 0.13));
+}
+
+.club-shelf-reading-hero > div > span {
+  display: block;
+  margin-bottom: 0.65rem;
+  color: #9a755e;
+  font-size: 0.77rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.club-shelf-reading-hero > div > p {
+  margin: 0.7rem 0 0;
+  color: #785a47;
+}
+
+.club-shelf-participant-reviews {
+  margin-top: 1.45rem;
+}
+
+.club-shelf-participant-reviews > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.club-shelf-participant-reviews > header h3 {
+  margin: 0.18rem 0 0;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 1.45rem;
+  color: #2d1b12;
+}
+
+.club-shelf-participant-reviews > header > span {
+  flex: 0 0 auto;
+  padding: 0.42rem 0.65rem;
+  border-radius: 999px;
+  background: #f4e9dc;
+  color: #8d6046;
+  font-size: 0.75rem;
+}
+
+.club-shelf-participant-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.club-shelf-participant-list > article {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: start;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(139, 79, 43, 0.13);
+  border-radius: 18px;
+  background: #fffdf9;
+}
+
+.club-shelf-participant-list > article > img {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.club-shelf-participant-list article header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.club-shelf-participant-list article header > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #2a1a11;
+}
+
+.club-shelf-participant-list article p {
+  margin: 0.55rem 0 0;
+  color: #634637;
+  line-height: 1.48;
+}
+
+.club-shelf-review-copy {
+  display: block;
+  width: 100%;
+  margin-top: 0.45rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.club-shelf-review-copy p {
+  display: -webkit-box;
+  margin: 0 !important;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+.club-shelf-review-copy.is-expanded p {
+  display: block;
+  overflow: visible;
+}
+
+.club-shelf-review-copy > span {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  min-height: 24px;
+  margin: 0.25rem auto 0;
+  border-radius: 999px;
+  color: #a55130;
+  background: rgba(180, 90, 50, 0.07);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.club-shelf-review-copy.is-expanded > span {
+  width: auto;
+  padding: 0 0.65rem;
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.club-shelf-review-copy:hover > span,
+.club-shelf-review-copy:focus-visible > span {
+  background: rgba(180, 90, 50, 0.13);
+  transform: translateY(-1px);
+}
+
+.club-shelf-review-copy:focus-visible {
+  outline: 2px solid rgba(180, 90, 50, 0.38);
+  outline-offset: 5px;
+  border-radius: 8px;
+}
+
+.club-shelf-participant-list article p.is-empty-review,
+.club-shelf-unrated {
+  color: #a08776;
+  font-size: 0.82rem;
+}
+
+.club-shelf-reading-dialog > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-top: 1.45rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid rgba(139, 79, 43, 0.12);
+}
+
+.club-current-book-card-empty {
+  display: block;
+  padding: 1rem;
+}
+
+.club-current-book-card-empty > div {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.club-summary-between-readings {
+  grid-column: 1 / -1;
+  padding: 1.5rem;
+}
+
+.club-summary-between-readings h2 {
+  margin: 0.3rem 0 0.5rem;
+}
+
+.club-summary-between-readings p {
+  max-width: 62ch;
+  color: #7c5d49;
+}
+
+.club-between-reading-action {
+  width: 100%;
+  border: 1px solid rgba(139, 79, 43, 0.17);
+  background:
+    radial-gradient(circle at 91% 20%, rgba(198, 107, 61, 0.11), transparent 24%),
+    #fffdf9;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.club-between-reading-action:hover,
+.club-between-reading-action:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(180, 90, 50, 0.38);
+  box-shadow: 0 12px 28px rgba(75, 43, 25, 0.09);
+}
+
+.club-between-reading-action:focus-visible {
+  outline: 2px solid rgba(180, 90, 50, 0.28);
+  outline-offset: 3px;
+}
+
+.club-between-reading-action > strong {
+  display: inline-flex;
+  margin-top: 0.45rem;
+  color: #ad4d2b;
+  font-size: 0.9rem;
+}
+
+.club-current-book-card-empty.is-actionable {
+  border-color: rgba(180, 90, 50, 0.22);
+  background: linear-gradient(145deg, rgba(255, 253, 249, 0.98), rgba(249, 238, 224, 0.68));
+}
+
+@media (max-width: 760px) {
+  .club-bookshelf-display {
+    padding-inline: 0.75rem;
+  }
+
+  .club-bookshelf-row {
+    gap: 0.85rem;
+    min-height: 225px;
+  }
+
+  .club-bookshelf-volume {
+    flex-basis: 118px;
+  }
+
+  .club-bookshelf-cover-wrap {
+    width: 106px;
+    min-height: 158px;
+  }
+
+  .club-bookshelf-cover {
+    width: 102px;
+    max-height: 158px;
+  }
+
+  .club-shelf-between-readings {
+    grid-template-columns: 1fr;
+  }
+
+  .club-shelf-between-mark {
+    display: none;
+  }
+
+  .club-shelf-reading-dialog > footer,
+  .club-shelf-participant-reviews > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .club-shelf-reading-dialog > footer button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .club-finish-reading-dialog,
+  .club-shelf-reading-dialog {
+    width: min(100vw - 1rem, 820px);
+    padding: 1rem;
+    border-radius: 22px;
+  }
+
+  .club-shelf-reading-hero {
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 0.85rem;
+    padding: 0.9rem;
+  }
+
+  .club-shelf-reading-cover {
+    width: 78px;
+  }
+
+  .club-shelf-participant-list article header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+}

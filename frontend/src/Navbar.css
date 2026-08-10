@@ -40,7 +40,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 28px;
+  gap: 18px;
 }
 
 .site-nav-links,
@@ -48,6 +48,186 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+
+.site-nav-links {
+  flex: 0 0 auto;
+}
+
+.site-nav-book-search {
+  position: relative;
+  min-width: 180px;
+  max-width: 320px;
+  flex: 1 1 280px;
+  min-height: 42px;
+  padding: 4px 5px 4px 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 253, 249, .92);
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.site-nav-book-search:focus-within {
+  border-color: #b77a54;
+  background: #fffdf9;
+  box-shadow: 0 0 0 3px rgba(183, 122, 84, .10);
+}
+
+.site-nav-book-search svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  fill: none;
+  stroke: #9a806b;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.site-nav-book-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 0.98rem/1.2 'Crimson Pro', Georgia, serif;
+}
+
+.site-nav-book-search input::placeholder {
+  color: #a99380;
+}
+
+.site-nav-book-search input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+.site-nav-book-search button {
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cream);
+  color: #6f5540;
+  font: 700 .85rem/1 'Crimson Pro', Georgia, serif;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease;
+}
+
+.site-nav-book-search button:hover {
+  background: #eadac6;
+  color: var(--ink);
+}
+
+.site-nav-book-suggestions {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 10px);
+  left: 50%;
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(430px, 62vh);
+  overflow-y: auto;
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid rgba(220, 193, 166, .9);
+  border-radius: 18px;
+  background: rgba(255, 252, 247, .985);
+  box-shadow: 0 22px 55px rgba(73, 47, 28, .18);
+  transform: translateX(-50%);
+  scrollbar-width: thin;
+  scrollbar-color: #c98a62 transparent;
+}
+
+.site-nav-book-suggestion {
+  width: 100%;
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 11px;
+  border: 1px solid rgba(225, 208, 190, .58);
+  border-radius: 14px;
+  background: #f7eee3;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(73, 47, 28, .035);
+  transition: background .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+
+.site-nav-book-suggestion:hover,
+.site-nav-book-suggestion:focus-visible {
+  outline: 0;
+  border-color: rgba(196, 142, 103, .52);
+  background: #f2e5d6;
+  box-shadow: 0 7px 16px rgba(73, 47, 28, .08);
+  transform: translateX(2px);
+}
+
+.site-nav-book-suggestion-cover {
+  width: 44px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #efe4d6;
+  box-shadow: 0 5px 12px rgba(73, 47, 28, .12);
+  color: #a36443;
+  font-size: 1.15rem;
+}
+
+.site-nav-book-suggestion-cover img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.site-nav-book-suggestion-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.site-nav-book-suggestion-copy strong {
+  overflow: hidden;
+  color: #3a2418;
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-nav-book-suggestion-copy small {
+  overflow: hidden;
+  color: #8b6e58;
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: .86rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-nav-book-suggestion-arrow {
+  color: #b45c36;
+  font-size: 1.05rem;
+}
+
+.site-nav-book-suggestions-state {
+  padding: 18px 14px;
+  color: #8c705b;
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: .92rem;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .site-nav-links a,
@@ -218,6 +398,21 @@
   .site-nav-actions {
     display: grid;
   }
+
+  .site-nav-book-search {
+    width: 100%;
+    max-width: none;
+    margin: 4px 0 2px;
+    flex-basis: auto;
+  }
+
+  .site-nav-book-suggestions {
+    left: 0;
+    width: 100%;
+    max-height: 52vh;
+    transform: none;
+  }
+
 
   .site-nav-links a,
   .site-nav-links button,
