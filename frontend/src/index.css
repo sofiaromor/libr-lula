@@ -4048,3 +4048,100 @@ button {
     font-size: .96rem;
   }
 }
+
+
+/* V15 · Editor de reseña más amplio en escritorio */
+@media (min-width: 901px) {
+  .book-review-modal {
+    padding: clamp(16px, 2.2vw, 30px);
+  }
+
+  .book-review-dialog {
+    width: min(1180px, calc(100vw - 48px));
+    max-height: 94dvh;
+    border-radius: 26px;
+  }
+
+  .book-review-dialog .book-review-editor {
+    padding: 30px 34px 36px;
+  }
+
+  .book-review-dialog .book-review-editor-heading {
+    padding-bottom: 20px;
+  }
+
+  .book-review-dialog .book-review-editor-heading h3 {
+    font-size: 26px;
+  }
+
+  .book-review-dialog .review-score-fieldset,
+  .book-review-dialog .review-vibes-fieldset,
+  .book-review-dialog .review-atmosphere-fieldset {
+    margin-top: 24px;
+  }
+
+  .book-review-dialog .review-vibe-category-tabs {
+    gap: 9px;
+    margin-bottom: 16px;
+  }
+
+  .book-review-dialog .review-vibe-category-tabs button {
+    min-height: 38px;
+    padding: 8px 14px;
+    font-size: 11px;
+  }
+
+  .book-review-dialog .review-vibe-picker {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 11px;
+  }
+
+  .book-review-dialog .review-vibe-picker button {
+    min-height: 88px;
+    padding: 13px 14px;
+    gap: 10px;
+  }
+
+  .book-review-dialog .review-vibe-picker strong {
+    font-size: 13px;
+  }
+
+  .book-review-dialog .review-vibe-picker small {
+    margin-top: 3px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
+  .book-review-dialog .review-atmosphere-editor {
+    gap: 16px 22px;
+  }
+
+  .book-review-dialog .review-atmosphere-control {
+    padding: 16px;
+  }
+
+  .book-review-dialog .review-atmosphere-control-top strong {
+    font-size: 12px;
+  }
+
+  .book-review-dialog .review-atmosphere-control-top output {
+    font-size: 10px;
+  }
+
+  .book-review-dialog .review-atmosphere-control .review-atmosphere-ends small {
+    font-size: 9px;
+  }
+
+  .book-review-dialog .review-text-field textarea {
+    min-height: 180px;
+    font-size: 15px;
+  }
+
+  .book-review-dialog .review-editor-actions {
+    position: sticky;
+    bottom: 0;
+    margin: 22px -8px -12px;
+    padding: 14px 8px 4px;
+    background: linear-gradient(to bottom, rgba(255, 250, 245, 0), #fffaf5 24%);
+  }
+}
