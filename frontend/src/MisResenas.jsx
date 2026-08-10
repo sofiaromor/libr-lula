@@ -147,13 +147,18 @@ export default function MisResenas({
 
             return (
               <article className="my-review-card" key={review.id || review.book_id}>
-                <div className="my-review-cover">
+                <button
+                  type="button"
+                  className="my-review-cover"
+                  onClick={() => openBook(review)}
+                  aria-label={`Abrir ficha de ${book.title || "este libro"}`}
+                >
                   {cover ? (
                     <img src={cover} alt={`Portada de ${book.title || "libro"}`} />
                   ) : (
                     <span>Sin portada</span>
                   )}
-                </div>
+                </button>
 
                 <div className="my-review-content">
                   <div className="my-review-heading">

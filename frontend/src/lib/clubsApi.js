@@ -142,6 +142,40 @@ async function profilesByIds(ids) {
   return mergeLegacyProfileData(data || []);
 }
 
+async function latestBookUpdates(bookId, profileIds) {
+  const cleanBookId = String(bookId || "").trim();
+  const cleanProfileIds = unique(profileIds);
+  if (!cleanBookId || !cleanProfileIds.length) return new Map();
+
+  const { data, error } = await supabase.rpc("reader_book_latest_updates", {
+    p_book_id: cleanBookId,
+    p_profile_ids: cleanProfileIds,
+  });
+
+  // Despliegue escalonado: Clubes sigue funcionando aunque el frontend llegue
+  // unos minutos antes que la migración V9.
+  if (error) {
+    console.warn("No se pudieron cargar las últimas actualizaciones lectoras:", error);
+    return new Map();
+  }
+
+  return new Map(
+    (data || []).map((row) => [
+      String(row.profile_id),
+      {
+        id: String(row.entry_id || ""),
+        source: String(row.source || "progress"),
+        body: String(row.body || "").trim(),
+        previous_progress: row.previous_progress === null ? null : Math.max(0, Math.min(100, Number(row.previous_progress) || 0)),
+        progress: row.progress === null ? null : Math.max(0, Math.min(100, Number(row.progress) || 0)),
+        pages_delta: Math.max(0, Number(row.pages_delta) || 0),
+        spoiler: Boolean(row.spoiler),
+        created_at: row.created_at || null,
+      },
+    ]),
+  );
+}
+
 function decorateClubs(clubs, memberships, books, memberCounts, profile) {
   const bookMap = mapById(books);
   const membershipMap = new Map(
@@ -748,7 +782,7 @@ export async function getClubDetail(clubId) {
   ]);
   const postIds = posts.map((post) => post.id);
 
-  const [profiles, reactionsResult] = await Promise.all([
+  const [profiles, reactionsResult, latestUpdates] = await Promise.all([
     profilesByIds(profileIds),
     postIds.length
       ? supabase
@@ -756,6 +790,7 @@ export async function getClubDetail(clubId) {
           .select("post_id, user_id, reaction")
           .in("post_id", postIds)
       : Promise.resolve({ data: [], error: null }),
+    latestBookUpdates(club.current_book_id, members.map((member) => member.user_id)),
   ]);
 
   if (reactionsResult.error) throw reactionsResult.error;
@@ -782,6 +817,7 @@ export async function getClubDetail(clubId) {
     members: members.map((member) => ({
       ...member,
       profile: profileMap.get(String(member.user_id)) || null,
+      latest_book_update: latestUpdates.get(String(member.user_id)) || null,
     })),
     chapters: chaptersResult.data || [],
     posts: posts.map((post) => {

@@ -26,6 +26,7 @@ const ClubesLectura = lazy(() => import("./ClubesLectura.jsx"));
 export default function App() {
   const [page, setPage] = useState("home");
   const [selectedBook, setSelectedBook] = useState(null);
+  const [bookThreadTarget, setBookThreadTarget] = useState(null);
   const [selectedSaga, setSelectedSaga] = useState(null);
   const [detailBackPage, setDetailBackPage] = useState("catalog");
   const [profileTab, setProfileTab] = useState("summary");
@@ -293,6 +294,23 @@ useEffect(() => {
     closeNavigation();
     updateBookQuery(book?.id || null);
     setSelectedBook(book);
+    setBookThreadTarget(null);
+    setDetailBackPage(backPage);
+    setPage("detail");
+  }
+
+  function openBookThread(book, profile, backPage = "clubs", clubId = null) {
+    if (!book?.id || !profile?.id) return;
+
+    closeNavigation();
+    updateBookQuery(book.id);
+    setSelectedBook(book);
+    setBookThreadTarget({
+      id: String(profile.id),
+      username: profile.display_name || profile.username || "Lectora de Librélula",
+      avatar: profile.avatar || "",
+    });
+    setProfileReturnClubId(clubId ? String(clubId) : null);
     setDetailBackPage(backPage);
     setPage("detail");
   }
@@ -336,6 +354,11 @@ useEffect(() => {
   }
 
   function backFromDetail() {
+    if (detailBackPage === "home") {
+      openHome();
+      return;
+    }
+
     if (detailBackPage === "saga" && selectedSaga) {
       updateBookQuery();
       setPage("saga");
@@ -563,6 +586,8 @@ useEffect(() => {
             onLibrary={openLibrary}
             onReviews={openMyReviews}
             onClubs={openClubs}
+            onSelectBook={(book) => openBookDetail(book, "home")}
+            onOpenBookThread={(book, profile) => openBookThread(book, profile, "home")}
           />
         )}
 
@@ -589,6 +614,7 @@ useEffect(() => {
               isLoggedIn={isLoggedIn}
               onLogin={openLogin}
               onSelectBook={(book) => openBookDetail(book, "clubs")}
+              onOpenBookThread={(book, profile, clubId) => openBookThread(book, profile, "clubs", clubId)}
               onHome={openHome}
               onCatalog={openCatalog}
               onProfile={openProfile}
@@ -665,6 +691,7 @@ useEffect(() => {
             onOpenMyReviews={openMyReviews}
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
+            threadTarget={bookThreadTarget}
           />
         )}
 

@@ -3360,3 +3360,102 @@
   .home-progress-composer footer { align-items: stretch; flex-direction: column; }
   .home-progress-composer footer > div { justify-content: flex-end; }
 }
+
+/* Inicio V9 · portadas siempre navegables + updates privadas del círculo */
+.home-book-cover-link {
+  cursor: pointer;
+  font: inherit;
+}
+
+.home-reading-cover.home-book-cover-link,
+.home-club-book-cover.home-book-cover-link,
+.lector-completion-cover.home-book-cover-link {
+  border: 0;
+}
+
+.home-reading-cover.home-book-cover-link:hover,
+.home-club-book-cover.home-book-cover-link:hover,
+.lector-completion-cover.home-book-cover-link:hover {
+  transform: translateY(-2px);
+  filter: saturate(1.04);
+}
+
+.home-book-cover-link:focus-visible {
+  outline: 3px solid rgba(84, 116, 88, .32);
+  outline-offset: 3px;
+}
+
+.home-feed-book.home-book-cover-link {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-feed-book.home-book-cover-link:hover {
+  border-color: rgba(166, 103, 70, .26);
+  background: #fff7ee;
+}
+
+.home-friend-cover.home-book-cover-link {
+  display: block;
+  width: 38px;
+  aspect-ratio: .67;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+}
+
+.home-friend-cover.home-book-cover-link img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-friend-update {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  margin-top: 7px;
+  padding: 7px 8px;
+  border: 1px solid #ead9c9;
+  border-radius: 10px;
+  background: #fbf5ec;
+  color: #544239;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-friend-update:hover {
+  border-color: #d2ad91;
+  background: #fff8ef;
+}
+
+.home-friends-list .home-friend-update > span {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #5a463a;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: .67rem;
+  line-height: 1.35;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.home-friend-update > small {
+  margin: 0;
+  color: #718064;
+  font-size: .58rem;
+  font-weight: 800;
+}
+
+.home-friend-update.is-spoiler {
+  background: repeating-linear-gradient(-45deg, #fbf5ec, #fbf5ec 8px, #f6eee4 8px, #f6eee4 16px);
+}

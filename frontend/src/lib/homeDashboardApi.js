@@ -245,6 +245,35 @@ async function getBooksMap(bookIds) {
   );
 }
 
+async function getLatestBookUpdates(bookId, profileIds) {
+  const cleanBookId = cleanText(bookId);
+  const cleanProfileIds = [...new Set((profileIds || []).map(cleanText).filter(Boolean))];
+  if (!cleanBookId || !cleanProfileIds.length) return new Map();
+
+  const { data, error } = await supabase.rpc("reader_book_latest_updates", {
+    p_book_id: cleanBookId,
+    p_profile_ids: cleanProfileIds,
+  });
+
+  if (error) return new Map();
+
+  return new Map(
+    (data || []).map((row) => [
+      String(row.profile_id),
+      {
+        id: cleanText(row.entry_id),
+        source: cleanText(row.source) || "progress",
+        body: cleanText(row.body),
+        previous_progress: row.previous_progress === null ? null : clampProgress(row.previous_progress),
+        progress: row.progress === null ? null : clampProgress(row.progress),
+        pages_delta: Math.max(0, asNumber(row.pages_delta)),
+        spoiler: Boolean(row.spoiler),
+        created_at: row.created_at || null,
+      },
+    ]),
+  );
+}
+
 async function getWeeklyReading(context) {
   const weekStart = mondayStart();
   const weekEnd = new Date(weekStart);
@@ -328,12 +357,33 @@ async function getFriendsReading(following) {
       book,
       progress: clampProgress(row.progress),
       status: row.status,
+      latest_update: null,
     });
 
     if (result.length >= 6) break;
   }
 
-  return result;
+  const groups = new Map();
+  for (const item of result) {
+    const key = String(item.book.id);
+    const current = groups.get(key) || [];
+    current.push(item.profile.id);
+    groups.set(key, current);
+  }
+
+  const latestByBook = new Map(
+    await Promise.all(
+      [...groups.entries()].map(async ([bookId, profileIds]) => [
+        bookId,
+        await getLatestBookUpdates(bookId, profileIds),
+      ]),
+    ),
+  );
+
+  return result.map((item) => ({
+    ...item,
+    latest_update: latestByBook.get(String(item.book.id))?.get(String(item.profile.id)) || null,
+  }));
 }
 
 async function fetchProfiles({ authIds = [], legacyIds = [] } = {}) {
@@ -781,26 +831,52 @@ export async function publishReaderPost({
   return data;
 }
 
-export async function getBookProgressThread(bookId) {
+export async function getBookProgressThread(bookId, profileId = null) {
   const context = await getCurrentContext();
   const cleanBookId = cleanText(bookId);
+  const targetProfileId = cleanText(profileId) || context.authId;
   if (!cleanBookId) return [];
 
-  const { data, error } = await supabase
+  const { data, error } = await supabase.rpc("reader_book_thread", {
+    p_book_id: cleanBookId,
+    p_profile_id: targetProfileId,
+  });
+
+  if (!error) {
+    return (data || []).map((row) => ({
+      id: cleanText(row.entry_id) || `${cleanText(row.source) || "update"}:${row.created_at}`,
+      source: cleanText(row.source) || "progress",
+      body: cleanText(row.body),
+      previous_progress: row.previous_progress === null ? null : clampProgress(row.previous_progress),
+      new_progress: row.progress === null ? null : clampProgress(row.progress),
+      pages_delta: Math.max(0, asNumber(row.pages_delta)),
+      spoiler: Boolean(row.spoiler),
+      created_at: row.created_at,
+    }));
+  }
+
+  // Compatibilidad durante un despliegue escalonado: mientras V9 todavía no
+  // esté aplicada en Supabase, el hilo propio sigue funcionando como antes.
+  if (String(targetProfileId) !== String(context.authId)) {
+    throw apiError("Este hilo todavía no está disponible. Aplica la migración de privacidad V9.");
+  }
+
+  const { data: legacyRows, error: legacyError } = await supabase
     .from("reading_progress_log")
     .select("id, previous_progress, new_progress, pages_delta, note, spoiler, created_at")
     .eq("legacy_user_id", context.legacyId)
     .eq("book_id", cleanBookId)
     .order("created_at", { ascending: false });
 
-  if (error) throw apiError("No se pudo cargar tu recorrido lector.");
+  if (legacyError) throw apiError("No se pudo cargar tu recorrido lector.");
 
-  return (data || []).map((row) => ({
-    id: row.id,
+  return (legacyRows || []).map((row) => ({
+    id: `progress:${row.id}`,
+    source: "progress",
+    body: cleanText(row.note),
     previous_progress: clampProgress(row.previous_progress),
     new_progress: clampProgress(row.new_progress),
     pages_delta: Math.max(0, asNumber(row.pages_delta)),
-    note: cleanText(row.note),
     spoiler: Boolean(row.spoiler),
     created_at: row.created_at,
   }));
