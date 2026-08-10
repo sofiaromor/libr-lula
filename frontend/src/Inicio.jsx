@@ -58,6 +58,28 @@ const COVER_GRADIENTS = [
   "linear-gradient(160deg, #b9a454, #75672e)",
 ];
 
+const HOME_MODULE_ORDER_KEY = "librelula:home-module-order:v1";
+const DEFAULT_HOME_MODULE_ORDER = ["reading", "week", "club", "friends", "feed"];
+
+function normalizeHomeModuleOrder(value) {
+  const requested = Array.isArray(value) ? value.map(String) : [];
+  const known = requested.filter((item, index) =>
+    DEFAULT_HOME_MODULE_ORDER.includes(item) && requested.indexOf(item) === index
+  );
+
+  return [...known, ...DEFAULT_HOME_MODULE_ORDER.filter((item) => !known.includes(item))];
+}
+
+function storedHomeModuleOrder() {
+  if (typeof window === "undefined") return DEFAULT_HOME_MODULE_ORDER;
+
+  try {
+    return normalizeHomeModuleOrder(JSON.parse(window.localStorage.getItem(HOME_MODULE_ORDER_KEY) || "[]"));
+  } catch {
+    return DEFAULT_HOME_MODULE_ORDER;
+  }
+}
+
 function asText(value) {
   return String(value || "").trim();
 }
@@ -327,6 +349,12 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
   const [progressComposerBookId, setProgressComposerBookId] = useState(null);
   const [savingProgress, setSavingProgress] = useState({});
   const [completedBook, setCompletedBook] = useState(null);
+  const [compactDashboard, setCompactDashboard] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches
+  );
+  const [mobileModuleOrder, setMobileModuleOrder] = useState(storedHomeModuleOrder);
+  const [draggingHomeModule, setDraggingHomeModule] = useState(null);
+  const draggingHomeModuleRef = useRef(null);
 
   async function loadSocialData({ silent = false } = {}) {
     if (!silent) setSocialLoading(true);
@@ -341,6 +369,23 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
       if (!silent) setSocialLoading(false);
     }
   }
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const handleChange = (event) => setCompactDashboard(event.matches);
+
+    if (media.addEventListener) {
+      media.addEventListener("change", handleChange);
+      return () => media.removeEventListener("change", handleChange);
+    }
+
+    media.addListener?.(handleChange);
+    return () => media.removeListener?.(handleChange);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(HOME_MODULE_ORDER_KEY, JSON.stringify(mobileModuleOrder));
+  }, [mobileModuleOrder]);
 
   useEffect(() => {
     let ignore = false;
@@ -445,6 +490,98 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
       return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
     });
   }, [feedTab, socialData?.feed]);
+
+  function homeModuleStyle(moduleId) {
+    if (!compactDashboard) return undefined;
+    const index = mobileModuleOrder.indexOf(moduleId);
+    return { order: index < 0 ? DEFAULT_HOME_MODULE_ORDER.length : index };
+  }
+
+  function moveHomeModule(activeId, targetId) {
+    if (!activeId || !targetId || activeId === targetId) return;
+
+    setMobileModuleOrder((current) => {
+      const activeIndex = current.indexOf(activeId);
+      const targetIndex = current.indexOf(targetId);
+      if (activeIndex < 0 || targetIndex < 0 || activeIndex === targetIndex) return current;
+
+      const next = current.filter((item) => item !== activeId);
+      next.splice(targetIndex, 0, activeId);
+      return next;
+    });
+  }
+
+  function startHomeModuleDrag(event, moduleId) {
+    if (!compactDashboard) return;
+    event.preventDefault();
+    draggingHomeModuleRef.current = moduleId;
+    setDraggingHomeModule(moduleId);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function moveHomeModuleDrag(event) {
+    const activeId = draggingHomeModuleRef.current;
+    if (!compactDashboard || !activeId) return;
+
+    event.preventDefault();
+
+    const scrollEdge = 72;
+    if (event.clientY < scrollEdge) window.scrollBy(0, -14);
+    if (event.clientY > window.innerHeight - scrollEdge) window.scrollBy(0, 14);
+
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.("[data-home-module]");
+    const targetId = target?.dataset?.homeModule || null;
+    moveHomeModule(activeId, targetId);
+  }
+
+  function finishHomeModuleDrag(event) {
+    if (!draggingHomeModuleRef.current) return;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    draggingHomeModuleRef.current = null;
+    setDraggingHomeModule(null);
+  }
+
+  function handleHomeModuleKeyDown(event, moduleId) {
+    if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+
+    setMobileModuleOrder((current) => {
+      const index = current.indexOf(moduleId);
+      if (index < 0) return current;
+
+      let targetIndex = index;
+      if (event.key === "ArrowUp") targetIndex = Math.max(0, index - 1);
+      if (event.key === "ArrowDown") targetIndex = Math.min(current.length - 1, index + 1);
+      if (event.key === "Home") targetIndex = 0;
+      if (event.key === "End") targetIndex = current.length - 1;
+      if (targetIndex === index) return current;
+
+      const next = [...current];
+      next.splice(index, 1);
+      next.splice(targetIndex, 0, moduleId);
+      return next;
+    });
+  }
+
+  function homeDragHandle(moduleId, label) {
+    return (
+      <button
+        type="button"
+        className="home-module-drag-handle"
+        aria-label={`Mover ${label}. Arrastra o usa las flechas para cambiar su posición.`}
+        title={`Mover ${label}`}
+        onPointerDown={(event) => startHomeModuleDrag(event, moduleId)}
+        onPointerMove={moveHomeModuleDrag}
+        onPointerUp={finishHomeModuleDrag}
+        onPointerCancel={finishHomeModuleDrag}
+        onKeyDown={(event) => handleHomeModuleKeyDown(event, moduleId)}
+      >
+        <span aria-hidden="true">⠿</span>
+      </button>
+    );
+  }
 
   function displayedProgress(book) {
     const key = String(book?.id || "");
@@ -678,128 +815,408 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
       {message && <p className="home-reader-message">{message}</p>}
 
       <section className="home-reader-grid">
-        <article className="home-panel home-reading-panel">
-          <div className="home-panel-heading">
-            <div>
-              <p>Tu lectura ahora</p>
-              <h2>Continúa leyendo</h2>
-              <span>Tu listado se mantiene en vertical para que puedas ver todas tus lecturas activas.</span>
+        <div className="home-reader-main">
+          <article
+            className="home-panel home-reading-panel home-module-card"
+            data-home-module="reading"
+            data-home-dragging={draggingHomeModule === "reading" ? "true" : undefined}
+            style={homeModuleStyle("reading")}
+          >
+            {homeDragHandle("reading", "Continúa leyendo")}
+            <div className="home-panel-heading">
+              <div>
+                <p>Tu lectura ahora</p>
+                <h2>Continúa leyendo</h2>
+                <span>Tu listado se mantiene en vertical para que puedas ver todas tus lecturas activas.</span>
+              </div>
+              <button type="button" onClick={onLibrary}>Ver biblioteca</button>
             </div>
-            <button type="button" onClick={onLibrary}>Ver biblioteca</button>
-          </div>
 
-          {loading ? (
-            <div className="home-empty-card">
-              <h3>Cargando tus lecturas…</h3>
-              <p>Estamos buscando los libros que tienes entre manos.</p>
-            </div>
-          ) : currentReadingBooks.length > 0 ? (
-            <div className="home-reading-list">
-              {currentReadingBooks.map((book, index) => {
-                const bookKey = String(book.id);
-                const progressValue = displayedProgress(book);
-                const meta = readingMeta(book, progressValue);
-                const label = STATUS_LABELS[book.status] || "En lectura";
-                const isSavingBookProgress = Boolean(savingProgress[bookKey]);
+            {loading ? (
+              <div className="home-empty-card">
+                <h3>Cargando tus lecturas…</h3>
+                <p>Estamos buscando los libros que tienes entre manos.</p>
+              </div>
+            ) : currentReadingBooks.length > 0 ? (
+              <div className="home-reading-list">
+                {currentReadingBooks.map((book, index) => {
+                  const bookKey = String(book.id);
+                  const progressValue = displayedProgress(book);
+                  const meta = readingMeta(book, progressValue);
+                  const label = STATUS_LABELS[book.status] || "En lectura";
+                  const isSavingBookProgress = Boolean(savingProgress[bookKey]);
 
-                return (
-                  <article className="home-reading-item" key={book.id}>
-                    <div className="home-reading-cover" style={buildBookCoverStyle(book, index)} aria-hidden="true">
-                      {!book.cover ? book.title : null}
-                    </div>
-
-                    <div className="home-reading-info">
-                      <div className="home-reading-title-row">
-                        <div>
-                          <h3>{book.title}</h3>
-                          <p>{book.author || "Autor desconocido"}</p>
-                        </div>
-                        <div className="home-reading-percent">
-                          <strong>{meta.progress}%</strong>
-                          <span>leído</span>
-                        </div>
+                  return (
+                    <article className="home-reading-item" key={book.id}>
+                      <div className="home-reading-cover" style={buildBookCoverStyle(book, index)} aria-hidden="true">
+                        {!book.cover ? book.title : null}
                       </div>
 
-                      <div className="home-reading-slider" style={{ "--progress": `${meta.progress}%` }}>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="1"
-                          value={meta.progress}
-                          aria-label={`Progreso de lectura de ${book.title}`}
-                          disabled={isSavingBookProgress}
-                          onChange={(event) => changeBookProgress(book, event.target.value)}
-                          onPointerUp={(event) => requestProgressSave(book, event.currentTarget.value)}
-                          onKeyUp={(event) => {
-                            if (["ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown", "Enter"].includes(event.key)) {
-                              requestProgressSave(book, event.currentTarget.value);
-                            }
-                          }}
-                        />
-                      </div>
-
-                      <div className="home-reading-meta">
-                        <span>
-                          {meta.totalPages > 0
-                            ? `${meta.currentPage} / ${meta.totalPages} páginas`
-                            : "Páginas no indicadas"}
-                        </span>
-                        <span>{isSavingBookProgress ? "Guardando…" : meta.finished ? "Terminado" : label}</span>
-                      </div>
-
-                      <div className="home-reading-actions">
-                        <small>{progressComposerBookId === bookKey ? "Añade una nota o guarda directamente." : "Arrastra la barra para preparar tu avance."}</small>
-                        <button type="button" onClick={onReviews}>Escribir reseña</button>
-                      </div>
-
-                      {progressComposerBookId === bookKey && (
-                        <div className="home-progress-composer">
+                      <div className="home-reading-info">
+                        <div className="home-reading-title-row">
                           <div>
-                            <strong>Guardar avance al {meta.progress}%</strong>
-                            <span>{meta.totalPages > 0 ? `Página ${meta.currentPage} de ${meta.totalPages}` : "Progreso por porcentaje"}</span>
+                            <h3>{book.title}</h3>
+                            <p>{book.author || "Autor desconocido"}</p>
                           </div>
-                          <textarea
-                            rows="2"
-                            maxLength="1200"
-                            value={progressNotes[bookKey] || ""}
-                            onChange={(event) => setProgressNotes((items) => ({ ...items, [bookKey]: event.target.value }))}
-                            placeholder="¿Qué ha pasado en estas páginas? Puedes dejar una reflexión para tu hilo lector…"
-                          />
-                          <footer>
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={Boolean(progressSpoilers[bookKey])}
-                                onChange={(event) => setProgressSpoilers((items) => ({ ...items, [bookKey]: event.target.checked }))}
-                              />
-                              {progressSpoilers[bookKey] ? "Contiene spoilers" : "Sin spoilers"}
-                            </label>
-                            <div>
-                              <button type="button" className="is-secondary" onClick={() => cancelProgressSave(book)}>Cancelar</button>
-                              <button type="button" onClick={() => persistBookProgress(book, meta.progress)} disabled={isSavingBookProgress}>
-                                {isSavingBookProgress ? "Guardando…" : "Guardar progreso"}
-                              </button>
-                            </div>
-                          </footer>
+                          <div className="home-reading-percent">
+                            <strong>{meta.progress}%</strong>
+                            <span>leído</span>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
+
+                        <div className="home-reading-slider" style={{ "--progress": `${meta.progress}%` }}>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={meta.progress}
+                            aria-label={`Progreso de lectura de ${book.title}`}
+                            disabled={isSavingBookProgress}
+                            onChange={(event) => changeBookProgress(book, event.target.value)}
+                            onPointerUp={(event) => requestProgressSave(book, event.currentTarget.value)}
+                            onKeyUp={(event) => {
+                              if (["ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown", "Enter"].includes(event.key)) {
+                                requestProgressSave(book, event.currentTarget.value);
+                              }
+                            }}
+                          />
+                        </div>
+
+                        <div className="home-reading-meta">
+                          <span>
+                            {meta.totalPages > 0
+                              ? `${meta.currentPage} / ${meta.totalPages} páginas`
+                              : "Páginas no indicadas"}
+                          </span>
+                          <span>{isSavingBookProgress ? "Guardando…" : meta.finished ? "Terminado" : label}</span>
+                        </div>
+
+                        <div className="home-reading-actions">
+                          <small>{progressComposerBookId === bookKey ? "Añade una nota o guarda directamente." : "Arrastra la barra para preparar tu avance."}</small>
+                          <button type="button" onClick={onReviews}>Escribir reseña</button>
+                        </div>
+
+                        {progressComposerBookId === bookKey && (
+                          <div className="home-progress-composer">
+                            <div>
+                              <strong>Guardar avance al {meta.progress}%</strong>
+                              <span>{meta.totalPages > 0 ? `Página ${meta.currentPage} de ${meta.totalPages}` : "Progreso por porcentaje"}</span>
+                            </div>
+                            <textarea
+                              rows="2"
+                              maxLength="1200"
+                              value={progressNotes[bookKey] || ""}
+                              onChange={(event) => setProgressNotes((items) => ({ ...items, [bookKey]: event.target.value }))}
+                              placeholder="¿Qué ha pasado en estas páginas? Puedes dejar una reflexión para tu hilo lector…"
+                            />
+                            <footer>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(progressSpoilers[bookKey])}
+                                  onChange={(event) => setProgressSpoilers((items) => ({ ...items, [bookKey]: event.target.checked }))}
+                                />
+                                {progressSpoilers[bookKey] ? "Contiene spoilers" : "Sin spoilers"}
+                              </label>
+                              <div>
+                                <button type="button" className="is-secondary" onClick={() => cancelProgressSave(book)}>Cancelar</button>
+                                <button type="button" onClick={() => persistBookProgress(book, meta.progress)} disabled={isSavingBookProgress}>
+                                  {isSavingBookProgress ? "Guardando…" : "Guardar progreso"}
+                                </button>
+                              </div>
+                            </footer>
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="home-empty-card">
+                <h3>No tienes libros marcados como leyendo.</h3>
+                <p>Cuando empieces uno, aparecerá aquí con su progreso.</p>
+                <button type="button" onClick={onExplore}>Explorar catálogo</button>
+              </div>
+            )}
+          </article>
+
+          <article
+            className="home-panel home-feed-panel home-module-card"
+            data-home-module="feed"
+            data-home-dragging={draggingHomeModule === "feed" ? "true" : undefined}
+            style={homeModuleStyle("feed")}
+          >
+            {homeDragHandle("feed", "Actividad lectora")}
+            <div className="home-feed-header">
+              <div>
+                <p>La plaza de Librélula</p>
+                <h2>Actividad lectora</h2>
+              </div>
+              <nav aria-label="Filtros de actividad lectora">
+                {[
+                  ["for-you", "Para ti"],
+                  ["friends", "Amigos"],
+                  ["global", "Global"],
+                  ["mine", "Mi actividad"],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={feedTab === value ? "is-active" : ""}
+                    onClick={() => setFeedTab(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </nav>
             </div>
-          ) : (
-            <div className="home-empty-card">
-              <h3>No tienes libros marcados como leyendo.</h3>
-              <p>Cuando empieces uno, aparecerá aquí con su progreso.</p>
-              <button type="button" onClick={onExplore}>Explorar catálogo</button>
+
+            <form className="home-feed-composer" onSubmit={publishPost}>
+              <img src={socialData?.context?.avatar || "/images/avatar/avatar1.png"} alt="" />
+              <div className="home-feed-composer-body">
+                <textarea
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  placeholder="¿Qué estás leyendo? Comparte una reflexión, una cita o cómo te está haciendo sentir…"
+                  rows="3"
+                  maxLength="1200"
+                />
+
+                {draftImagePreview && (
+                  <div className="home-composer-image-preview">
+                    <img src={draftImagePreview} alt="Vista previa de la publicación" />
+                    <button
+                      type="button"
+                      aria-label="Quitar imagen"
+                      onClick={() => {
+                        setDraftImage(null);
+                        setDraftImagePreview("");
+                        if (imageInputRef.current) imageInputRef.current.value = "";
+                      }}
+                    ><FeedIcon name="close" /></button>
+                  </div>
+                )}
+
+                {draftBook && (
+                  <div className="home-composer-selected-book">
+                    <img src={draftBook.cover || "/images/fondo.png"} alt="" />
+                    <div><strong>{draftBook.title}</strong><span>{draftBook.author}</span></div>
+                    <button type="button" aria-label="Quitar libro" onClick={() => setDraftBook(null)}><FeedIcon name="close" /></button>
+                  </div>
+                )}
+
+                {bookPickerOpen && (
+                  <div className="home-book-picker">
+                    <label htmlFor="home-book-reference">Escoge un libro disponible del catálogo</label>
+                    <input
+                      id="home-book-reference"
+                      type="search"
+                      value={bookSearch}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setBookSearch(value);
+                        if (value.trim().length < 2) {
+                          setBookSearchResults([]);
+                          setBookSearching(false);
+                        }
+                      }}
+                      placeholder="Busca por título, autora o ISBN…"
+                      autoComplete="off"
+                    />
+                    {bookSearching && <small>Buscando…</small>}
+                    {!bookSearching && bookSearch.trim().length >= 2 && bookSearchResults.length === 0 && <small>No hay coincidencias.</small>}
+                    {bookSearchResults.length > 0 && (
+                      <div className="home-book-picker-results">
+                        {bookSearchResults.map((book) => (
+                          <button
+                            key={book.id}
+                            type="button"
+                            onClick={() => {
+                              setDraftBook(book);
+                              setBookPickerOpen(false);
+                              setBookSearch("");
+                              setBookSearchResults([]);
+                            }}
+                          >
+                            <img src={book.cover || "/images/fondo.png"} alt="" />
+                            <span><strong>{book.title}</strong><small>{book.author}</small></span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <footer>
+                  <div className="home-composer-tools">
+                    <button
+                      type="button"
+                      className={bookPickerOpen ? "is-active" : ""}
+                      onClick={() => {
+                        const nextOpen = !bookPickerOpen;
+                        setBookPickerOpen(nextOpen);
+                        if (!nextOpen) {
+                          setBookSearch("");
+                          setBookSearchResults([]);
+                          setBookSearching(false);
+                        }
+                      }}
+                    >
+                      <FeedIcon name="book" /><span>Libro</span>
+                    </button>
+                    <button type="button" onClick={() => imageInputRef.current?.click()}>
+                      <FeedIcon name="image" /><span>Imagen</span>
+                    </button>
+                    <input
+                      ref={imageInputRef}
+                      className="home-hidden-file-input"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] || null;
+                        setDraftImage(file);
+                        setDraftImagePreview(file ? URL.createObjectURL(file) : "");
+                      }}
+                    />
+                    <label className="home-spoiler-toggle">
+                      <input
+                        type="checkbox"
+                        checked={draftSpoiler}
+                        onChange={(event) => setDraftSpoiler(event.target.checked)}
+                      />
+                      {draftSpoiler ? "Con spoilers" : "Sin spoilers"}
+                    </label>
+                  </div>
+                  <button className="home-publish-button" type="submit" disabled={(!draft.trim() && !draftImage) || publishing}>{publishing ? "Publicando…" : "Publicar"}</button>
+                </footer>
+              </div>
+            </form>
+
+            <div className="home-feed-list">
+              {socialLoading ? (
+                <div className="home-feed-empty"><strong>Cargando actividad…</strong></div>
+              ) : visibleFeed.length > 0 ? (
+                visibleFeed.map((item) => {
+                  const spoilerHidden = item.spoiler && !revealedSpoilers[item.key];
+
+                  return (
+                    <article className="home-feed-item" key={item.key}>
+                      <img className="home-feed-avatar" src={item.profile.avatar} alt="" />
+                      <div className="home-feed-content">
+                        <header>
+                          <div>
+                            <strong>{item.profile.username}</strong>
+                            <span>{feedTime(item.created_at)}</span>
+                          </div>
+                          <span className={item.spoiler ? "is-spoiler" : "is-safe"}>
+                            {item.spoiler ? "⚠ Con spoilers" : "✓ Sin spoilers"}
+                          </span>
+                        </header>
+
+                        {item.type === "post" && (
+                          <p className={spoilerHidden ? "home-spoiler-text" : ""}>{spoilerHidden ? "Contenido oculto por spoilers" : item.body}</p>
+                        )}
+
+                        {item.image_url && (
+                          <div className={spoilerHidden ? "home-feed-image home-spoiler-text" : "home-feed-image"}>
+                            <img src={item.image_url} alt="Imagen compartida en la actividad lectora" />
+                          </div>
+                        )}
+
+                        {item.type === "progress" && (
+                          <>
+                            <p>Avanzó del <strong>{item.previous_progress}%</strong> al <strong>{item.progress}%</strong> de <em>{item.book?.title}</em>{item.pages_delta ? ` · ${item.pages_delta} páginas` : ""}.</p>
+                            {item.body && <blockquote className={spoilerHidden ? "home-spoiler-text" : ""}>{spoilerHidden ? "Comentario oculto por spoilers" : item.body}</blockquote>}
+                          </>
+                        )}
+
+                        {item.type === "review" && (
+                          <>
+                            <p>Publicó una reseña de <em>{item.book?.title}</em>.</p>
+                            <div className="home-review-stars">{scoreStars(item.score)} <small>{item.score || "—"}</small></div>
+                            <blockquote className={spoilerHidden ? "home-spoiler-text" : ""}>{spoilerHidden ? "Reseña oculta por spoilers" : item.body}</blockquote>
+                          </>
+                        )}
+
+                        {item.type === "completed" && <p>Terminó <em>{item.book?.title}</em>.</p>}
+                        {item.type === "started" && <p>Empezó a leer <em>{item.book?.title}</em>.</p>}
+
+                        {item.spoiler && (
+                          <button
+                            type="button"
+                            className="home-reveal-spoiler"
+                            onClick={() => setRevealedSpoilers((current) => ({ ...current, [item.key]: !current[item.key] }))}
+                          >
+                            {spoilerHidden ? "Mostrar contenido" : "Ocultar spoilers"}
+                          </button>
+                        )}
+
+                        {item.book && (
+                          <div className="home-feed-book">
+                            <img src={item.book.cover || "/images/fondo.png"} alt="" />
+                            <div><strong>{item.book.title}</strong><span>{item.book.author}</span></div>
+                            {item.progress !== undefined && <b>{item.progress}%</b>}
+                          </div>
+                        )}
+
+                        <footer className="home-feed-actions">
+                          <button type="button" className="is-comment" onClick={() => setOpenComments((current) => ({ ...current, [item.key]: !current[item.key] }))}>
+                            <span className="home-feed-action-icon"><FeedIcon name="comment" /></span>
+                            <span>{item.comments_count}</span>
+                            <small>Comentar</small>
+                          </button>
+                          <button type="button" className={item.liked ? "is-liked" : ""} disabled={busyActivities[item.key]} onClick={() => toggleLike(item)}>
+                            <span className="home-feed-action-icon"><FeedIcon name="heart" /></span>
+                            <span>{item.likes}</span>
+                            <small>{item.liked ? "Te gusta" : "Me gusta"}</small>
+                          </button>
+                        </footer>
+
+                        {item.comments.length > 0 && (
+                          <div className="home-comments-preview">
+                            {item.comments.map((comment) => (
+                              <article key={comment.id}>
+                                <img src={comment.profile.avatar} alt="" />
+                                <div><p><strong>{comment.profile.username}</strong> {comment.body}</p><time>{feedTime(comment.created_at)}</time></div>
+                              </article>
+                            ))}
+                          </div>
+                        )}
+
+                        {openComments[item.key] && (
+                          <form className="home-comment-form" onSubmit={(event) => submitComment(item, event)}>
+                            <input
+                              value={commentDrafts[item.key] || ""}
+                              onChange={(event) => setCommentDrafts((current) => ({ ...current, [item.key]: event.target.value }))}
+                              placeholder="Escribe un comentario…"
+                            />
+                            <button type="submit" disabled={!String(commentDrafts[item.key] || "").trim() || busyActivities[item.key]}>Enviar</button>
+                          </form>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })
+              ) : (
+                <div className="home-feed-empty">
+                  <strong>Aún no hay actividad en esta pestaña.</strong>
+                  <p>Publica algo o sigue a otras lectoras para empezar a llenarla.</p>
+                </div>
+              )}
             </div>
-          )}
-        </article>
+          </article>
+        </div>
 
         <aside className="home-reader-side">
-          <article className="home-panel home-week-panel">
+          <article
+            className="home-panel home-week-panel home-module-card"
+            data-home-module="week"
+            data-home-dragging={draggingHomeModule === "week" ? "true" : undefined}
+            style={homeModuleStyle("week")}
+          >
+            {homeDragHandle("week", "Tu ritmo")}
             <div className="home-small-heading">
               <div>
                 <p>Tu ritmo</p>
@@ -846,7 +1263,13 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
             )}
           </article>
 
-          <article className="home-panel home-club-panel">
+          <article
+            className="home-panel home-club-panel home-module-card"
+            data-home-module="club"
+            data-home-dragging={draggingHomeModule === "club" ? "true" : undefined}
+            style={homeModuleStyle("club")}
+          >
+            {homeDragHandle("club", "Tu club activo")}
             <div className="home-small-heading">
               <div>
                 <p>Clubes de lectura</p>
@@ -917,7 +1340,13 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
             )}
           </article>
 
-          <article className="home-panel home-friends-panel">
+          <article
+            className="home-panel home-friends-panel home-module-card"
+            data-home-module="friends"
+            data-home-dragging={draggingHomeModule === "friends" ? "true" : undefined}
+            style={homeModuleStyle("friends")}
+          >
+            {homeDragHandle("friends", "Amigos leyendo")}
             <div className="home-small-heading">
               <div>
                 <p>Tu círculo</p>
@@ -951,266 +1380,6 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
             )}
           </article>
         </aside>
-
-        <article className="home-panel home-feed-panel">
-          <div className="home-feed-header">
-            <div>
-              <p>La plaza de Librélula</p>
-              <h2>Actividad lectora</h2>
-            </div>
-            <nav aria-label="Filtros de actividad lectora">
-              {[
-                ["for-you", "Para ti"],
-                ["friends", "Amigos"],
-                ["global", "Global"],
-                ["mine", "Mi actividad"],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={feedTab === value ? "is-active" : ""}
-                  onClick={() => setFeedTab(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          <form className="home-feed-composer" onSubmit={publishPost}>
-            <img src={socialData?.context?.avatar || "/images/avatar/avatar1.png"} alt="" />
-            <div className="home-feed-composer-body">
-              <textarea
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder="¿Qué estás leyendo? Comparte una reflexión, una cita o cómo te está haciendo sentir…"
-                rows="3"
-                maxLength="1200"
-              />
-
-              {draftImagePreview && (
-                <div className="home-composer-image-preview">
-                  <img src={draftImagePreview} alt="Vista previa de la publicación" />
-                  <button
-                    type="button"
-                    aria-label="Quitar imagen"
-                    onClick={() => {
-                      setDraftImage(null);
-                      setDraftImagePreview("");
-                      if (imageInputRef.current) imageInputRef.current.value = "";
-                    }}
-                  ><FeedIcon name="close" /></button>
-                </div>
-              )}
-
-              {draftBook && (
-                <div className="home-composer-selected-book">
-                  <img src={draftBook.cover || "/images/fondo.png"} alt="" />
-                  <div><strong>{draftBook.title}</strong><span>{draftBook.author}</span></div>
-                  <button type="button" aria-label="Quitar libro" onClick={() => setDraftBook(null)}><FeedIcon name="close" /></button>
-                </div>
-              )}
-
-              {bookPickerOpen && (
-                <div className="home-book-picker">
-                  <label htmlFor="home-book-reference">Escoge un libro disponible del catálogo</label>
-                  <input
-                    id="home-book-reference"
-                    type="search"
-                    value={bookSearch}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setBookSearch(value);
-                      if (value.trim().length < 2) {
-                        setBookSearchResults([]);
-                        setBookSearching(false);
-                      }
-                    }}
-                    placeholder="Busca por título, autora o ISBN…"
-                    autoComplete="off"
-                  />
-                  {bookSearching && <small>Buscando…</small>}
-                  {!bookSearching && bookSearch.trim().length >= 2 && bookSearchResults.length === 0 && <small>No hay coincidencias.</small>}
-                  {bookSearchResults.length > 0 && (
-                    <div className="home-book-picker-results">
-                      {bookSearchResults.map((book) => (
-                        <button
-                          key={book.id}
-                          type="button"
-                          onClick={() => {
-                            setDraftBook(book);
-                            setBookPickerOpen(false);
-                            setBookSearch("");
-                            setBookSearchResults([]);
-                          }}
-                        >
-                          <img src={book.cover || "/images/fondo.png"} alt="" />
-                          <span><strong>{book.title}</strong><small>{book.author}</small></span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <footer>
-                <div className="home-composer-tools">
-                  <button
-                    type="button"
-                    className={bookPickerOpen ? "is-active" : ""}
-                    onClick={() => {
-                      const nextOpen = !bookPickerOpen;
-                      setBookPickerOpen(nextOpen);
-                      if (!nextOpen) {
-                        setBookSearch("");
-                        setBookSearchResults([]);
-                        setBookSearching(false);
-                      }
-                    }}
-                  >
-                    <FeedIcon name="book" /><span>Libro</span>
-                  </button>
-                  <button type="button" onClick={() => imageInputRef.current?.click()}>
-                    <FeedIcon name="image" /><span>Imagen</span>
-                  </button>
-                  <input
-                    ref={imageInputRef}
-                    className="home-hidden-file-input"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0] || null;
-                      setDraftImage(file);
-                      setDraftImagePreview(file ? URL.createObjectURL(file) : "");
-                    }}
-                  />
-                  <label className="home-spoiler-toggle">
-                    <input
-                      type="checkbox"
-                      checked={draftSpoiler}
-                      onChange={(event) => setDraftSpoiler(event.target.checked)}
-                    />
-                    {draftSpoiler ? "Con spoilers" : "Sin spoilers"}
-                  </label>
-                </div>
-                <button className="home-publish-button" type="submit" disabled={(!draft.trim() && !draftImage) || publishing}>{publishing ? "Publicando…" : "Publicar"}</button>
-              </footer>
-            </div>
-          </form>
-
-          <div className="home-feed-list">
-            {socialLoading ? (
-              <div className="home-feed-empty"><strong>Cargando actividad…</strong></div>
-            ) : visibleFeed.length > 0 ? (
-              visibleFeed.map((item) => {
-                const spoilerHidden = item.spoiler && !revealedSpoilers[item.key];
-
-                return (
-                  <article className="home-feed-item" key={item.key}>
-                    <img className="home-feed-avatar" src={item.profile.avatar} alt="" />
-                    <div className="home-feed-content">
-                      <header>
-                        <div>
-                          <strong>{item.profile.username}</strong>
-                          <span>{feedTime(item.created_at)}</span>
-                        </div>
-                        <span className={item.spoiler ? "is-spoiler" : "is-safe"}>
-                          {item.spoiler ? "⚠ Con spoilers" : "✓ Sin spoilers"}
-                        </span>
-                      </header>
-
-                      {item.type === "post" && (
-                        <p className={spoilerHidden ? "home-spoiler-text" : ""}>{spoilerHidden ? "Contenido oculto por spoilers" : item.body}</p>
-                      )}
-
-                      {item.image_url && (
-                        <div className={spoilerHidden ? "home-feed-image home-spoiler-text" : "home-feed-image"}>
-                          <img src={item.image_url} alt="Imagen compartida en la actividad lectora" />
-                        </div>
-                      )}
-
-                      {item.type === "progress" && (
-                        <>
-                          <p>Avanzó del <strong>{item.previous_progress}%</strong> al <strong>{item.progress}%</strong> de <em>{item.book?.title}</em>{item.pages_delta ? ` · ${item.pages_delta} páginas` : ""}.</p>
-                          {item.body && <blockquote className={spoilerHidden ? "home-spoiler-text" : ""}>{spoilerHidden ? "Comentario oculto por spoilers" : item.body}</blockquote>}
-                        </>
-                      )}
-
-                      {item.type === "review" && (
-                        <>
-                          <p>Publicó una reseña de <em>{item.book?.title}</em>.</p>
-                          <div className="home-review-stars">{scoreStars(item.score)} <small>{item.score || "—"}</small></div>
-                          <blockquote className={spoilerHidden ? "home-spoiler-text" : ""}>{spoilerHidden ? "Reseña oculta por spoilers" : item.body}</blockquote>
-                        </>
-                      )}
-
-                      {item.type === "completed" && <p>Terminó <em>{item.book?.title}</em>.</p>}
-                      {item.type === "started" && <p>Empezó a leer <em>{item.book?.title}</em>.</p>}
-
-                      {item.spoiler && (
-                        <button
-                          type="button"
-                          className="home-reveal-spoiler"
-                          onClick={() => setRevealedSpoilers((current) => ({ ...current, [item.key]: !current[item.key] }))}
-                        >
-                          {spoilerHidden ? "Mostrar contenido" : "Ocultar spoilers"}
-                        </button>
-                      )}
-
-                      {item.book && (
-                        <div className="home-feed-book">
-                          <img src={item.book.cover || "/images/fondo.png"} alt="" />
-                          <div><strong>{item.book.title}</strong><span>{item.book.author}</span></div>
-                          {item.progress !== undefined && <b>{item.progress}%</b>}
-                        </div>
-                      )}
-
-                      <footer className="home-feed-actions">
-                        <button type="button" className="is-comment" onClick={() => setOpenComments((current) => ({ ...current, [item.key]: !current[item.key] }))}>
-                          <span className="home-feed-action-icon"><FeedIcon name="comment" /></span>
-                          <span>{item.comments_count}</span>
-                          <small>Comentar</small>
-                        </button>
-                        <button type="button" className={item.liked ? "is-liked" : ""} disabled={busyActivities[item.key]} onClick={() => toggleLike(item)}>
-                          <span className="home-feed-action-icon"><FeedIcon name="heart" /></span>
-                          <span>{item.likes}</span>
-                          <small>{item.liked ? "Te gusta" : "Me gusta"}</small>
-                        </button>
-                      </footer>
-
-                      {item.comments.length > 0 && (
-                        <div className="home-comments-preview">
-                          {item.comments.map((comment) => (
-                            <article key={comment.id}>
-                              <img src={comment.profile.avatar} alt="" />
-                              <div><p><strong>{comment.profile.username}</strong> {comment.body}</p><time>{feedTime(comment.created_at)}</time></div>
-                            </article>
-                          ))}
-                        </div>
-                      )}
-
-                      {openComments[item.key] && (
-                        <form className="home-comment-form" onSubmit={(event) => submitComment(item, event)}>
-                          <input
-                            value={commentDrafts[item.key] || ""}
-                            onChange={(event) => setCommentDrafts((current) => ({ ...current, [item.key]: event.target.value }))}
-                            placeholder="Escribe un comentario…"
-                          />
-                          <button type="submit" disabled={!String(commentDrafts[item.key] || "").trim() || busyActivities[item.key]}>Enviar</button>
-                        </form>
-                      )}
-                    </div>
-                  </article>
-                );
-              })
-            ) : (
-              <div className="home-feed-empty">
-                <strong>Aún no hay actividad en esta pestaña.</strong>
-                <p>Publica algo o sigue a otras lectoras para empezar a llenarla.</p>
-              </div>
-            )}
-          </div>
-        </article>
       </section>
 
       {completedBook && completedMeta && (
