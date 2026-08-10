@@ -199,6 +199,8 @@ export default function Inicio({
   onLibrary,
   onReviews,
   onClubs,
+  onSelectBook,
+  onOpenBookThread,
 }) {
   if (isLoggedIn) {
     return (
@@ -208,6 +210,8 @@ export default function Inicio({
         onLibrary={onLibrary || onProfile}
         onReviews={onReviews || onProfile}
         onClubs={onClubs}
+        onSelectBook={onSelectBook}
+        onOpenBookThread={onOpenBookThread}
       />
     );
   }
@@ -318,7 +322,7 @@ function FeedIcon({ name }) {
   );
 }
 
-function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
+function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs, onSelectBook, onOpenBookThread }) {
   const [homeData, setHomeData] = useState(null);
   const [socialData, setSocialData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -848,9 +852,15 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
 
                   return (
                     <article className="home-reading-item" key={book.id}>
-                      <div className="home-reading-cover" style={buildBookCoverStyle(book, index)} aria-hidden="true">
+                      <button
+                        type="button"
+                        className="home-reading-cover home-book-cover-link"
+                        style={buildBookCoverStyle(book, index)}
+                        onClick={() => onSelectBook?.(book)}
+                        aria-label={`Abrir ficha de ${book.title}`}
+                      >
                         {!book.cover ? book.title : null}
-                      </div>
+                      </button>
 
                       <div className="home-reading-info">
                         <div className="home-reading-title-row">
@@ -956,9 +966,8 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
               </div>
               <nav aria-label="Filtros de actividad lectora">
                 {[
-                  ["for-you", "Para ti"],
+                  ["for-you", "Tu círculo"],
                   ["friends", "Amigos"],
-                  ["global", "Global"],
                   ["mine", "Mi actividad"],
                 ].map(([value, label]) => (
                   <button
@@ -1154,11 +1163,16 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
                         )}
 
                         {item.book && (
-                          <div className="home-feed-book">
+                          <button
+                            type="button"
+                            className="home-feed-book home-book-cover-link"
+                            onClick={() => onSelectBook?.(item.book)}
+                            aria-label={`Abrir ficha de ${item.book.title}`}
+                          >
                             <img src={item.book.cover || "/images/fondo.png"} alt="" />
                             <div><strong>{item.book.title}</strong><span>{item.book.author}</span></div>
                             {item.progress !== undefined && <b>{item.progress}%</b>}
-                          </div>
+                          </button>
                         )}
 
                         <footer className="home-feed-actions">
@@ -1285,15 +1299,18 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
             ) : featuredClub ? (
               <div className="home-club-card">
                 <header>
-                  <div
-                    className="home-club-book-cover"
+                  <button
+                    type="button"
+                    className="home-club-book-cover home-book-cover-link"
                     style={featuredClub.book?.cover
                       ? { backgroundImage: `url("${featuredClub.book.cover}")` }
                       : undefined}
-                    aria-hidden="true"
+                    onClick={() => featuredClub.book && onSelectBook?.(featuredClub.book)}
+                    aria-label={featuredClub.book ? `Abrir ficha de ${featuredClub.book.title}` : "Lectura del club todavía sin libro"}
+                    disabled={!featuredClub.book}
                   >
                     {!featuredClub.book?.cover ? "⌑" : null}
-                  </div>
+                  </button>
                   <div>
                     <strong>{featuredClub.name}</strong>
                     <span>{featuredClub.book?.title || "Lectura por elegir"}</span>
@@ -1362,12 +1379,33 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
                 {friendsReading.map((item) => (
                   <article key={`${item.profile.id}-${item.book.id}`}>
                     <img className="home-friend-avatar" src={item.profile.avatar} alt="" />
-                    <img className="home-friend-cover" src={item.book.cover || "/images/fondo.png"} alt="" />
+                    <button
+                      type="button"
+                      className="home-friend-cover home-book-cover-link"
+                      onClick={() => onSelectBook?.(item.book)}
+                      aria-label={`Abrir ficha de ${item.book.title}`}
+                    >
+                      <img src={item.book.cover || "/images/fondo.png"} alt="" />
+                    </button>
                     <div>
                       <strong>{item.profile.username}</strong>
                       <span>{item.book.title}</span>
                       <div className="home-friend-progress"><span style={{ width: `${item.progress}%` }} /></div>
                       <small>{item.progress}% leído</small>
+                      {item.latest_update && (
+                        <button
+                          type="button"
+                          className={`home-friend-update${item.latest_update.spoiler ? " is-spoiler" : ""}`}
+                          onClick={() => onOpenBookThread?.(item.book, item.profile)}
+                        >
+                          <span>
+                            {item.latest_update.spoiler
+                              ? "Actualización con spoilers"
+                              : item.latest_update.body}
+                          </span>
+                          <small>Ver hilo · {feedTime(item.latest_update.created_at)}</small>
+                        </button>
+                      )}
                     </div>
                   </article>
                 ))}
@@ -1409,18 +1447,23 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
             <button type="button" className="lector-completion-close" aria-label="Cerrar celebración" onClick={() => setCompletedBook(null)}>×</button>
             <header className="lector-completion-hero">
               <div className="lector-completion-glow" style={buildBookCoverStyle(completedBook, 0)} aria-hidden="true" />
-              <div
-                className="lector-completion-cover"
+              <button
+                type="button"
+                className="lector-completion-cover home-book-cover-link"
                 style={{
                   ...buildBookCoverStyle(completedBook, 0),
                   backgroundSize: "contain",
                   backgroundRepeat: "no-repeat",
                   backgroundPosition: "center",
                 }}
-                aria-hidden="true"
+                onClick={() => {
+                  setCompletedBook(null);
+                  onSelectBook?.(completedBook);
+                }}
+                aria-label={`Abrir ficha de ${completedBook.title}`}
               >
                 {!completedBook.cover ? completedBook.title : null}
-              </div>
+              </button>
               <div className="lector-completion-check" aria-hidden="true">✓</div>
             </header>
 

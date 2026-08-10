@@ -1117,3 +1117,27 @@
   font-size: 1.15rem;
   line-height: 1;
 }
+
+/* Perfil V9 · la portada del círculo abre la ficha del libro */
+.profile-circle-book-link {
+  display: block;
+  width: 34px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.profile-circle-book-link img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+}
+
+.profile-circle-book-link:focus-visible {
+  outline: 3px solid rgba(84, 116, 88, .32);
+  outline-offset: 3px;
+}

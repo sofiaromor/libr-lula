@@ -200,7 +200,7 @@ function ReviewPreview({ review, onSelectBook }) {
   );
 }
 
-function CircleReader({ reader }) {
+function CircleReader({ reader, onSelectBook }) {
   const fallback = publicUrl("images/avatar/avatar1.png");
   return (
     <article className="profile-circle-reader">
@@ -225,7 +225,16 @@ function CircleReader({ reader }) {
           </div>
         ) : null}
       </div>
-      {reader.current_book ? <CoverImage book={reader.current_book} /> : null}
+      {reader.current_book ? (
+        <button
+          type="button"
+          className="profile-circle-book-link"
+          onClick={() => onSelectBook?.(reader.current_book)}
+          aria-label={`Abrir ficha de ${reader.current_book.title}`}
+        >
+          <CoverImage book={reader.current_book} />
+        </button>
+      ) : null}
     </article>
   );
 }
@@ -355,7 +364,7 @@ function SummaryView({ data, onSelectBook, onTabChange }) {
           {data.readerCircle.length ? (
             <div className="profile-circle-list">
               {data.readerCircle.slice(0, 3).map((reader) => (
-                <CircleReader key={reader.id} reader={reader} />
+                <CircleReader key={reader.id} reader={reader} onSelectBook={onSelectBook} />
               ))}
             </div>
           ) : (

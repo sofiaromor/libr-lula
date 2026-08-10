@@ -158,13 +158,25 @@ function AvatarStack({ members = [], limit = 5, extra = 0 }) {
   );
 }
 
-function BookCover({ book, className = "" }) {
+function BookCover({ book, className = "", onOpen = null }) {
+  const clickable = Boolean(book && onOpen);
+
   return (
     <img
-      className={className}
+      className={`${className}${clickable ? " is-book-link" : ""}`}
       src={assetUrl(book?.cover)}
       alt={book?.title ? `Portada de ${book.title}` : "Portada del libro"}
       loading="lazy"
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      aria-label={clickable ? `Abrir ficha de ${book.title || "este libro"}` : undefined}
+      onClick={clickable ? () => onOpen(book) : undefined}
+      onKeyDown={clickable ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(book);
+        }
+      } : undefined}
       onError={(event) => {
         event.currentTarget.src = publicUrl("images/librelula.png");
       }}
@@ -432,7 +444,7 @@ function ClubPreview({ club, onEnter, onSelectBook }) {
         <article className="clubs-preview-reading">
           <h3>Lectura del mes</h3>
           <div>
-            <BookCover book={club.book} />
+            <BookCover book={club.book} onOpen={onSelectBook} />
             <span>
               <strong>{club.book?.title || "Sin lectura seleccionada"}</strong>
               <small>{club.book?.author || ""}</small>
@@ -1302,7 +1314,7 @@ function ClubBookmarks({ achievements, membership }) {
   );
 }
 
-function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onInvite, onOpenProfile, onExitClub }) {
+function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onOpenBookThread, onInvite, onOpenProfile, onExitClub }) {
   const { club, membership, members, chapters, posts, meetings, achievements = [] } = data;
   const currentChapter = Math.max(1, Number(membership?.current_chapter) || 1);
   const clubUnlockedChapter = Math.max(1, Number(club?.unlocked_chapter) || chapters.length || 1);
@@ -1374,7 +1386,7 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onInvite
       {(tab === "chapters" || tab === "general") && (
         <div className="club-conversation-layout">
           <aside className="club-reading-sidebar">
-            <article className="club-current-book-card"><BookCover book={club.book} /><div><strong>{club.book?.title || "Lectura del club"}</strong><small>{club.book?.author}</small><label>Tu progreso <b>{membership?.progress || 0}%</b></label><i><span style={{ width: `${membership?.progress || 0}%` }} /></i><small>{membership?.current_page || 0} / {club.book?.pages || "?"} páginas · capítulo {currentChapter}</small><button type="button" onClick={() => onTab("reading")}>Actualizar mi progreso</button>{club.book && <button type="button" onClick={() => onSelectBook?.(club.book)}>Ver libro</button>}</div></article>
+            <article className="club-current-book-card"><BookCover book={club.book} onOpen={onSelectBook} /><div><strong>{club.book?.title || "Lectura del club"}</strong><small>{club.book?.author}</small><label>Tu progreso <b>{membership?.progress || 0}%</b></label><i><span style={{ width: `${membership?.progress || 0}%` }} /></i><small>{membership?.current_page || 0} / {club.book?.pages || "?"} páginas · capítulo {currentChapter}</small><button type="button" onClick={() => onTab("reading")}>Actualizar mi progreso</button>{club.book && <button type="button" onClick={() => onSelectBook?.(club.book)}>Ver libro</button>}</div></article>
             {tab === "chapters" && (
               <article className="club-chapter-list club-chapter-list-v3">
                 <h3>Conversaciones por capítulos</h3>
@@ -1432,7 +1444,7 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onInvite
           <article className="club-summary-reading">
             <h2>Lectura del club</h2>
             <div>
-              <BookCover book={club.book} />
+              <BookCover book={club.book} onOpen={onSelectBook} />
               <span>
                 <h3>{club.book?.title || "Sin libro seleccionado"}</h3>
                 <p>{club.book?.author}</p>
@@ -1467,28 +1479,54 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onInvite
             <div className="club-member-mini-grid">
               {members.slice(0, 8).map((member) => {
                 const progress = memberProgress(member, club.book?.pages);
+                const latestUpdate = member.latest_book_update;
+                const updateLabel = latestUpdate?.spoiler
+                  ? "Actualización con spoilers"
+                  : latestUpdate?.body || "";
+
                 return (
-                  <button
-                    type="button"
-                    key={member.user_id}
-                    onClick={() => onOpenProfile?.(member.user_id, club.id)}
-                  >
-                    <AvatarImage profile={member.profile} />
-                    <span className="club-member-mini-content">
-                      <span className="club-member-mini-heading">
-                        <b>{displayName(member.profile)}</b>
-                        <em aria-label={`${progress}% leído`}>{progress}%</em>
-                      </span>
-                      <i><u style={{ width: `${progress}%` }} /></i>
-                      <small>
-                        <span>Capítulo {member.current_chapter || 1}</span>
-                        <span>
-                          {member.current_page || 0}
-                          {club.book?.pages ? ` de ${club.book.pages}` : ""} páginas
+                  <article className="club-member-mini-card" key={member.user_id}>
+                    <button
+                      type="button"
+                      className="club-member-mini-profile"
+                      onClick={() => onOpenProfile?.(member.user_id, club.id)}
+                      aria-label={`Abrir perfil de ${displayName(member.profile)}`}
+                    >
+                      <AvatarImage profile={member.profile} />
+                      <span className="club-member-mini-content">
+                        <span className="club-member-mini-heading">
+                          <b>{displayName(member.profile)}</b>
+                          <em aria-label={`${progress}% leído`}>{progress}%</em>
                         </span>
-                      </small>
-                    </span>
-                  </button>
+                        <i><u style={{ width: `${progress}%` }} /></i>
+                        <small>
+                          <span>Capítulo {member.current_chapter || 1}</span>
+                          <span>
+                            {member.current_page || 0}
+                            {club.book?.pages ? ` de ${club.book.pages}` : ""} páginas
+                          </span>
+                        </small>
+                      </span>
+                    </button>
+
+                    {latestUpdate && club.book ? (
+                      <button
+                        type="button"
+                        className={`club-member-latest-update${latestUpdate.spoiler ? " is-spoiler" : ""}`}
+                        onClick={() => onOpenBookThread?.(club.book, member.profile, club.id)}
+                        aria-label={`Abrir el hilo de ${displayName(member.profile)} sobre ${club.book.title}`}
+                      >
+                        <span>Última actualización · {relativeTime(latestUpdate.created_at)}</span>
+                        <q>{updateLabel}</q>
+                        <small>Ver hilo lector →</small>
+                      </button>
+                    ) : (
+                      <p className="club-member-latest-update is-empty">
+                        <span>Hilo lector</span>
+                        <small>Aún no ha compartido una reflexión sobre este libro.</small>
+                      </p>
+                    )}
+                  </article>
                 );
               })}
             </div>
@@ -1502,7 +1540,7 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onInvite
       {tab === "reading" && (
         <div className="club-reading-tab club-reading-tab-v2">
           <article>
-            <BookCover book={club.book} />
+            <BookCover book={club.book} onOpen={onSelectBook} />
             <div>
               <span className="clubs-kicker">Lectura actual</span>
               <h2>{club.book?.title}</h2>
@@ -1548,6 +1586,7 @@ export default function ClubesLectura({
   isLoggedIn,
   onLogin,
   onSelectBook,
+  onOpenBookThread,
   onHome,
   onCatalog,
   onProfile,
@@ -1785,6 +1824,7 @@ export default function ClubesLectura({
           onBack={() => { setInsideClub(false); setClubData(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           onReload={reloadCurrentClub}
           onSelectBook={onSelectBook}
+          onOpenBookThread={onOpenBookThread}
           onInvite={openInviteShare}
           onOpenProfile={onOpenProfile}
           onExitClub={async (message) => {
@@ -1876,7 +1916,7 @@ export default function ClubesLectura({
             <div className="clubs-discover-grid">
               {discover.slice(0, 6).map((club) => (
                 <article key={club.id}>
-                  <BookCover book={club.book} />
+                  <BookCover book={club.book} onOpen={onSelectBook} />
                   <div><span>{club.visibility === "public" ? "◌ Club público" : "▣ Club privado"}</span><h3>{club.name}</h3><p>Leyendo ahora</p><strong>{club.book?.title || "Próxima lectura por elegir"}</strong><small>{club.member_count} miembros</small></div>
                   <button type="button" onClick={() => enterClub(club)}>Unirme</button>
                 </article>
@@ -1891,9 +1931,12 @@ export default function ClubesLectura({
           <span className="clubs-kicker">Cerca de tus lecturas</span>
           <h2>Recomendados para ti</h2>
           {(discover.length ? discover.slice(0, 4) : myClubs.slice(0, 4)).map((club) => (
-            <button type="button" key={club.id} onClick={() => setSelectedClubId(club.id)}>
-              <BookCover book={club.book} /><span><strong>{club.name}</strong><small>{club.member_count} miembros</small></span><i>→</i>
-            </button>
+            <article className="clubs-recommended-row" key={club.id}>
+              <BookCover book={club.book} onOpen={onSelectBook} />
+              <button type="button" onClick={() => setSelectedClubId(club.id)}>
+                <span><strong>{club.name}</strong><small>{club.member_count} miembros</small></span><i>→</i>
+              </button>
+            </article>
           ))}
           {discover.length === 0 && myClubs.length === 0 && <p>Cuando haya clubes, aparecerán aquí los más cercanos a tus gustos.</p>}
         </aside>

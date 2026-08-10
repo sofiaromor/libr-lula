@@ -238,3 +238,17 @@
     min-height: 128px;
   }
 }
+
+/* V9 · la portada abre siempre la ficha del libro */
+button.my-review-cover {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.my-review-cover:focus-visible {
+  outline: 3px solid rgba(84, 116, 88, .32);
+  outline-offset: 3px;
+}

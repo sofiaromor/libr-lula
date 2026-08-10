@@ -523,7 +523,7 @@ function RatingStars({ score, label = true }) {
 }
 
 
-export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyReviews, isAdmin, isLoggedIn }) {
+export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyReviews, isAdmin, isLoggedIn, threadTarget = null }) {
   const currentBook = book;
   const [coverFailed, setCoverFailed] = useState(false);
   const [editions, setEditions] = useState([]);
@@ -776,10 +776,10 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
       setProgressThreadError("");
 
       try {
-        const entries = await getBookProgressThread(currentBook.id);
+        const entries = await getBookProgressThread(currentBook.id, threadTarget?.id || null);
         if (!cancelled) setProgressThread(entries);
       } catch (error) {
-        if (!cancelled) setProgressThreadError(error.message || "No se pudo cargar tu recorrido lector.");
+        if (!cancelled) setProgressThreadError(error.message || "No se pudo cargar este recorrido lector.");
       } finally {
         if (!cancelled) setProgressThreadLoading(false);
       }
@@ -787,7 +787,20 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
 
     loadProgressThread();
     return () => { cancelled = true; };
-  }, [currentBook?.id, isLoggedIn]);
+  }, [currentBook?.id, isLoggedIn, threadTarget?.id]);
+
+  useEffect(() => {
+    if (!threadTarget?.id || progressThreadLoading) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("book-progress-thread-title")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [progressThreadLoading, threadTarget?.id]);
 
   useEffect(() => {
     if (!postitComposerOpen) return undefined;
@@ -1615,20 +1628,40 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
           <section className="book-progress-thread-section" aria-labelledby="book-progress-thread-title">
             <div className="book-detail-section-heading book-progress-thread-heading">
               <div>
-                <span className="book-progress-thread-kicker">Solo para ti</span>
-                <h2 id="book-progress-thread-title">Mi recorrido lector</h2>
-                <p>Cada cambio de progreso, comentario y fecha queda guardado como un hilo personal.</p>
+                <span className="book-progress-thread-kicker">Privado para tu círculo</span>
+                <h2 id="book-progress-thread-title">
+                  {threadTarget?.id ? `Recorrido lector de ${threadTarget.username}` : "Mi recorrido lector"}
+                </h2>
+                <p>
+                  {threadTarget?.id
+                    ? "Puedes ver este hilo porque sois amigas en Librélula o compartís un club. Nunca aparece como contenido público."
+                    : "Tus avances y publicaciones sobre este libro forman un hilo que solo pueden ver tus amigas y las personas con las que compartes club."}
+                </p>
               </div>
-              <span className="book-progress-thread-count">{progressThread.length} {progressThread.length === 1 ? "avance" : "avances"}</span>
+              <span className="book-progress-thread-count">{progressThread.length} {progressThread.length === 1 ? "update" : "updates"}</span>
             </div>
 
-            {progressThreadLoading && <p className="book-progress-thread-message">Cargando tu hilo lector…</p>}
+            {threadTarget?.id && (
+              <div className="book-progress-thread-owner">
+                <img src={publicUrl(threadTarget.avatar || "images/avatar/avatar1.png")} alt="" />
+                <span>
+                  <strong>{threadTarget.username}</strong>
+                  <small>Hilo privado sobre {currentBook.title}</small>
+                </span>
+              </div>
+            )}
+
+            {progressThreadLoading && <p className="book-progress-thread-message">Cargando hilo lector…</p>}
             {progressThreadError && <p className="book-progress-thread-message is-error">{progressThreadError}</p>}
 
             {!progressThreadLoading && !progressThreadError && progressThread.length === 0 && (
               <div className="book-progress-thread-empty">
-                <strong>Tu historia con este libro empieza aquí.</strong>
-                <p>Actualiza el progreso desde Inicio y podrás añadir una reflexión en cada avance.</p>
+                <strong>
+                  {threadTarget?.id
+                    ? `${threadTarget.username} todavía no ha compartido actualizaciones sobre este libro.`
+                    : "Tu historia con este libro empieza aquí."}
+                </strong>
+                {!threadTarget?.id && <p>Actualiza el progreso desde Inicio o publica algo sobre el libro para empezar tu hilo.</p>}
               </div>
             )}
 
@@ -1636,25 +1669,37 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
               <div className="book-progress-thread-list">
                 {progressThread.map((entry) => {
                   const hidden = entry.spoiler && !revealedProgressNotes[entry.id];
+                  const isPost = entry.source === "post";
+
                   return (
                     <article className="book-progress-thread-item" key={entry.id}>
                       <span className="book-progress-thread-dot" aria-hidden="true" />
                       <div className="book-progress-thread-card">
                         <header>
                           <div>
-                            <strong>{entry.previous_progress}% → {entry.new_progress}%</strong>
-                            {entry.pages_delta > 0 && <span>+{entry.pages_delta} páginas</span>}
+                            {isPost ? (
+                              <strong>Publicación sobre el libro</strong>
+                            ) : (
+                              <strong>{entry.previous_progress}% → {entry.new_progress}%</strong>
+                            )}
+                            {!isPost && entry.pages_delta > 0 && <span>+{entry.pages_delta} páginas</span>}
                           </div>
                           <time>{progressDateTime(entry.created_at)}</time>
                         </header>
-                        {entry.note ? (
-                          <p className={hidden ? "is-hidden-spoiler" : ""}>{hidden ? "Comentario oculto por spoilers" : entry.note}</p>
+
+                        {entry.body ? (
+                          <p className={hidden ? "is-hidden-spoiler" : ""}>
+                            {hidden ? "Actualización oculta por spoilers" : entry.body}
+                          </p>
                         ) : (
-                          <p className="is-muted">Guardaste este cambio de progreso sin comentario.</p>
+                          <p className="is-muted">
+                            {isPost ? "Compartió una actualización sobre este libro." : "Guardó este cambio de progreso sin comentario."}
+                          </p>
                         )}
+
                         {entry.spoiler && (
                           <button type="button" onClick={() => setRevealedProgressNotes((items) => ({ ...items, [entry.id]: !items[entry.id] }))}>
-                            {hidden ? "Mostrar comentario" : "Ocultar spoilers"}
+                            {hidden ? "Mostrar actualización" : "Ocultar spoilers"}
                           </button>
                         )}
                       </div>

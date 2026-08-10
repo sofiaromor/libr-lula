@@ -3854,3 +3854,38 @@ button {
   .book-progress-thread-card header { flex-direction: column; gap: 5px; }
   .book-progress-thread-card time { text-align: left; }
 }
+
+/* Book detail V9 · hilo lector compartido solo con el círculo */
+.book-progress-thread-owner {
+  display: inline-grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 9px 12px 9px 9px;
+  border: 1px solid rgba(111, 88, 71, .14);
+  border-radius: 14px;
+  background: #fffaf3;
+}
+
+.book-progress-thread-owner img {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.book-progress-thread-owner span {
+  display: grid;
+  gap: 2px;
+}
+
+.book-progress-thread-owner strong {
+  color: #3b2c24;
+  font-family: "Fraunces", Georgia, serif;
+}
+
+.book-progress-thread-owner small {
+  color: #7e6b60;
+  font-size: .72rem;
+}
