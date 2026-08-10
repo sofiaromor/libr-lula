@@ -169,6 +169,58 @@ async function getFollowingContext(authId) {
   };
 }
 
+async function getClubHomeSnapshot() {
+  const { data, error } = await supabase.rpc("reading_club_home_snapshot");
+
+  // El dashboard sigue siendo utilizable durante un despliegue escalonado:
+  // si la RPC de Clubes aún no está aplicada, el resto de Inicio carga igual.
+  if (error) {
+    console.warn("No se pudo cargar el resumen de clubes:", error);
+    return { total: 0, items: [], featured: null };
+  }
+
+  const items = (data || []).map((row) => {
+    const meetingStart = cleanText(row.next_meeting_at);
+
+    return {
+      id: String(row.club_id),
+      name: cleanText(row.club_name) || "Club de lectura",
+      visibility: row.visibility === "private" ? "private" : "public",
+      role: cleanText(row.role) || "member",
+      current_chapter: Math.max(1, asNumber(row.current_chapter, 1)),
+      current_page: Math.max(0, asNumber(row.current_page)),
+      progress: clampProgress(row.progress),
+      joined_at: row.joined_at || null,
+      book: row.book_id
+        ? {
+            id: String(row.book_id),
+            title: cleanText(row.book_title) || "Lectura del club",
+            author: cleanText(row.book_author),
+            cover: normalizeCover(row.book_cover),
+            pages: Math.max(0, asNumber(row.book_pages)),
+          }
+        : null,
+      meeting: meetingStart
+        ? {
+            id: row.next_meeting_id ? String(row.next_meeting_id) : null,
+            title: cleanText(row.next_meeting_title) || "Reunión del club",
+            starts_at: meetingStart,
+            ends_at: row.next_meeting_ends_at || null,
+            location: cleanText(row.next_meeting_location),
+            event_type: cleanText(row.next_meeting_type) || "meeting",
+          }
+        : null,
+      total: Math.max(0, asNumber(row.club_total)),
+    };
+  });
+
+  return {
+    total: items[0]?.total || items.length,
+    items,
+    featured: items[0] || null,
+  };
+}
+
 async function getBooksMap(bookIds) {
   const ids = [...new Set((bookIds || []).map(String).filter(Boolean))];
 
@@ -564,10 +616,11 @@ export async function getHomeDashboardData() {
   const context = await getCurrentContext();
   const following = await getFollowingContext(context.authId);
 
-  const [weekly, friendsReading, feed] = await Promise.all([
+  const [weekly, friendsReading, feed, clubs] = await Promise.all([
     getWeeklyReading(context),
     getFriendsReading(following),
     getFeed(context, following),
+    getClubHomeSnapshot(),
   ]);
 
   return {
@@ -575,6 +628,7 @@ export async function getHomeDashboardData() {
     weekly,
     friendsReading,
     feed,
+    clubs,
   };
 }
 

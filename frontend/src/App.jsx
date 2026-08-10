@@ -144,18 +144,22 @@ useEffect(() => {
     setPage("catalog");
   }
 
-  function openClubs() {
+  function openClubs(clubId = null) {
     if (!isLoggedIn) {
       openLogin();
       return;
     }
+
+    const requestedClubId = ["string", "number"].includes(typeof clubId)
+      ? String(clubId)
+      : null;
 
     closeNavigation();
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
     setNewBookTitle("");
-    setProfileReturnClubId(null);
+    setProfileReturnClubId(requestedClubId);
     setDetailBackPage("clubs");
     setPage("clubs");
   }
@@ -558,6 +562,7 @@ useEffect(() => {
             onProfile={openProfile}
             onLibrary={openLibrary}
             onReviews={openMyReviews}
+            onClubs={openClubs}
           />
         )}
 

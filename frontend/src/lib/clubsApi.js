@@ -142,17 +142,17 @@ async function profilesByIds(ids) {
   return mergeLegacyProfileData(data || []);
 }
 
-function decorateClubs(clubs, memberships, books, memberRows, profile) {
+function decorateClubs(clubs, memberships, books, memberCounts, profile) {
   const bookMap = mapById(books);
   const membershipMap = new Map(
     (memberships || []).map((membership) => [String(membership.club_id), membership]),
   );
-  const counts = new Map();
-
-  (memberRows || []).forEach((member) => {
-    const key = String(member.club_id);
-    counts.set(key, (counts.get(key) || 0) + 1);
-  });
+  const counts = new Map(
+    (memberCounts || []).map((row) => [
+      String(row.club_id),
+      Math.max(0, Number(row.member_count) || 0),
+    ]),
+  );
 
   return (clubs || []).map((club) => {
     const membership = membershipMap.get(String(club.id)) || null;
@@ -209,24 +209,43 @@ export async function getClubsHub() {
   const bookIds = unique(allClubs.map((club) => club.current_book_id));
   const clubIds = unique(allClubs.map((club) => club.id));
 
-  const [books, memberRowsResult] = await Promise.all([
+  const [books, memberCountsResult, nextMeetingsResult] = await Promise.all([
     booksByIds(bookIds),
     clubIds.length
-      ? supabase
-          .from("reading_club_members")
-          .select("club_id, user_id")
-          .in("club_id", clubIds)
-          .eq("status", "active")
+      ? supabase.rpc("reading_club_member_counts", {
+          p_club_ids: clubIds.map((id) => Number(id)),
+        })
+      : Promise.resolve({ data: [], error: null }),
+    clubIds.length
+      ? supabase.rpc("reading_club_next_meetings", {
+          p_club_ids: clubIds.map((id) => Number(id)),
+        })
       : Promise.resolve({ data: [], error: null }),
   ]);
 
-  if (memberRowsResult.error) throw memberRowsResult.error;
+  if (memberCountsResult.error) throw memberCountsResult.error;
+  if (nextMeetingsResult.error) {
+    console.warn("No se pudo recalcular la próxima cita de los clubes:", nextMeetingsResult.error);
+  }
+
+  const nextMeetingMap = new Map(
+    (nextMeetingsResult.data || []).map((row) => [
+      String(row.club_id),
+      row.next_meeting_at || null,
+    ]),
+  );
+  const clubsWithLiveMeetings = allClubs.map((club) => ({
+    ...club,
+    next_meeting_at: nextMeetingMap.has(String(club.id))
+      ? nextMeetingMap.get(String(club.id))
+      : club.next_meeting_at,
+  }));
 
   const decorated = decorateClubs(
-    allClubs,
+    clubsWithLiveMeetings,
     memberships,
     books,
-    memberRowsResult.data || [],
+    memberCountsResult.data || [],
     profile,
   );
   const decoratedMap = new Map(decorated.map((club) => [String(club.id), club]));
@@ -295,19 +314,15 @@ export async function createReadingClub({
   }
 
   const chapters = Array.from({ length: safeChapters }, (_, index) => ({
-    club_id: club.id,
-    chapter_number: index + 1,
     title: `Capítulo ${index + 1}`,
-    created_by: profile.id,
+    end_page: null,
   }));
 
-  const { error: chaptersError } = await supabase
-    .from("reading_club_chapters")
-    .insert(chapters);
-
-  if (chaptersError) {
+  try {
+    await replaceClubChapters(club.id, chapters);
+  } catch (chaptersError) {
     await supabase.from("reading_clubs").delete().eq("id", club.id);
-    throw new Error(chaptersError.message || "No se pudieron preparar los capítulos.");
+    throw new Error(chaptersError.message || "No se pudieron preparar los capítulos.", { cause: chaptersError });
   }
 
   if (nextMeetingAt) {
@@ -370,8 +385,8 @@ export async function uploadClubAsset(clubId, file, kind = "banner") {
   if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type || "")) {
     throw new Error("La imagen debe ser JPG, PNG, WebP o GIF.");
   }
-  if (file.size > 8 * 1024 * 1024) {
-    throw new Error("La imagen no puede superar los 8 MB.");
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("La imagen no puede superar los 5 MB.");
   }
 
   const user = await currentUser();
@@ -527,7 +542,7 @@ export async function deleteReadingClub(clubId) {
   return true;
 }
 
-export async function uploadClubPostImage(file) {
+export async function uploadClubPostImage(clubId, file) {
   if (!file) return "";
   if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type || "")) {
     throw new Error("La imagen debe ser JPG, PNG, WebP o GIF.");
@@ -538,7 +553,7 @@ export async function uploadClubPostImage(file) {
 
   const user = await currentUser();
   const extension = String(file.name || "image.jpg").split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${user.id}/posts/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const path = `${user.id}/clubs/${Number(clubId)}/posts/${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const { error } = await supabase.storage.from("club-media").upload(path, file, {
     cacheControl: "3600",
     upsert: false,
@@ -564,7 +579,7 @@ export async function createClubPost({
   containsSpoilers = false,
 }) {
   const profile = await currentProfile();
-  const imagePath = imageFile ? await uploadClubPostImage(imageFile) : "";
+  const imagePath = imageFile ? await uploadClubPostImage(clubId, imageFile) : "";
   const cleanContent = String(content || "").trim();
   const cleanQuote = String(quoteText || "").trim();
 
@@ -705,7 +720,7 @@ export async function getClubDetail(clubId) {
       .from("reading_club_posts")
       .select("id, club_id, user_id, channel, chapter_number, content, quote_text, image_path, contains_spoilers, parent_post_id, created_at")
       .eq("club_id", id)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(150),
     supabase
       .from("reading_club_meetings")
@@ -726,7 +741,7 @@ export async function getClubDetail(clubId) {
   }
 
   const members = membersResult.data || [];
-  const posts = postsResult.data || [];
+  const posts = [...(postsResult.data || [])].reverse();
   const profileIds = unique([
     ...members.map((member) => member.user_id),
     ...posts.map((post) => post.user_id),

@@ -2286,6 +2286,132 @@
   background: linear-gradient(145deg, #fffaf3, #f7eddf);
 }
 
+.home-club-card {
+  display: grid;
+  gap: 13px;
+  margin-top: 17px;
+  padding: 14px;
+  border: 1px solid rgba(105, 78, 58, 0.15);
+  border-radius: 16px;
+  background: rgba(255, 253, 249, 0.92);
+}
+
+.home-club-card > header {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 11px;
+  align-items: center;
+}
+
+.home-club-card > header > div:last-child {
+  min-width: 0;
+}
+
+.home-club-book-cover {
+  width: 48px;
+  aspect-ratio: 0.68;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 7px;
+  background: linear-gradient(150deg, #75614f, #b39a78);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  color: #fff9ef;
+  font-size: 1.1rem;
+  box-shadow: 0 5px 13px rgba(67, 49, 38, 0.16);
+}
+
+.home-club-card header strong,
+.home-club-card header span,
+.home-club-card header small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-club-card header strong {
+  color: #3b2c25;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 0.98rem;
+}
+
+.home-club-card header span {
+  margin-top: 3px;
+  color: #695a51;
+  font-size: 0.73rem;
+}
+
+.home-club-card header small {
+  margin-top: 2px;
+  color: #918077;
+  font-size: 0.64rem;
+}
+
+.home-club-meeting {
+  display: grid;
+  gap: 2px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: #f4eadb;
+}
+
+.home-club-meeting small,
+.home-club-meeting span,
+.home-club-no-meeting {
+  color: #7b695e;
+  font-size: 0.68rem;
+}
+
+.home-club-meeting strong {
+  color: #46362e;
+  font-size: 0.82rem;
+}
+
+.home-club-no-meeting {
+  margin: 0;
+  padding: 9px 0 0;
+}
+
+.home-club-progress > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #6b5e56;
+  font-size: 0.7rem;
+}
+
+.home-club-progress .home-goal-track {
+  margin-top: 7px;
+}
+
+.home-club-progress > small {
+  display: block;
+  margin-top: 5px;
+  color: #8b796e;
+  font-size: 0.62rem;
+}
+
+.home-club-open {
+  width: fit-content;
+  min-height: 34px;
+  border: 1px solid rgba(88, 70, 57, 0.18);
+  border-radius: 999px;
+  background: #5f744f;
+  color: #fffdf9;
+  padding: 0 13px;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.home-club-empty .home-club-open {
+  margin-top: 12px;
+}
+
 .home-club-empty {
   margin-top: 17px;
   padding: 16px;
