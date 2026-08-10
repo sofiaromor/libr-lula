@@ -1479,6 +1479,10 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onOpenBo
             <div className="club-member-mini-grid">
               {members.slice(0, 8).map((member) => {
                 const progress = memberProgress(member, club.book?.pages);
+                const memberName = displayName(member.profile);
+                const compactMemberName = memberName.length > 10
+                  ? `${memberName.slice(0, 10)}…`
+                  : memberName;
                 const latestUpdate = member.latest_book_update;
                 const hasReflection = Boolean(latestUpdate?.body);
                 const updateLabel = latestUpdate?.spoiler
@@ -1494,12 +1498,12 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onOpenBo
                       type="button"
                       className="club-member-mini-profile"
                       onClick={() => onOpenProfile?.(member.user_id, club.id)}
-                      aria-label={`Abrir perfil de ${displayName(member.profile)}`}
+                      aria-label={`Abrir perfil de ${memberName}`}
                     >
                       <AvatarImage profile={member.profile} />
                       <span className="club-member-mini-content">
                         <span className="club-member-mini-heading">
-                          <b>{displayName(member.profile)}</b>
+                          <b title={memberName}>{compactMemberName}</b>
                           <em aria-label={`${progress}% leído`}>{progress}%</em>
                         </span>
                         <i><u style={{ width: `${progress}%` }} /></i>
@@ -1518,7 +1522,7 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onOpenBo
                         type="button"
                         className={`club-member-latest-update${latestUpdate.spoiler ? " is-spoiler" : ""}${hasReflection ? " has-reflection" : " is-progress-only"}`}
                         onClick={() => onOpenBookThread?.(club.book, member.profile, club.id)}
-                        aria-label={`Abrir el hilo de ${displayName(member.profile)} sobre ${club.book.title}`}
+                        aria-label={`Abrir el hilo de ${memberName} sobre ${club.book.title}`}
                       >
                         {hasReflection ? (
                           <q>{updateLabel}</q>
