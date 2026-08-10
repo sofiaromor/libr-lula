@@ -508,6 +508,40 @@ function progressDateTime(value) {
   }).format(date);
 }
 
+function progressRelativeTime(value) {
+  const date = new Date(value);
+  const elapsed = Date.now() - date.getTime();
+  if (Number.isNaN(elapsed)) return "ahora";
+
+  const minutes = Math.floor(elapsed / 60000);
+  if (minutes < 1) return "ahora";
+  if (minutes < 60) return `hace ${minutes} min`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `hace ${days} día${days === 1 ? "" : "s"}`;
+
+  return progressDateTime(value);
+}
+
+function readerAvatarUrl(value) {
+  const clean = String(value || "").trim();
+  const normalized = clean.toLowerCase();
+  if (
+    !clean ||
+    normalized === "default.jpg" ||
+    normalized === "default.png" ||
+    normalized === "images/avatar/default.jpg"
+  ) {
+    return publicUrl("images/avatar/avatar1.png");
+  }
+
+  if (/^(?:https?:\/\/|data:|blob:)/i.test(clean)) return clean;
+  return publicUrl(clean);
+}
+
 function RatingStars({ score, label = true }) {
   const numericScore = Number(score);
   const valid = Number.isFinite(numericScore);
@@ -1643,10 +1677,17 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
 
             {threadTarget?.id && (
               <div className="book-progress-thread-owner">
-                <img src={publicUrl(threadTarget.avatar || "images/avatar/avatar1.png")} alt="" />
-                <span>
+                <img
+                  src={readerAvatarUrl(threadTarget.avatar)}
+                  alt={`Foto de perfil de ${threadTarget.username}`}
+                  onError={(event) => {
+                    event.currentTarget.src = publicUrl("images/avatar/avatar1.png");
+                  }}
+                />
+                <span className="book-progress-thread-owner-copy">
+                  <small>Hilo lector privado</small>
                   <strong>{threadTarget.username}</strong>
-                  <small>Hilo privado sobre {currentBook.title}</small>
+                  <span>Sobre <b>{currentBook.title}</b></span>
                 </span>
               </div>
             )}
@@ -1674,26 +1715,29 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
                   return (
                     <article className="book-progress-thread-item" key={entry.id}>
                       <span className="book-progress-thread-dot" aria-hidden="true" />
-                      <div className="book-progress-thread-card">
+                      <div className={`book-progress-thread-card${entry.body ? " has-reflection" : " is-progress-only"}`}>
                         <header>
-                          <div>
-                            {isPost ? (
-                              <strong>Publicación sobre el libro</strong>
-                            ) : (
-                              <strong>{entry.previous_progress}% → {entry.new_progress}%</strong>
+                          <div className="book-progress-thread-meta">
+                            <span>{isPost ? "Reflexión" : "Avance"}</span>
+                            {!isPost && (
+                              <small>
+                                {entry.previous_progress}% → {entry.new_progress}%
+                                {entry.pages_delta > 0 ? ` · +${entry.pages_delta} páginas` : ""}
+                              </small>
                             )}
-                            {!isPost && entry.pages_delta > 0 && <span>+{entry.pages_delta} páginas</span>}
                           </div>
-                          <time>{progressDateTime(entry.created_at)}</time>
+                          <time title={progressDateTime(entry.created_at)}>
+                            {progressRelativeTime(entry.created_at)}
+                          </time>
                         </header>
 
                         {entry.body ? (
-                          <p className={hidden ? "is-hidden-spoiler" : ""}>
+                          <p className={`book-progress-thread-reflection${hidden ? " is-hidden-spoiler" : ""}`}>
                             {hidden ? "Actualización oculta por spoilers" : entry.body}
                           </p>
                         ) : (
                           <p className="is-muted">
-                            {isPost ? "Compartió una actualización sobre este libro." : "Guardó este cambio de progreso sin comentario."}
+                            {isPost ? "Compartió una actualización sobre este libro." : "Actualizó su progreso."}
                           </p>
                         )}
 

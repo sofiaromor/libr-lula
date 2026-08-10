@@ -3889,3 +3889,162 @@ button {
   color: #7e6b60;
   font-size: .72rem;
 }
+
+
+/* Book detail V10 · hilo lector más humano: avatar y reflexión como protagonista */
+.book-progress-thread-owner {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
+  width: min(100%, 520px);
+  margin-top: 18px;
+  padding: 12px 15px 12px 12px;
+  border: 1px solid rgba(111, 88, 71, .15);
+  border-radius: 18px;
+  background: rgba(255, 250, 243, .96);
+  box-shadow: 0 8px 22px rgba(72, 49, 34, .055);
+}
+
+.book-progress-thread-owner img {
+  width: 58px;
+  height: 58px;
+  border: 1px solid rgba(103, 79, 61, .14);
+  border-radius: 50%;
+  background: #f4eadc;
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgba(72, 49, 34, .08);
+}
+
+.book-progress-thread-owner > .book-progress-thread-owner-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.book-progress-thread-owner-copy > small {
+  color: #b26143;
+  font-size: .62rem;
+  font-weight: 850;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.book-progress-thread-owner-copy > strong {
+  overflow: hidden;
+  color: #33251e;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.12rem;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.book-progress-thread-owner-copy > span {
+  display: block;
+  overflow: hidden;
+  color: #7d695c;
+  font-size: .74rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.book-progress-thread-owner-copy > span b {
+  color: #5f4a3e;
+  font-weight: 700;
+}
+
+.book-progress-thread-list {
+  margin-top: 26px;
+}
+
+.book-progress-thread-card {
+  padding: 15px 17px 16px;
+  border-color: rgba(107, 82, 65, .12);
+  background: rgba(255, 253, 250, .96);
+  box-shadow: 0 7px 20px rgba(72, 49, 34, .035);
+}
+
+.book-progress-thread-card header {
+  align-items: center;
+  gap: 12px;
+}
+
+.book-progress-thread-card header > .book-progress-thread-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.book-progress-thread-meta > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 23px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f3eadf;
+  color: #9c563d;
+  font-size: .62rem;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.book-progress-thread-meta > small {
+  color: #607963;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.book-progress-thread-card time {
+  flex: 0 0 auto;
+  color: #968277;
+  font-size: .69rem;
+}
+
+.book-progress-thread-card .book-progress-thread-reflection {
+  margin: 12px 0 0;
+  color: #3e2d25;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.03rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.book-progress-thread-card.is-progress-only p.is-muted {
+  margin-top: 10px;
+  color: #6e7f69;
+  font-style: normal;
+  font-size: .9rem;
+}
+
+.book-progress-thread-card.has-reflection {
+  border-left: 3px solid rgba(180, 92, 58, .42);
+}
+
+.book-progress-thread-card .book-progress-thread-reflection.is-hidden-spoiler {
+  filter: blur(5px);
+  user-select: none;
+}
+
+@media (max-width: 680px) {
+  .book-progress-thread-owner {
+    grid-template-columns: 50px minmax(0, 1fr);
+    padding: 10px 12px 10px 10px;
+  }
+
+  .book-progress-thread-owner img {
+    width: 50px;
+    height: 50px;
+  }
+
+  .book-progress-thread-card header {
+    align-items: flex-start;
+  }
+
+  .book-progress-thread-card .book-progress-thread-reflection {
+    font-size: .96rem;
+  }
+}
