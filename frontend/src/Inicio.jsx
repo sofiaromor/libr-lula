@@ -125,6 +125,23 @@ function formatDate(value) {
   });
 }
 
+function formatClubMeetingDate(value) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "Fecha por confirmar";
+
+  const day = date.toLocaleDateString("es-ES", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  const time = date.toLocaleTimeString("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return `${day.replace(/^[a-záéíóúñ]/, (letter) => letter.toUpperCase())} · ${time}`;
+}
+
 function buildBookCoverStyle(book, index) {
   const cover = normalizeAssetUrl(book?.cover);
 
@@ -159,6 +176,7 @@ export default function Inicio({
   onProfile,
   onLibrary,
   onReviews,
+  onClubs,
 }) {
   if (isLoggedIn) {
     return (
@@ -167,6 +185,7 @@ export default function Inicio({
         onProfile={onProfile}
         onLibrary={onLibrary || onProfile}
         onReviews={onReviews || onProfile}
+        onClubs={onClubs}
       />
     );
   }
@@ -277,7 +296,7 @@ function FeedIcon({ name }) {
   );
 }
 
-function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews }) {
+function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onClubs }) {
   const [homeData, setHomeData] = useState(null);
   const [socialData, setSocialData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -401,6 +420,8 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews }) {
     days: [],
   };
   const friendsReading = socialData?.friendsReading || [];
+  const clubSummary = socialData?.clubs || { total: 0, items: [], featured: null };
+  const featuredClub = clubSummary.featured || null;
 
   const visibleFeed = useMemo(() => {
     const items = socialData?.feed || [];
@@ -829,14 +850,71 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews }) {
             <div className="home-small-heading">
               <div>
                 <p>Clubes de lectura</p>
-                <h2>Próxima cita</h2>
+                <h2>{featuredClub?.meeting ? "Próxima cita" : "Tu club activo"}</h2>
               </div>
-              <span aria-hidden="true">⌑</span>
+              <span title={`${clubSummary.total} club${clubSummary.total === 1 ? "" : "es"}`}>
+                {clubSummary.total}
+              </span>
             </div>
-            <div className="home-club-empty">
-              <strong>Aún no tienes una cita</strong>
-              <p>Este espacio se conectará con los clubes de lectura cuando construyamos esa sección.</p>
-            </div>
+
+            {socialLoading ? (
+              <p className="home-side-loading">Cargando clubes…</p>
+            ) : featuredClub ? (
+              <div className="home-club-card">
+                <header>
+                  <div
+                    className="home-club-book-cover"
+                    style={featuredClub.book?.cover
+                      ? { backgroundImage: `url("${featuredClub.book.cover}")` }
+                      : undefined}
+                    aria-hidden="true"
+                  >
+                    {!featuredClub.book?.cover ? "⌑" : null}
+                  </div>
+                  <div>
+                    <strong>{featuredClub.name}</strong>
+                    <span>{featuredClub.book?.title || "Lectura por elegir"}</span>
+                    {featuredClub.book?.author && <small>{featuredClub.book.author}</small>}
+                  </div>
+                </header>
+
+                {featuredClub.meeting ? (
+                  <div className="home-club-meeting">
+                    <small>{featuredClub.meeting.title}</small>
+                    <strong>{formatClubMeetingDate(featuredClub.meeting.starts_at)}</strong>
+                    {featuredClub.meeting.location && <span>{featuredClub.meeting.location}</span>}
+                  </div>
+                ) : (
+                  <p className="home-club-no-meeting">Aún no hay una cita futura programada.</p>
+                )}
+
+                <div className="home-club-progress">
+                  <div>
+                    <span>Tu progreso compartido</span>
+                    <strong>{featuredClub.progress}%</strong>
+                  </div>
+                  <div className="home-goal-track">
+                    <span style={{ width: `${featuredClub.progress}%` }} />
+                  </div>
+                  <small>
+                    Capítulo {featuredClub.current_chapter}
+                    {featuredClub.current_page > 0 ? ` · pág. ${featuredClub.current_page}` : ""}
+                  </small>
+                </div>
+
+                <button type="button" className="home-club-open" onClick={() => onClubs?.(featuredClub.id)}>
+                  Abrir club
+                </button>
+              </div>
+            ) : (
+              <div className="home-club-empty">
+                <strong>Aún no perteneces a ningún club</strong>
+                <p>Explora los clubes de lectura o crea uno para compartir el próximo libro.</p>
+                {onClubs && (
+                  <button type="button" className="home-club-open" onClick={() => onClubs()}>Explorar clubes</button>
+                )}
+              </div>
+            )}
           </article>
 
           <article className="home-panel home-friends-panel">
