@@ -4298,3 +4298,31 @@
     height: 42px;
   }
 }
+
+/* Clubes V11 · nombre y porcentaje en una sola línea */
+.club-summary-members .club-member-mini-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.club-summary-members .club-member-mini-heading > b {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.club-summary-members .club-member-mini-heading > em {
+  justify-self: end;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
