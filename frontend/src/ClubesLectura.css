@@ -4132,3 +4132,169 @@
   text-align: left;
   cursor: pointer;
 }
+
+
+/* Clubes V10 · la reflexión flota sobre la tarjeta de progreso */
+.club-summary-members .club-member-mini-grid {
+  gap: 18px;
+}
+
+.club-summary-members .club-member-mini-grid .club-member-mini-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.club-summary-members .club-member-mini-grid .club-member-mini-card.has-update {
+  padding-top: 42px;
+}
+
+.club-summary-members .club-member-mini-grid .club-member-mini-profile {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 92px;
+  padding: 11px 12px;
+  border: 1px solid #e3d3c3;
+  border-radius: 14px;
+  background: rgba(255, 252, 247, .96);
+  box-shadow: 0 6px 18px rgba(92, 55, 35, .045);
+}
+
+.club-summary-members .club-member-mini-grid .club-member-mini-profile:hover {
+  border-color: #c99d82;
+  background: #fffaf4;
+  transform: translateY(-1px);
+}
+
+.club-summary-members .club-member-mini-heading > b {
+  white-space: nowrap;
+  overflow: hidden;
+  overflow-wrap: normal;
+  word-break: normal;
+  text-overflow: ellipsis;
+}
+
+.club-summary-members .club-member-mini-grid .club-member-latest-update {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  right: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+  width: auto;
+  max-width: min(270px, calc(100% - 72px));
+  min-width: 152px;
+  min-height: 0;
+  padding: 9px 12px 8px;
+  border: 1px solid #ddc5b1;
+  border-radius: 15px 15px 6px 15px;
+  background: rgba(255, 249, 240, .98);
+  box-shadow: 0 10px 24px rgba(82, 51, 33, .11);
+  color: #49372d;
+  text-align: left;
+}
+
+.club-summary-members .club-member-mini-grid .club-member-latest-update::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  bottom: -7px;
+  width: 13px;
+  height: 13px;
+  border-right: 1px solid #ddc5b1;
+  border-bottom: 1px solid #ddc5b1;
+  background: #fff9f0;
+  transform: rotate(45deg);
+}
+
+.club-summary-members .club-member-mini-grid button.club-member-latest-update:hover {
+  border-color: #c89979;
+  background: #fffdf8;
+  box-shadow: 0 13px 28px rgba(82, 51, 33, .14);
+  transform: translateY(-1px);
+}
+
+.club-member-latest-update > q {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #3f2a20;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: .86rem;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1.32;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.club-member-latest-update > q::before,
+.club-member-latest-update > q::after {
+  color: #b96846;
+}
+
+.club-member-latest-update > small {
+  color: #867063;
+  font-size: .64rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.club-member-update-progress {
+  color: #4c5f4d;
+  font-size: .76rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.club-member-latest-update.is-progress-only {
+  min-width: 176px;
+  background: rgba(247, 248, 241, .98);
+  border-color: #d4ddca;
+}
+
+.club-member-latest-update.is-progress-only::after {
+  border-color: #d4ddca;
+  background: #f7f8f1;
+}
+
+.club-member-latest-update.is-spoiler {
+  background: #fbf5ec;
+}
+
+.club-member-latest-update.is-spoiler::after {
+  background: #fbf5ec;
+}
+
+@media (max-width: 620px) {
+  .club-summary-members .club-member-mini-grid .club-member-mini-card.has-update {
+    padding-top: 46px;
+  }
+
+  .club-summary-members .club-member-mini-grid .club-member-latest-update {
+    right: 9px;
+    max-width: calc(100% - 60px);
+  }
+
+  .club-summary-members .club-member-mini-grid .club-member-mini-profile {
+    grid-template-columns: 42px minmax(0, 1fr);
+    min-height: 84px;
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .club-summary-members .club-member-mini-grid .club-member-mini-profile > img {
+    width: 42px;
+    height: 42px;
+  }
+}

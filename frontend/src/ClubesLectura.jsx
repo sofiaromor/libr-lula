@@ -1480,12 +1480,16 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onOpenBo
               {members.slice(0, 8).map((member) => {
                 const progress = memberProgress(member, club.book?.pages);
                 const latestUpdate = member.latest_book_update;
+                const hasReflection = Boolean(latestUpdate?.body);
                 const updateLabel = latestUpdate?.spoiler
                   ? "Actualización con spoilers"
                   : latestUpdate?.body || "";
 
                 return (
-                  <article className="club-member-mini-card" key={member.user_id}>
+                  <article
+                    className={`club-member-mini-card${latestUpdate ? " has-update" : ""}`}
+                    key={member.user_id}
+                  >
                     <button
                       type="button"
                       className="club-member-mini-profile"
@@ -1509,22 +1513,20 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onOpenBo
                       </span>
                     </button>
 
-                    {latestUpdate && club.book ? (
+                    {latestUpdate && club.book && (
                       <button
                         type="button"
-                        className={`club-member-latest-update${latestUpdate.spoiler ? " is-spoiler" : ""}`}
+                        className={`club-member-latest-update${latestUpdate.spoiler ? " is-spoiler" : ""}${hasReflection ? " has-reflection" : " is-progress-only"}`}
                         onClick={() => onOpenBookThread?.(club.book, member.profile, club.id)}
                         aria-label={`Abrir el hilo de ${displayName(member.profile)} sobre ${club.book.title}`}
                       >
-                        <span>Última actualización · {relativeTime(latestUpdate.created_at)}</span>
-                        <q>{updateLabel}</q>
-                        <small>Ver hilo lector →</small>
+                        {hasReflection ? (
+                          <q>{updateLabel}</q>
+                        ) : (
+                          <span className="club-member-update-progress">Actualizó su progreso</span>
+                        )}
+                        <small>{relativeTime(latestUpdate.created_at)} · Ver hilo →</small>
                       </button>
-                    ) : (
-                      <p className="club-member-latest-update is-empty">
-                        <span>Hilo lector</span>
-                        <small>Aún no ha compartido una reflexión sobre este libro.</small>
-                      </p>
                     )}
                   </article>
                 );
