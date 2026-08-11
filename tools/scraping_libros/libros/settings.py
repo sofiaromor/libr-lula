@@ -47,6 +47,7 @@ FEED_EXPORT_FIELDS = [
     "anio",
     "encuadernacion",
     "saga",
+    "saga_numero",
     "imagen_portada",
     "provider",
     "source_id",
