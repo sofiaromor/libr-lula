@@ -47,42 +47,53 @@ SAGA_TEXTO = re.compile(
 )
 
 
+# Solo alias editoriales verificados. No se traducen todas las sagas.
+SAGA_ALIASES = {
+    "dungeon crawler carl": "Carl el Mazmorrero",
+    "carl el mazmorrero": "Carl el Mazmorrero",
+    "mindf ck": "Mindf*ck",
+    "mindfck": "Mindf*ck",
+    "serie mindf ck": "Mindf*ck",
+    "serie mindfck": "Mindf*ck",
+}
+
+
 def texto(value: object) -> str:
-    return re.sub(r"\s+", " ", str(value or "").replace("\xa0", " ")).strip()
+    raw = re.sub(r"\\([*_#])", r"\1", str(value or ""))
+    return re.sub(r"\s+", " ", raw.replace("\xa0", " ")).strip()
 
 
 
 def datos_saga(value: object) -> tuple[str, int | None]:
-    """Extrae nombre y número de textos como 'Ciudad Medialuna 3' o 'Ciudad Medialuna, #3'."""
     value = texto(value).strip("()[] ")
 
     if not value:
         return "", None
 
     match = SAGA_TEXTO.fullmatch(value)
-
     if not match:
-        return value, None
+        return saga_canonica(value), None
 
     name = texto(match.group("name")).strip(" ,#")
-
     if not name or TERMINOS_EDICION.search(name):
-        return value, None
+        return saga_canonica(value), None
 
-    return name, int(match.group("number"))
+    return saga_canonica(name), int(match.group("number"))
 
 
 def normalizar_saga_en_titulo(title: str) -> tuple[str, str, int | None]:
-    """Convierte '(Ciudad Medialuna 3)' en '(Ciudad Medialuna, #3)'."""
     match = SAGA_FINAL_TITULO.search(title)
 
     if not match:
         return title, "", None
 
     name = texto(match.group("name")).strip(" ,#")
-
     if not name or TERMINOS_EDICION.search(name):
         return title, "", None
+
+    if name.lower().startswith("serie "):
+        name = texto(name[6:])
+    name = saga_canonica(name)
 
     number = int(match.group("number"))
     prefix = texto(title[: match.start()]).rstrip(" -–—,:")
@@ -97,6 +108,17 @@ def normalizado(value: object) -> str:
         .lower()
         .translate(str.maketrans("áéíóúüñ", "aeiouun"))
     )
+
+
+def identidad_saga(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", normalizado(value)).strip()
+
+
+def saga_canonica(value: object) -> str:
+    raw = texto(value)
+    if not raw:
+        return ""
+    return SAGA_ALIASES.get(identidad_saga(raw), raw)
 
 
 def isbn(value: object) -> str:
@@ -168,17 +190,88 @@ def separar_edicion(title: str) -> tuple[str, str]:
     return texto(base).strip(" -–—,:"), " · ".join(ediciones)
 
 
+
+def normalizar_titulo_mayusculas(value: object) -> str:
+    value = texto(value)
+    if not value:
+        return ""
+
+    match_saga = SAGA_FINAL_TITULO.search(value)
+    if match_saga:
+        principal = texto(value[: match_saga.start()]).rstrip(" -–—,:")
+        sufijo = value[match_saga.start():].strip()
+    else:
+        principal = value
+        sufijo = ""
+
+    letras = [c for c in principal if c.isalpha()]
+    if not letras:
+        return value
+
+    mayusculas = sum(c.isupper() for c in letras)
+    proporcion_mayusculas = mayusculas / len(letras)
+
+    if proporcion_mayusculas < 0.85:
+        return value
+
+    principal = principal.lower()
+
+    chars = list(principal)
+    for i, char in enumerate(chars):
+        if char.isalpha():
+            chars[i] = char.upper()
+            break
+    principal = "".join(chars)
+
+    principal = re.sub(
+        r"\\b(i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv)\\b",
+        lambda m: m.group(1).upper(),
+        principal,
+        flags=re.IGNORECASE,
+    )
+
+    return f"{principal} {sufijo}".strip() if sufijo else principal
+
 def transformar(registro: dict, posicion: int) -> dict:
     original_title = texto(registro.get("titulo") or registro.get("titulo_original"))
+    original_title = normalizar_titulo_mayusculas(original_title)
     title, title_saga_name, title_saga_number = normalizar_saga_en_titulo(
         original_title
     )
     source_saga_name, source_saga_number = datos_saga(registro.get("saga"))
-    saga_name = title_saga_name or source_saga_name
-    saga_number = title_saga_number or source_saga_number
+    explicit_saga_number = entero(registro.get("saga_numero"))
 
-    if saga_name and saga_number and not title_saga_name:
-        title = f"{title} ({saga_name}, #{saga_number})"
+    saga_name = saga_canonica(source_saga_name or title_saga_name)
+    saga_number = (
+        explicit_saga_number
+        or title_saga_number
+        or source_saga_number
+    )
+
+    # Fallback para títulos como: Pecados 6. Rey de la gula.
+    if saga_name and not saga_number:
+        saga_pattern = re.escape(saga_name)
+        match_numero = re.search(
+            rf"(?i)(?:^|[\s(])(?:serie\s+)?{saga_pattern}\s*"
+            rf"(?:#|n[úu]m(?:ero)?\.?|n[ºo]\.?\s*)?(\d+)\b",
+            original_title,
+        )
+        if match_numero:
+            saga_number = int(match_numero.group(1))
+
+    if saga_name and saga_number:
+        match_saga_titulo = SAGA_FINAL_TITULO.search(original_title)
+        if match_saga_titulo:
+            prefix = texto(original_title[: match_saga_titulo.start()]).rstrip(
+                " -–—,:"
+            )
+            title = (
+                f"{prefix} ({saga_name}, #{saga_number})"
+                if prefix
+                else f"({saga_name}, #{saga_number})"
+            )
+        elif not title_saga_name:
+            title = f"{title} ({saga_name}, #{saga_number})"
 
     detected_title_base, detected_edition = separar_edicion(title)
     # Se recalcula para no conservar el sufijo antiguo '(Saga 3)' del JSON raw.

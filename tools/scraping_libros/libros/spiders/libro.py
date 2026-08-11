@@ -32,6 +32,25 @@ def isbn_limpio(value: object) -> str | None:
     return value if ISBN_VALIDO.fullmatch(value) else None
 
 
+def texto_fuente_limpio(value: object) -> str:
+    # Ejemplo real detectado: Mindf\*ck -> Mindf*ck.
+    raw = re.sub(r"\\([*_#])", r"\1", str(value or ""))
+    return texto_limpio(raw)
+
+
+def isbn_desde_url(url: str) -> str | None:
+    # Casa del Libro suele incluir el ISBN antes del source_id.
+    ruta = urlsplit(url).path
+    for candidato in re.findall(
+        r"(?<!\d)(?:97[89]\d{10}|\d{9}[\dXx])(?!\d)",
+        ruta,
+    ):
+        limpio = isbn_limpio(candidato)
+        if limpio:
+            return limpio
+    return None
+
+
 def entero_limpio(value: object) -> int | None:
     digits = SOLO_DIGITOS.sub("", str(value or ""))
     return int(digits) if digits else None
@@ -181,6 +200,8 @@ class LibroSpider(scrapy.Spider):
             )
 
     def parse_libro(self, response):
+        url_original = texto_limpio(response.meta.get("url_original") or response.url)
+
         def extraer_campo(*nombres: str) -> str | None:
             for nombre in nombres:
                 texto = response.xpath(
@@ -201,9 +222,24 @@ class LibroSpider(scrapy.Spider):
 
             return None
 
+        titulo_documento = texto_limpio(response.css("title::text").get())
+        partes_titulo_documento = [
+            texto_limpio(parte)
+            for parte in titulo_documento.split("|")
+            if texto_limpio(parte)
+        ]
+
+        titulo_meta = texto_limpio(
+            response.css('meta[property="og:title"]::attr(content)').get()
+        )
+        if "|" in titulo_meta:
+            titulo_meta = texto_limpio(titulo_meta.split("|", 1)[0])
+
         titulo_original = texto_limpio(
             response.css("h1.balance-title::text").get()
             or response.css("h1::text").get()
+            or titulo_meta
+            or (partes_titulo_documento[0] if partes_titulo_documento else "")
         )
         titulo_base, edicion = separar_edicion(titulo_original)
 
@@ -214,14 +250,48 @@ class LibroSpider(scrapy.Spider):
                 "))"
             ).get()
         )
-
         if autora.lower().startswith("escrito por"):
             autora = texto_limpio(autora[len("escrito por") :])
+
+        if not autora:
+            autora = texto_limpio(
+                response.css('meta[name="author"]::attr(content)').get()
+            )
+
+        if (
+            not autora
+            and len(partes_titulo_documento) >= 2
+            and "casa del libro" not in partes_titulo_documento[1].lower()
+        ):
+            autora = partes_titulo_documento[1]
 
         textos_sinopsis = response.xpath(
             '//div[contains(@class, "resumen-content")]//p//text()'
         ).getall()
         sinopsis = texto_limpio(" ".join(textos_sinopsis))
+
+        if not sinopsis:
+            sinopsis_meta = texto_limpio(
+                response.css('meta[property="og:description"]::attr(content)').get()
+                or response.css('meta[name="description"]::attr(content)').get()
+            )
+            meta_lower = sinopsis_meta.lower()
+            meta_generica = (
+                "casa del libro" in meta_lower
+                and any(
+                    termino in meta_lower
+                    for termino in (
+                        "compra",
+                        "envío",
+                        "envio",
+                        "precio",
+                        "librería",
+                        "libreria",
+                    )
+                )
+            )
+            if len(sinopsis_meta) >= 100 and not meta_generica:
+                sinopsis = sinopsis_meta
 
         generos = [
             texto_limpio(genero)
@@ -232,7 +302,7 @@ class LibroSpider(scrapy.Spider):
         ]
         generos = list(dict.fromkeys(generos))
 
-        isbn = isbn_limpio(extraer_campo("ISBN"))
+        isbn = isbn_limpio(extraer_campo("ISBN")) or isbn_desde_url(url_original)
         numero_paginas = entero_limpio(
             extraer_campo("Número de páginas", "Numero de paginas")
         )
@@ -250,7 +320,14 @@ class LibroSpider(scrapy.Spider):
             anio = int(coincidencia_anio.group(0)) if coincidencia_anio else None
 
         encuadernacion = extraer_campo("Encuadernación", "Encuadernacion")
-        saga = extraer_campo("Serie/Saga", "Saga", "Serie")
+        saga = texto_fuente_limpio(
+            extraer_campo("Serie/Saga", "Saga", "Serie")
+        ) or None
+        saga_numero = (
+            entero_limpio(extraer_campo("Número", "Numero"))
+            if saga
+            else None
+        )
 
         imagen_portada = (
             response.css('img[style*="--p-ficha-"]::attr(src)').get()
@@ -260,7 +337,84 @@ class LibroSpider(scrapy.Spider):
             response.urljoin(imagen_portada) if imagen_portada else None
         )
 
+        ficha_incompleta = (
+            not titulo_original
+            or not autora
+            or not isbn
+            or not sinopsis
+            or not numero_paginas
+        )
+
+        # Fase 1: repetir una vez la ficha española sin caché.
+        if ficha_incompleta and not response.meta.get("reintento_ficha"):
+            self.logger.warning(
+                "Ficha incompleta; reintento único en www: %s",
+                response.url,
+            )
+            meta_reintento = dict(response.meta)
+            meta_reintento["reintento_ficha"] = True
+            meta_reintento["url_original"] = url_original
+            yield scrapy.Request(
+                url_original,
+                callback=self.parse_libro,
+                dont_filter=True,
+                meta=meta_reintento,
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache",
+                },
+            )
+            return
+
+        # Fase 2: si www sigue devolviendo una carcasa parcial, consultar la
+        # misma ficha/ISBN/source_id en el dominio LATAM de Casa del Libro.
+        if (
+            ficha_incompleta
+            and response.meta.get("reintento_ficha")
+            and not response.meta.get("fallback_latam")
+        ):
+            partes = urlsplit(url_original)
+            url_latam = urlunsplit(
+                (
+                    partes.scheme or "https",
+                    "latam.casadellibro.com",
+                    partes.path,
+                    partes.query,
+                    partes.fragment,
+                )
+            )
+            self.logger.warning(
+                "Ficha aún incompleta; fallback Casa del Libro LATAM: %s",
+                url_latam,
+            )
+            meta_latam = dict(response.meta)
+            meta_latam["fallback_latam"] = True
+            meta_latam["url_original"] = url_original
+            yield scrapy.Request(
+                url_latam,
+                callback=self.parse_libro,
+                dont_filter=True,
+                meta=meta_latam,
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache",
+                },
+            )
+            return
+
         avisos: list[str] = []
+        if ficha_incompleta:
+            if response.meta.get("fallback_latam"):
+                avisos.append(
+                    "Ficha incompleta tras reintento y fallback Casa del Libro LATAM"
+                )
+            else:
+                avisos.append("Ficha incompleta tras un reintento")
+        elif response.meta.get("fallback_latam"):
+            self.logger.info(
+                "Ficha completada mediante fallback Casa del Libro LATAM: %s",
+                url_original,
+            )
 
         if not titulo_original:
             avisos.append("Falta el título")
@@ -273,7 +427,7 @@ class LibroSpider(scrapy.Spider):
         if not numero_paginas:
             avisos.append("Falta el número de páginas")
 
-        source_id = isbn or response.url.rstrip("/").rsplit("/", 1)[-1]
+        source_id = isbn or url_original.rstrip("/").rsplit("/", 1)[-1]
 
         yield LibroItem(
             titulo=titulo_original or None,
@@ -291,10 +445,11 @@ class LibroSpider(scrapy.Spider):
             anio=anio,
             encuadernacion=encuadernacion,
             saga=saga,
+            saga_numero=saga_numero,
             imagen_portada=imagen_portada,
             provider="casa_del_libro",
             source_id=source_id,
-            url=response.url,
+            url=url_original,
             extraido_en=datetime.now(timezone.utc).isoformat(),
             avisos=avisos,
         )
