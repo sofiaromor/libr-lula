@@ -58,28 +58,6 @@ const COVER_GRADIENTS = [
   "linear-gradient(160deg, #b9a454, #75672e)",
 ];
 
-const HOME_MODULE_ORDER_KEY = "librelula:home-module-order:v1";
-const DEFAULT_HOME_MODULE_ORDER = ["reading", "week", "club", "friends", "feed"];
-
-function normalizeHomeModuleOrder(value) {
-  const requested = Array.isArray(value) ? value.map(String) : [];
-  const known = requested.filter((item, index) =>
-    DEFAULT_HOME_MODULE_ORDER.includes(item) && requested.indexOf(item) === index
-  );
-
-  return [...known, ...DEFAULT_HOME_MODULE_ORDER.filter((item) => !known.includes(item))];
-}
-
-function storedHomeModuleOrder() {
-  if (typeof window === "undefined") return DEFAULT_HOME_MODULE_ORDER;
-
-  try {
-    return normalizeHomeModuleOrder(JSON.parse(window.localStorage.getItem(HOME_MODULE_ORDER_KEY) || "[]"));
-  } catch {
-    return DEFAULT_HOME_MODULE_ORDER;
-  }
-}
-
 function asText(value) {
   return String(value || "").trim();
 }
@@ -355,12 +333,6 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
   const [progressComposerBookId, setProgressComposerBookId] = useState(null);
   const [savingProgress, setSavingProgress] = useState({});
   const [completedBook, setCompletedBook] = useState(null);
-  const [compactDashboard, setCompactDashboard] = useState(() =>
-    typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches
-  );
-  const [mobileModuleOrder, setMobileModuleOrder] = useState(storedHomeModuleOrder);
-  const [draggingHomeModule, setDraggingHomeModule] = useState(null);
-  const draggingHomeModuleRef = useRef(null);
 
   async function loadSocialData({ silent = false } = {}) {
     if (!silent) setSocialLoading(true);
@@ -375,23 +347,6 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
       if (!silent) setSocialLoading(false);
     }
   }
-
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 900px)");
-    const handleChange = (event) => setCompactDashboard(event.matches);
-
-    if (media.addEventListener) {
-      media.addEventListener("change", handleChange);
-      return () => media.removeEventListener("change", handleChange);
-    }
-
-    media.addListener?.(handleChange);
-    return () => media.removeListener?.(handleChange);
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(HOME_MODULE_ORDER_KEY, JSON.stringify(mobileModuleOrder));
-  }, [mobileModuleOrder]);
 
   useEffect(() => {
     let ignore = false;
@@ -496,98 +451,6 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
       return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
     });
   }, [feedTab, socialData?.feed]);
-
-  function homeModuleStyle(moduleId) {
-    if (!compactDashboard) return undefined;
-    const index = mobileModuleOrder.indexOf(moduleId);
-    return { order: index < 0 ? DEFAULT_HOME_MODULE_ORDER.length : index };
-  }
-
-  function moveHomeModule(activeId, targetId) {
-    if (!activeId || !targetId || activeId === targetId) return;
-
-    setMobileModuleOrder((current) => {
-      const activeIndex = current.indexOf(activeId);
-      const targetIndex = current.indexOf(targetId);
-      if (activeIndex < 0 || targetIndex < 0 || activeIndex === targetIndex) return current;
-
-      const next = current.filter((item) => item !== activeId);
-      next.splice(targetIndex, 0, activeId);
-      return next;
-    });
-  }
-
-  function startHomeModuleDrag(event, moduleId) {
-    if (!compactDashboard) return;
-    event.preventDefault();
-    draggingHomeModuleRef.current = moduleId;
-    setDraggingHomeModule(moduleId);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  }
-
-  function moveHomeModuleDrag(event) {
-    const activeId = draggingHomeModuleRef.current;
-    if (!compactDashboard || !activeId) return;
-
-    event.preventDefault();
-
-    const scrollEdge = 72;
-    if (event.clientY < scrollEdge) window.scrollBy(0, -14);
-    if (event.clientY > window.innerHeight - scrollEdge) window.scrollBy(0, 14);
-
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.("[data-home-module]");
-    const targetId = target?.dataset?.homeModule || null;
-    moveHomeModule(activeId, targetId);
-  }
-
-  function finishHomeModuleDrag(event) {
-    if (!draggingHomeModuleRef.current) return;
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    draggingHomeModuleRef.current = null;
-    setDraggingHomeModule(null);
-  }
-
-  function handleHomeModuleKeyDown(event, moduleId) {
-    if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
-    event.preventDefault();
-
-    setMobileModuleOrder((current) => {
-      const index = current.indexOf(moduleId);
-      if (index < 0) return current;
-
-      let targetIndex = index;
-      if (event.key === "ArrowUp") targetIndex = Math.max(0, index - 1);
-      if (event.key === "ArrowDown") targetIndex = Math.min(current.length - 1, index + 1);
-      if (event.key === "Home") targetIndex = 0;
-      if (event.key === "End") targetIndex = current.length - 1;
-      if (targetIndex === index) return current;
-
-      const next = [...current];
-      next.splice(index, 1);
-      next.splice(targetIndex, 0, moduleId);
-      return next;
-    });
-  }
-
-  function homeDragHandle(moduleId, label) {
-    return (
-      <button
-        type="button"
-        className="home-module-drag-handle"
-        aria-label={`Mover ${label}. Arrastra o usa las flechas para cambiar su posición.`}
-        title={`Mover ${label}`}
-        onPointerDown={(event) => startHomeModuleDrag(event, moduleId)}
-        onPointerMove={moveHomeModuleDrag}
-        onPointerUp={finishHomeModuleDrag}
-        onPointerCancel={finishHomeModuleDrag}
-        onKeyDown={(event) => handleHomeModuleKeyDown(event, moduleId)}
-      >
-        <span aria-hidden="true">⠿</span>
-      </button>
-    );
-  }
 
   function displayedProgress(book) {
     const key = String(book?.id || "");
@@ -824,11 +687,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
         <div className="home-reader-main">
           <article
             className="home-panel home-reading-panel home-module-card"
-            data-home-module="reading"
-            data-home-dragging={draggingHomeModule === "reading" ? "true" : undefined}
-            style={homeModuleStyle("reading")}
           >
-            {homeDragHandle("reading", "Continúa leyendo")}
             <div className="home-panel-heading">
               <div>
                 <p>Tu lectura ahora</p>
@@ -956,11 +815,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
 
           <article
             className="home-panel home-feed-panel home-module-card"
-            data-home-module="feed"
-            data-home-dragging={draggingHomeModule === "feed" ? "true" : undefined}
-            style={homeModuleStyle("feed")}
           >
-            {homeDragHandle("feed", "Actividad lectora")}
             <div className="home-feed-header">
               <div>
                 <p>La plaza de Librélula</p>
@@ -1228,11 +1083,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
         <aside className="home-reader-side">
           <article
             className="home-panel home-week-panel home-module-card"
-            data-home-module="week"
-            data-home-dragging={draggingHomeModule === "week" ? "true" : undefined}
-            style={homeModuleStyle("week")}
           >
-            {homeDragHandle("week", "Tu ritmo")}
             <div className="home-small-heading">
               <div>
                 <p>Tu ritmo</p>
@@ -1281,11 +1132,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
 
           <article
             className="home-panel home-club-panel home-module-card"
-            data-home-module="club"
-            data-home-dragging={draggingHomeModule === "club" ? "true" : undefined}
-            style={homeModuleStyle("club")}
           >
-            {homeDragHandle("club", "Tu club activo")}
             <div className="home-small-heading">
               <div>
                 <p>Clubes de lectura</p>
@@ -1361,11 +1208,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
 
           <article
             className="home-panel home-friends-panel home-module-card"
-            data-home-module="friends"
-            data-home-dragging={draggingHomeModule === "friends" ? "true" : undefined}
-            style={homeModuleStyle("friends")}
           >
-            {homeDragHandle("friends", "Amigos leyendo")}
             <div className="home-small-heading">
               <div>
                 <p>Tu círculo</p>
