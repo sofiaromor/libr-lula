@@ -3631,3 +3631,49 @@
   }
 }
 
+/* Inicio V22 - reseñas plegables */
+
+.home-review-body.is-collapsed {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.home-review-expand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  margin-top: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #a14f31;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.home-review-expand:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.home-review-expand:focus-visible {
+  outline: 2px solid rgba(161, 79, 49, 0.35);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (max-width: 560px) {
+  .home-review-body.is-collapsed {
+    -webkit-line-clamp: 5;
+  }
+
+  .home-review-expand {
+    min-height: 36px;
+    font-size: 0.9rem;
+  }
+}
+

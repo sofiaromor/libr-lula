@@ -322,6 +322,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
   const [commentDrafts, setCommentDrafts] = useState({});
   const [openComments, setOpenComments] = useState({});
   const [revealedSpoilers, setRevealedSpoilers] = useState({});
+  const [expandedReviews, setExpandedReviews] = useState({});
   const [goalEditing, setGoalEditing] = useState(false);
   const [goalDraft, setGoalDraft] = useState(150);
   const [savingGoal, setSavingGoal] = useState(false);
@@ -966,6 +967,9 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
               ) : visibleFeed.length > 0 ? (
                 visibleFeed.map((item) => {
                   const spoilerHidden = item.spoiler && !revealedSpoilers[item.key];
+                  const reviewBody = asText(item.body);
+                  const reviewExpanded = Boolean(expandedReviews[item.key]);
+                  const reviewIsLong = item.type === "review" && reviewBody.length > 320;
 
                   return (
                     <article className="home-feed-item" key={item.key}>
@@ -1002,7 +1006,30 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
                           <>
                             <p>Publicó una reseña de <em>{item.book?.title}</em>.</p>
                             <div className="home-review-stars">{scoreStars(item.score)} <small>{item.score || "—"}</small></div>
-                            <blockquote className={spoilerHidden ? "home-spoiler-text" : ""}>{spoilerHidden ? "Reseña oculta por spoilers" : item.body}</blockquote>
+                            <blockquote
+                              className={[
+                                "home-review-body",
+                                spoilerHidden ? "home-spoiler-text" : "",
+                                !spoilerHidden && reviewIsLong && !reviewExpanded ? "is-collapsed" : "",
+                              ].filter(Boolean).join(" ")}
+                            >
+                              {spoilerHidden ? "Reseña oculta por spoilers" : item.body}
+                            </blockquote>
+                            {!spoilerHidden && reviewIsLong && (
+                              <button
+                                type="button"
+                                className="home-review-expand"
+                                aria-expanded={reviewExpanded}
+                                onClick={() =>
+                                  setExpandedReviews((current) => ({
+                                    ...current,
+                                    [item.key]: !current[item.key],
+                                  }))
+                                }
+                              >
+                                {reviewExpanded ? "Ver menos" : "Ver más"}
+                              </button>
+                            )}
                           </>
                         )}
 
