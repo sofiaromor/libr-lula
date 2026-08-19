@@ -7,24 +7,97 @@ export const EMPTY_SUPABASE_SESSION = {
 };
 
 const SESSION_PROFILE_CACHE_TTL = 30_000;
+const PERSISTED_SESSION_CACHE_TTL = 5 * 60_000;
+const SESSION_PROFILE_STORAGE_KEY = "librelula:app-session:v1";
+const HOME_STORAGE_KEYS = [
+  "librelula:home-dashboard:v1",
+  "librelula:home-reading:v1",
+];
+
 let sessionProfileCache = null;
 
-function clearSessionProfileCache() {
+function clearHomeSnapshots() {
+  if (typeof window === "undefined") return;
+  try {
+    HOME_STORAGE_KEYS.forEach((key) => window.sessionStorage.removeItem(key));
+  } catch {
+    // La limpieza de caché no debe bloquear el cierre o apertura de sesión.
+  }
+}
+
+function clearPersistedSessionProfile() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(SESSION_PROFILE_STORAGE_KEY);
+  } catch {
+    // Sin efecto funcional.
+  }
+}
+
+function clearSessionProfileCache({ persisted = true, home = false } = {}) {
   sessionProfileCache = null;
+  if (persisted) clearPersistedSessionProfile();
+  if (home) clearHomeSnapshots();
 }
 
 function cachedSessionFor(userId) {
   if (!sessionProfileCache || sessionProfileCache.userId !== userId) return null;
   if (Date.now() - sessionProfileCache.savedAt > SESSION_PROFILE_CACHE_TTL) {
-    clearSessionProfileCache();
+    sessionProfileCache = null;
     return null;
   }
   return sessionProfileCache.value;
 }
 
+function persistedSessionFor(userId) {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(SESSION_PROFILE_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (String(parsed?.userId || "") !== String(userId || "")) return null;
+    if (!parsed?.savedAt || !parsed?.value?.authenticated) return null;
+
+    if (Date.now() - Number(parsed.savedAt) > PERSISTED_SESSION_CACHE_TTL) {
+      clearPersistedSessionProfile();
+      return null;
+    }
+
+    sessionProfileCache = {
+      userId: parsed.userId,
+      savedAt: Date.now(),
+      value: parsed.value,
+    };
+    return parsed.value;
+  } catch {
+    return null;
+  }
+}
+
+function storeSessionProfile(userId, value) {
+  sessionProfileCache = {
+    userId,
+    savedAt: Date.now(),
+    value,
+  };
+
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      SESSION_PROFILE_STORAGE_KEY,
+      JSON.stringify({ userId, savedAt: Date.now(), value }),
+    );
+  } catch {
+    // Seguimos con la caché en memoria si sessionStorage no está disponible.
+  }
+}
+
 export async function getSupabaseAppSession() {
-  // La sesión persistida ya contiene el usuario autenticado y se obtiene localmente.
-  // Las consultas posteriores siguen protegidas por RLS en Supabase.
+  // getSession obtiene localmente la sesión persistida por Supabase. A partir de ahí
+  // podemos reutilizar durante unos minutos el perfil ya validado y evitar una ida
+  // y vuelta de red antes de pintar Inicio.
   const {
     data: { session },
     error: sessionError,
@@ -32,12 +105,15 @@ export async function getSupabaseAppSession() {
 
   const user = session?.user || null;
   if (sessionError || !user) {
-    clearSessionProfileCache();
+    clearSessionProfileCache({ persisted: true, home: true });
     return EMPTY_SUPABASE_SESSION;
   }
 
   const cached = cachedSessionFor(user.id);
   if (cached) return cached;
+
+  const persisted = persistedSessionFor(user.id);
+  if (persisted) return persisted;
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -62,12 +138,7 @@ export async function getSupabaseAppSession() {
     },
   };
 
-  sessionProfileCache = {
-    userId: user.id,
-    savedAt: Date.now(),
-    value,
-  };
-
+  storeSessionProfile(user.id, value);
   return value;
 }
 
@@ -78,7 +149,7 @@ export function onSupabaseAuthChange(callback) {
     data: { subscription },
   } = supabase.auth.onAuthStateChange((event) => {
     if (["SIGNED_OUT", "USER_UPDATED", "PASSWORD_RECOVERY"].includes(event)) {
-      clearSessionProfileCache();
+      clearSessionProfileCache({ persisted: true, home: event === "SIGNED_OUT" });
     }
 
     window.setTimeout(async () => {
@@ -111,7 +182,7 @@ function getAuthRedirectUrl() {
 }
 
 export async function signInSupabase({ email, password }) {
-  clearSessionProfileCache();
+  clearSessionProfileCache({ persisted: true, home: true });
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -140,7 +211,7 @@ export async function signUpSupabase({ email, password, username }) {
     throw new Error("La contraseña debe tener al menos 6 caracteres.");
   }
 
-  clearSessionProfileCache();
+  clearSessionProfileCache({ persisted: true, home: true });
   const { data, error } = await supabase.auth.signUp({
     email: cleanEmail,
     password,
@@ -168,6 +239,6 @@ export async function signUpSupabase({ email, password, username }) {
 }
 
 export async function signOutSupabase() {
-  clearSessionProfileCache();
+  clearSessionProfileCache({ persisted: true, home: true });
   await supabase.auth.signOut();
 }
