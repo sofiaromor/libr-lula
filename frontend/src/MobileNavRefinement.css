@@ -1,0 +1,132 @@
+/* Ajustes de navegación móvil sobre la cabecera y el dock persistente. */
+
+@media (max-width: 900px) {
+  .site-header {
+    padding: 8px 10px 0;
+  }
+
+  .site-nav {
+    min-height: 56px;
+    padding: 7px 8px;
+    gap: 8px;
+    flex-wrap: nowrap;
+    border-radius: 18px;
+  }
+
+  /* La navegación principal ya vive en el dock inferior. */
+  .site-brand,
+  .site-nav-toggle,
+  .site-nav-links {
+    display: none !important;
+  }
+
+  /* Arriba quedan únicamente búsqueda + sesión/perfil. */
+  .site-nav-panel,
+  .site-nav-panel.is-open {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-basis: auto;
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border-top: 0;
+  }
+
+  .site-nav-book-search {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    min-height: 40px;
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 3px 4px 3px 11px;
+  }
+
+  .site-nav-book-search input {
+    font-size: .95rem;
+  }
+
+  .site-nav-book-search button {
+    min-height: 31px;
+    padding: 6px 10px;
+  }
+
+  .site-nav-book-suggestions {
+    left: 0;
+    width: min(440px, calc(100vw - 20px));
+    max-height: 56vh;
+    transform: none;
+  }
+
+  .site-nav-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+  }
+
+  .btn-signin {
+    width: auto !important;
+    min-height: 40px;
+    padding: 8px 12px;
+    justify-content: center !important;
+    white-space: nowrap;
+    font-size: .9rem;
+  }
+
+  /* Si ya hay sesión, dejamos solo el avatar para no recargar la cabecera. */
+  .user-btn {
+    width: 42px !important;
+    min-width: 42px;
+    min-height: 42px;
+    padding: 3px;
+    justify-content: center !important;
+  }
+
+  .user-btn > span,
+  .user-btn > svg {
+    display: none;
+  }
+
+  .user-avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 9px);
+    min-width: 205px;
+    margin-top: 0;
+    box-shadow: 0 18px 42px rgba(57, 39, 24, .14);
+  }
+
+  /* Visualmente el segundo destino pasa a llamarse Catálogo. */
+  .mobile-reader-dock > button:nth-child(2) > span:last-child {
+    font-size: 0;
+  }
+
+  .mobile-reader-dock > button:nth-child(2) > span:last-child::after {
+    content: "Catálogo";
+    font-size: .72rem;
+    line-height: 1;
+  }
+}
+
+@media (max-width: 420px) {
+  .site-nav-book-search button {
+    padding-inline: 9px;
+    font-size: .8rem;
+  }
+
+  .btn-signin {
+    padding-inline: 10px;
+    font-size: .84rem;
+  }
+
+  .mobile-reader-dock > button:nth-child(2) > span:last-child::after {
+    font-size: .68rem;
+  }
+}
