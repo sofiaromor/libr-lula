@@ -4,6 +4,8 @@ import "./ProfileV2Identity.css";
 import "./ProfileV2Polish.css";
 import "./ProfileSummaryV2Social.css";
 import "./ProfileSummaryV2FinalLayout.css";
+import "./ProfileSummaryV2WideShelf.css";
+import "./profileShelfDrag.js";
 
 const PerfilSupabaseImpl = lazy(() => import("./PerfilSupabaseImpl.jsx"));
 const ProfileSummaryV2 = lazy(() => import("./ProfileSummaryV2.jsx"));

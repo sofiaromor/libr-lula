@@ -1,0 +1,167 @@
+/* Perfil V2 · ajuste de jerarquía: identidad lectora amplia y estantería arrastrable. */
+
+/* Esta capa usa mayor especificidad porque ProfileSummaryV2.css se carga de forma lazy. */
+.profile-summary-page-v2 .profile-summary-anilist {
+  grid-template-columns: minmax(0, 1.45fr) minmax(350px, .55fr);
+  grid-template-areas:
+    "insights stats"
+    "insights activity";
+  gap: 14px 16px;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column {
+  min-width: 0;
+}
+
+.profile-summary-page-v2 .profile-v2-summary-stats,
+.profile-summary-page-v2 .profile-v2-activity-column {
+  min-width: 0;
+}
+
+/* Favoritos: portadas grandes, sin alto reservado, sobre una balda horizontal desplazable. */
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-shelf-module {
+  overflow: hidden;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf {
+  margin-top: 16px;
+  padding: 3px 0 13px;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  width: 100%;
+  min-height: 0;
+  padding: 5px 5px 8px 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books::-webkit-scrollbar {
+  display: none;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books.is-dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button,
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button:nth-child(n + 6) {
+  display: block;
+  flex: 0 0 126px;
+  width: 126px;
+  min-width: 126px;
+  scroll-snap-align: start;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: 7px 7px 3px 3px;
+  box-shadow: 0 10px 20px rgba(55, 34, 22, .2);
+  pointer-events: none;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-wood {
+  width: 100%;
+  height: 12px;
+  margin: -1px 0 0;
+}
+
+/* Con más aire a la izquierda, los géneros dejan de sentirse apelotonados. */
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list {
+  gap: 13px;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list strong {
+  min-height: 40px;
+  padding-inline: 9px;
+}
+
+/* Derecha más compacta sin romper la fila doble de Objetivo + Racha. */
+.profile-summary-page-v2 .profile-v2-summary-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 9px;
+}
+
+.profile-summary-page-v2 .profile-v2-summary-stats > .profile-v2-module {
+  padding: 13px 14px;
+}
+
+.profile-summary-page-v2 .profile-v2-activity-title {
+  padding: 16px 17px 13px;
+}
+
+.profile-summary-page-v2 .profile-v2-feed-item {
+  padding-inline: 17px;
+}
+
+@media (min-width: 1280px) {
+  .profile-summary-page-v2 .profile-summary-anilist {
+    grid-template-columns: minmax(0, 1.52fr) minmax(360px, .48fr);
+    gap: 15px 18px;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button,
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button:nth-child(n + 6) {
+    flex-basis: 132px;
+    width: 132px;
+    min-width: 132px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .profile-summary-page-v2 .profile-summary-anilist {
+    grid-template-columns: minmax(0, 1.18fr) minmax(340px, .82fr);
+    gap: 12px;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button,
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button:nth-child(n + 6) {
+    flex-basis: 112px;
+    width: 112px;
+    min-width: 112px;
+  }
+}
+
+@media (max-width: 900px) {
+  .profile-summary-page-v2 .profile-summary-anilist {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "insights"
+      "stats"
+      "activity";
+    gap: 8px;
+  }
+}
+
+@media (max-width: 680px) {
+  .profile-summary-page-v2 .profile-v2-summary-stats {
+    grid-template-columns: 1fr !important;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf {
+    margin-right: -14px;
+    padding-right: 14px;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books {
+    gap: 11px;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button,
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button:nth-child(n + 6) {
+    flex-basis: 98px;
+    width: 98px;
+    min-width: 98px;
+  }
+}
