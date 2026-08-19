@@ -6,6 +6,7 @@ import MobileReaderDock from "./MobileReaderDock.jsx";
 import GuestAccessGuard from "./GuestAccessGuard.jsx";
 import "./MobileNavRefinement.css";
 import "./GuestNavFix.css";
+import "./MobilePolish.css";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
