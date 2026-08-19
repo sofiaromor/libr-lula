@@ -3,6 +3,7 @@ import "./ProfileV2.css";
 import "./ProfileV2Identity.css";
 import "./ProfileV2Polish.css";
 import "./ProfileSummaryV2Social.css";
+import "./ProfileSummaryV2FinalLayout.css";
 
 const PerfilSupabaseImpl = lazy(() => import("./PerfilSupabaseImpl.jsx"));
 const ProfileSummaryV2 = lazy(() => import("./ProfileSummaryV2.jsx"));
