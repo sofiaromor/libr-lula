@@ -1,0 +1,259 @@
+/* Correcciones finales de cabecera, acceso invitado y dock. */
+
+/* Sin sesión: la navegación privada desaparece por completo. */
+body:not(.is-reader-authenticated) .mobile-reader-dock,
+body:not(.is-reader-authenticated) .mobile-reader-toast {
+  display: none !important;
+}
+
+body.is-reader-guest {
+  padding-bottom: 0 !important;
+}
+
+body.is-reader-guest .site-nav-links,
+body.is-reader-guest .site-nav-book-search,
+body.is-reader-guest .site-nav-toggle {
+  display: none !important;
+}
+
+body.is-reader-guest .site-nav-panel,
+body.is-reader-guest .site-nav-panel.is-open {
+  width: auto;
+  flex: 0 0 auto;
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+  padding: 0;
+  border: 0;
+}
+
+body.is-reader-guest .site-nav-actions {
+  display: flex !important;
+  align-items: center;
+}
+
+body.is-reader-guest .site-brand {
+  display: inline-flex !important;
+  margin-right: auto;
+}
+
+/* Aviso amable al intentar entrar en el catálogo sin sesión. */
+.guest-access-layer {
+  position: fixed;
+  z-index: 5000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.guest-access-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(53, 37, 28, .42);
+  backdrop-filter: blur(4px);
+}
+
+.guest-access-card {
+  position: relative;
+  width: min(430px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 30px 28px 26px;
+  border: 1px solid rgba(222, 199, 177, .96);
+  border-radius: 26px;
+  background: #fffaf3;
+  color: #4a3327;
+  box-shadow: 0 28px 70px rgba(55, 36, 25, .24);
+  text-align: center;
+}
+
+.guest-access-mark {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f2dfce;
+  color: #b55f39;
+  font-size: 1.2rem;
+}
+
+.guest-access-card > p {
+  margin: 2px 0 0;
+  color: #b05e3b;
+  font: 800 .78rem/1 'Crimson Pro', Georgia, serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.guest-access-card h2 {
+  margin: 0;
+  color: #3b281f;
+  font: 800 1.7rem/1.08 'Crimson Pro', Georgia, serif;
+}
+
+.guest-access-card > span:not(.guest-access-mark) {
+  max-width: 34ch;
+  color: #7c6554;
+  font: 500 1rem/1.45 'Crimson Pro', Georgia, serif;
+}
+
+.guest-access-card > div {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.guest-access-card button {
+  min-height: 44px;
+  border: 1px solid #dfc9b7;
+  border-radius: 999px;
+  background: #fffdf9;
+  color: #684d3d;
+  font: 800 .95rem/1 'Crimson Pro', Georgia, serif;
+  cursor: pointer;
+}
+
+.guest-access-card button.is-primary {
+  border-color: #b45c36;
+  background: #b45c36;
+  color: white;
+}
+
+@media (max-width: 900px) {
+  /* Cabecera móvil siempre en una sola fila. */
+  .site-header {
+    padding: 8px 8px 0 !important;
+  }
+
+  .site-nav {
+    width: 100%;
+    min-height: 56px !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 7px 9px !important;
+    border-radius: 18px !important;
+  }
+
+  /* Invitada: logo + iniciar sesión, ambos en la misma línea. */
+  body.is-reader-guest .site-brand {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  body.is-reader-guest .site-brand img {
+    width: 122px;
+    max-width: 100%;
+  }
+
+  body.is-reader-guest .site-nav-panel,
+  body.is-reader-guest .site-nav-panel.is-open {
+    width: auto !important;
+    min-width: auto;
+    flex: 0 0 auto !important;
+  }
+
+  body.is-reader-guest .btn-signin {
+    width: auto !important;
+    min-width: 0;
+    min-height: 40px;
+    padding: 8px 13px;
+    justify-content: center !important;
+    white-space: nowrap;
+    font-size: .88rem;
+  }
+
+  /* Con sesión: arriba solo búsqueda + avatar. */
+  body.is-reader-authenticated .site-brand,
+  body.is-reader-authenticated .site-nav-toggle,
+  body.is-reader-authenticated .site-nav-links {
+    display: none !important;
+  }
+
+  body.is-reader-authenticated .site-nav-panel,
+  body.is-reader-authenticated .site-nav-panel.is-open {
+    width: 100% !important;
+    min-width: 0;
+    flex: 1 1 auto !important;
+    flex-basis: auto !important;
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+  }
+
+  body.is-reader-authenticated .site-nav-book-search {
+    width: auto !important;
+    min-width: 0;
+    max-width: none;
+    min-height: 40px;
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 3px 4px 3px 11px;
+  }
+
+  body.is-reader-authenticated .site-nav-actions {
+    flex: 0 0 auto;
+    display: flex !important;
+    align-items: center;
+  }
+
+  body.is-reader-authenticated .user-btn {
+    width: 42px !important;
+    min-width: 42px;
+    min-height: 42px;
+    padding: 3px;
+    justify-content: center !important;
+  }
+
+  body.is-reader-authenticated .user-btn > span,
+  body.is-reader-authenticated .user-btn > svg {
+    display: none !important;
+  }
+
+  body.is-reader-authenticated .user-avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  body.is-reader-authenticated .dropdown-menu {
+    position: absolute !important;
+    right: 0;
+    top: calc(100% + 9px) !important;
+    min-width: 205px;
+    margin: 0 !important;
+    box-shadow: 0 18px 42px rgba(57, 39, 24, .14) !important;
+  }
+
+  body.is-reader-authenticated {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 390px) {
+  body.is-reader-guest .site-brand img {
+    width: 110px;
+  }
+
+  body.is-reader-guest .btn-signin {
+    padding-inline: 11px;
+    font-size: .83rem;
+  }
+
+  .guest-access-card {
+    padding: 26px 20px 22px;
+  }
+
+  .guest-access-card > div {
+    grid-template-columns: 1fr;
+  }
+}
