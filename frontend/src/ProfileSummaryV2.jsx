@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { publicUrl } from "./api.js";
 import { getProfileOverview, uploadProfileCover } from "./lib/profileApi.js";
+import { getProfileActivityFeed } from "./lib/profileFeedApi.js";
 import "./PerfilSupabase.css";
 import "./ProfileSummaryV2.css";
 
@@ -44,22 +45,6 @@ function relativeDate(value) {
   const weeks = Math.floor(days / 7);
   if (weeks < 5) return `hace ${weeks} sem`;
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" }).format(date);
-}
-
-function profileAction(action, isOwner) {
-  if (isOwner) return action || "Actualizaste tu lectura";
-  const replacements = new Map([
-    ["Terminaste", "Terminó"],
-    ["Actualizaste tu progreso en", "Actualizó su progreso en"],
-    ["Empezaste a leer", "Empezó a leer"],
-    ["Actualizaste tu relectura de", "Actualizó su relectura de"],
-    ["Empezaste a releer", "Empezó a releer"],
-    ["Pausaste", "Pausó"],
-    ["Añadiste a pendientes", "Añadió a pendientes"],
-    ["Marcaste como abandonado", "Marcó como abandonado"],
-    ["Actualizaste", "Actualizó"],
-  ]);
-  return replacements.get(action) || action || "Actualizó su lectura";
 }
 
 function SectionHeading({ eyebrow, title, action, onAction }) {
@@ -206,51 +191,138 @@ function ClubBookmarks({ achievements }) {
   );
 }
 
-function ActivityItem({ item, profile, isOwner, onSelectBook }) {
-  const displayName = profile?.display_name || profile?.username || "Lectora";
-  const handle = String(profile?.username || "lectora").replace(/^@/, "");
-  const avatar = assetUrl(profile?.avatar, "images/avatar/avatar1.png");
-  const progress = clampProgress(item?.progress);
-  const score = Math.max(0, Math.min(5, Number(item?.score) || 0));
+function feedAction(item, isOwner) {
+  const ownerText = {
+    progress: "Actualizaste tu progreso en",
+    review: "Publicaste una reseña de",
+    completed: "Terminaste",
+    started: item?.status === "rereading" ? "Empezaste a releer" : "Empezaste a leer",
+    planned: "Añadiste a pendientes",
+    paused: "Pausaste",
+    dropped: "Marcaste como abandonado",
+  };
+  const publicText = {
+    progress: "Actualizó su progreso en",
+    review: "Publicó una reseña de",
+    completed: "Terminó",
+    started: item?.status === "rereading" ? "Empezó a releer" : "Empezó a leer",
+    planned: "Añadió a pendientes",
+    paused: "Pausó",
+    dropped: "Marcó como abandonado",
+  };
+  return (isOwner ? ownerText : publicText)[item?.type] || (isOwner ? "Actualizaste" : "Actualizó");
+}
+
+function Comment({ comment }) {
+  const profile = comment?.profile || {};
+  const displayName = profile.display_name || profile.username || "Lectora";
+  const handle = String(profile.username || "lectora").replace(/^@/, "");
+  return (
+    <div className="profile-v2-feed-comment">
+      <img
+        src={assetUrl(profile.avatar, "images/avatar/avatar1.png")}
+        alt={`Avatar de ${displayName}`}
+        loading="lazy"
+        onError={(event) => { event.currentTarget.src = publicUrl("images/avatar/avatar1.png"); }}
+      />
+      <div>
+        <div><strong>{displayName}</strong><span>@{handle}</span><time>· {relativeDate(comment.created_at)}</time></div>
+        <p>{comment.body}</p>
+      </div>
+    </div>
+  );
+}
+
+function FeedBook({ item, onSelectBook }) {
+  const book = item?.book;
+  if (!book) return null;
+  const progress = clampProgress(item.progress);
+  const score = Math.max(0, Math.min(5, Number(item.score) || 0));
+
+  return (
+    <button type="button" className="profile-v2-feed-book" onClick={() => onSelectBook?.(book)}>
+      <img src={assetUrl(book.cover)} alt={book.title ? `Portada de ${book.title}` : "Portada del libro"} loading="lazy" onError={(event) => { event.currentTarget.src = publicUrl("images/librelula.png"); }} />
+      <span>
+        <strong>{book.title || "Libro sin título"}</strong>
+        <small>{book.author || "Autor desconocido"}</small>
+        {progress > 0 && item.type === "progress" ? <span className="profile-v2-feed-progress"><i><b style={{ width: `${progress}%` }} /></i><em>{progress}%</em></span> : null}
+        {score > 0 ? <span className="profile-v2-feed-score" aria-label={`${score} de 5 estrellas`}>{"★".repeat(score)}{"☆".repeat(5 - score)}</span> : null}
+      </span>
+    </button>
+  );
+}
+
+function ActivityItem({ item, isOwner, onSelectBook }) {
+  const profile = item?.profile || {};
+  const displayName = profile.display_name || profile.username || "Lectora";
+  const handle = String(profile.username || "lectora").replace(/^@/, "");
+  const avatar = assetUrl(profile.avatar, "images/avatar/avatar1.png");
+  const hasBody = Boolean(String(item?.body || "").trim());
+  const body = String(item?.body || "").trim();
+  const isPost = item?.type === "post";
 
   return (
     <article className="profile-v2-feed-item">
       <img className="profile-v2-feed-avatar" src={avatar} alt={`Avatar de ${displayName}`} onError={(event) => { event.currentTarget.src = publicUrl("images/avatar/avatar1.png"); }} />
       <div className="profile-v2-feed-content">
         <div className="profile-v2-feed-meta">
-          <strong>{displayName}</strong><span>@{handle}</span>{item.date ? <time>· {relativeDate(item.date)}</time> : null}
+          <strong>{displayName}</strong><span>@{handle}</span>{item.created_at ? <time>· {relativeDate(item.created_at)}</time> : null}
         </div>
-        <p><span>{profileAction(item.action, isOwner)}</span>{item.title ? <> <strong>{item.title}</strong></> : null}</p>
-        {item.title ? (
-          <button type="button" className="profile-v2-feed-book" onClick={() => onSelectBook?.(item)}>
-            <img src={assetUrl(item.cover)} alt={item.title ? `Portada de ${item.title}` : "Portada del libro"} loading="lazy" onError={(event) => { event.currentTarget.src = publicUrl("images/librelula.png"); }} />
-            <span>
-              <strong>{item.title}</strong><small>{item.author || "Autor desconocido"}</small>
-              {progress > 0 ? <span className="profile-v2-feed-progress"><i><b style={{ width: `${progress}%` }} /></i><em>{progress}%</em></span> : null}
-              {score > 0 ? <span className="profile-v2-feed-score" aria-label={`${score} de 5 estrellas`}>{"★".repeat(score)}{"☆".repeat(5 - score)}</span> : null}
-            </span>
-          </button>
+
+        {isPost ? null : (
+          <p className="profile-v2-feed-action"><span>{feedAction(item, isOwner)}</span>{item.book?.title ? <> <strong>{item.book.title}</strong></> : null}</p>
+        )}
+
+        {hasBody ? (
+          item.spoiler ? (
+            <details className="profile-v2-feed-spoiler">
+              <summary>Mostrar contenido con spoiler</summary>
+              <p>{body}</p>
+              {item.image_url ? <img src={item.image_url} alt="Imagen de la publicación" loading="lazy" /> : null}
+            </details>
+          ) : (
+            <>
+              <p className={isPost ? "profile-v2-feed-post-copy" : "profile-v2-feed-body-copy"}>{body}</p>
+              {item.image_url ? <img className="profile-v2-feed-post-image" src={item.image_url} alt="Imagen de la publicación" loading="lazy" /> : null}
+            </>
+          )
+        ) : null}
+
+        <FeedBook item={item} onSelectBook={onSelectBook} />
+
+        <div className="profile-v2-feed-reactions" aria-label="Interacciones de la actividad">
+          <span className={item.liked ? "is-liked" : ""}><b aria-hidden="true">{item.liked ? "♥" : "♡"}</b> {formatNumber(item.likes)} {Number(item.likes) === 1 ? "like" : "likes"}</span>
+          <span><b aria-hidden="true">◌</b> {formatNumber(item.comments_count)} {Number(item.comments_count) === 1 ? "comentario" : "comentarios"}</span>
+        </div>
+
+        {item.comments?.length ? (
+          <div className="profile-v2-feed-comments">
+            {item.comments.map((comment) => <Comment key={comment.id} comment={comment} />)}
+          </div>
         ) : null}
       </div>
     </article>
   );
 }
 
-function ActivityFeed({ items, profile, isOwner, onSelectBook, onActivity }) {
-  const visible = (items || []).slice(0, 20);
+function ActivityFeed({ items, loading, error, isOwner, onSelectBook }) {
   return (
     <section className="profile-v2-activity-column">
       <div className="profile-v2-activity-title">
-        <div><span>Huella reciente</span><h2>Actividad</h2></div>
-        <button type="button" onClick={onActivity}>Ver historial →</button>
+        <div><span>Feed del perfil</span><h2>Actividad</h2><p>Publicaciones, lecturas y las conversaciones que generan.</p></div>
       </div>
-      {visible.length ? (
-        <div className="profile-v2-feed">
-          {visible.map((item, index) => (
-            <ActivityItem key={`${item.book_id || item.id}-${item.status || "activity"}-${item.date || index}`} item={item} profile={profile} isOwner={isOwner} onSelectBook={onSelectBook} />
-          ))}
+
+      {loading ? (
+        <div className="profile-v2-feed-loading" aria-label="Cargando actividad">
+          {Array.from({ length: 4 }, (_, index) => <span key={index} />)}
         </div>
-      ) : <p className="profile-v2-soft-empty">Todavía no hay actividad lectora reciente.</p>}
+      ) : error ? (
+        <p className="profile-v2-soft-empty">{error}</p>
+      ) : items?.length ? (
+        <div className="profile-v2-feed">
+          {items.map((item) => <ActivityItem key={item.key} item={item} isOwner={isOwner} onSelectBook={onSelectBook} />)}
+        </div>
+      ) : <p className="profile-v2-soft-empty">Todavía no hay actividad en este perfil.</p>}
     </section>
   );
 }
@@ -266,6 +338,7 @@ export default function ProfileSummaryV2({
   const fileInputRef = useRef(null);
   const [state, setState] = useState({ loading: true, error: "", data: null });
   const [coverState, setCoverState] = useState({ saving: false, error: "" });
+  const [feedState, setFeedState] = useState({ loading: true, error: "", items: [] });
 
   useEffect(() => {
     let cancelled = false;
@@ -274,6 +347,24 @@ export default function ProfileSummaryV2({
       .catch((error) => { if (!cancelled) setState({ loading: false, error: error?.message || "No se pudo cargar el perfil.", data: null }); });
     return () => { cancelled = true; };
   }, [profileId]);
+
+  const loadedProfile = state.data?.profile || null;
+  const loadedProfileId = loadedProfile?.id || "";
+  const loadedLegacyId = loadedProfile?.legacy_id || "";
+
+  useEffect(() => {
+    if (!loadedProfileId || !loadedLegacyId || !loadedProfile) {
+      setFeedState({ loading: false, error: "", items: [] });
+      return undefined;
+    }
+
+    let cancelled = false;
+    setFeedState({ loading: true, error: "", items: [] });
+    getProfileActivityFeed(loadedProfile)
+      .then((items) => { if (!cancelled) setFeedState({ loading: false, error: "", items }); })
+      .catch((error) => { if (!cancelled) setFeedState({ loading: false, error: error?.message || "No se pudo cargar la actividad social.", items: [] }); });
+    return () => { cancelled = true; };
+  }, [loadedProfileId, loadedLegacyId]);
 
   async function handleCoverSelected(event) {
     const file = event.target.files?.[0];
@@ -336,16 +427,21 @@ export default function ProfileSummaryV2({
         </nav>
 
         <section className="profile-summary-anilist" id="profile-panel-summary" role="tabpanel">
-          <aside className="profile-v2-insights-column">
-            <FavoriteShelf books={data.favoriteBooks} onSelectBook={onSelectBook} onFavorites={() => onTabChange?.("favorites")} />
+          <div className="profile-v2-summary-stats">
             <AnnualChallenge books={data.shelfBooks} goal={annualGoal} />
             <ReadingPulse streak={data.streak} days={data.activityDays} onActivity={() => onTabChange?.("activity")} />
-            <FavoriteGenres genres={data.favoriteGenres} />
-            <FavoriteAuthors authors={data.favoriteAuthors} onFavorites={() => onTabChange?.("favorites")} />
-            <ClubBookmarks achievements={data.clubAchievements} />
-          </aside>
+          </div>
 
-          <ActivityFeed items={data.recentActivity} profile={profile} isOwner={data.isOwner} onSelectBook={onSelectBook} onActivity={() => onTabChange?.("activity")} />
+          <div className="profile-summary-anilist-body">
+            <aside className="profile-v2-insights-column">
+              <FavoriteShelf books={data.favoriteBooks} onSelectBook={onSelectBook} onFavorites={() => onTabChange?.("favorites")} />
+              <FavoriteGenres genres={data.favoriteGenres} />
+              <FavoriteAuthors authors={data.favoriteAuthors} onFavorites={() => onTabChange?.("favorites")} />
+              <ClubBookmarks achievements={data.clubAchievements} />
+            </aside>
+
+            <ActivityFeed items={feedState.items} loading={feedState.loading} error={feedState.error} isOwner={data.isOwner} onSelectBook={onSelectBook} />
+          </div>
         </section>
       </section>
     </main>
