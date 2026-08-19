@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { publicUrl } from "./api.js";
 import { signInSupabase, signUpSupabase } from "./lib/session.js";
 import "./LoginSupabase.css";
@@ -17,6 +17,15 @@ function friendlyAuthError(error, fallback) {
   }
 
   return message || fallback;
+}
+
+function goHomeAfterAuth() {
+  window.setTimeout(() => {
+    const homeButton = [...document.querySelectorAll(".site-nav-links button")].find(
+      (button) => button.textContent?.trim() === "Inicio",
+    );
+    homeButton?.click();
+  }, 0);
 }
 
 export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
@@ -48,6 +57,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
       });
 
       onLoginSuccess?.(session);
+      goHomeAfterAuth();
     } catch (error) {
       setErrorMessage(
         friendlyAuthError(
@@ -83,6 +93,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
       }
 
       onLoginSuccess?.(session);
+      goHomeAfterAuth();
     } catch (error) {
       setErrorMessage(
         friendlyAuthError(
