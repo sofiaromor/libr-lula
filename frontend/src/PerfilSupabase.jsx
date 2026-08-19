@@ -4,6 +4,7 @@ import "./ProfileV2Identity.css";
 import "./ProfileV2Polish.css";
 
 const PerfilSupabaseImpl = lazy(() => import("./PerfilSupabaseImpl.jsx"));
+const ProfileSummaryV2 = lazy(() => import("./ProfileSummaryV2.jsx"));
 
 function ProfileLoadingShell() {
   return (
@@ -32,9 +33,15 @@ function ProfileLoadingShell() {
 }
 
 export default function PerfilSupabase(props) {
+  const currentTab = props.activeTab || "summary";
+
   return (
     <Suspense fallback={<ProfileLoadingShell />}>
-      <PerfilSupabaseImpl {...props} />
+      {currentTab === "summary" ? (
+        <ProfileSummaryV2 {...props} activeTab={currentTab} />
+      ) : (
+        <PerfilSupabaseImpl {...props} />
+      )}
     </Suspense>
   );
 }
