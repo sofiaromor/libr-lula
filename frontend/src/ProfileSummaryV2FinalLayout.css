@@ -1,0 +1,177 @@
+/* Perfil V2 · distribución final: identidad lectora amplia a la izquierda y una única columna social a la derecha. */
+
+.profile-summary-anilist {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(360px, .88fr);
+  grid-template-areas:
+    "insights stats"
+    "insights activity";
+  gap: 14px 16px;
+  align-items: start;
+}
+
+/* El contenedor intermedio deja de crear dos columnas propias: sus hijos participan en la rejilla principal. */
+.profile-summary-anilist-body {
+  display: contents;
+}
+
+.profile-v2-insights-column {
+  grid-area: insights;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* Izquierda: módulos más generosos y visuales. */
+.profile-v2-insights-column .profile-v2-module {
+  padding: 20px 21px;
+}
+
+.profile-v2-insights-column .profile-v2-section-heading h2 {
+  font-size: clamp(1.48rem, 2vw, 1.9rem);
+}
+
+.profile-v2-insights-column .profile-v2-bookshelf {
+  margin-top: 20px;
+  padding-bottom: 12px;
+}
+
+.profile-v2-insights-column .profile-v2-bookshelf-books {
+  min-height: 168px;
+  gap: 11px;
+}
+
+.profile-v2-insights-column .profile-v2-genre-list {
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.profile-v2-insights-column .profile-v2-genre-list strong {
+  font-size: .92rem;
+}
+
+.profile-v2-insights-column .profile-v2-genre-list small {
+  font-size: .72rem;
+}
+
+.profile-v2-insights-column .profile-v2-author-list {
+  margin-top: 15px;
+  gap: 0 18px;
+}
+
+.profile-v2-insights-column .profile-v2-author-list > span {
+  padding: 9px 0;
+}
+
+.profile-v2-insights-column .profile-v2-author-list strong,
+.profile-v2-insights-column .profile-v2-bookmark-grid strong {
+  font-size: .8rem;
+}
+
+/* Derecha: objetivo y racha arriba, en UNA sola columna. */
+.profile-v2-summary-stats {
+  grid-area: stats;
+  display: grid;
+  grid-template-columns: 1fr !important;
+  gap: 10px;
+  min-width: 0;
+}
+
+.profile-v2-summary-stats > .profile-v2-module {
+  min-height: 0;
+  padding: 15px 17px;
+}
+
+.profile-v2-summary-stats .profile-v2-section-heading h2 {
+  font-size: clamp(1.3rem, 1.7vw, 1.6rem);
+}
+
+.profile-v2-summary-stats .profile-v2-challenge-copy {
+  margin-top: 11px;
+}
+
+.profile-v2-summary-stats .profile-v2-challenge-copy strong {
+  font-size: clamp(2.2rem, 3.3vw, 2.9rem);
+}
+
+.profile-v2-summary-stats .profile-v2-challenge-progress {
+  margin-top: 10px;
+}
+
+.profile-v2-summary-stats .profile-v2-heatmap {
+  margin-top: 11px;
+}
+
+.profile-v2-summary-stats .profile-v2-heatmap-legend {
+  margin-top: 7px;
+}
+
+/* La actividad ocupa una sola columna continua debajo de las estadísticas. */
+.profile-v2-activity-column {
+  grid-area: activity;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.profile-v2-feed {
+  display: grid;
+  grid-template-columns: 1fr !important;
+  min-width: 0;
+}
+
+.profile-v2-feed-item {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 1280px) {
+  .profile-summary-anilist {
+    grid-template-columns: minmax(0, 1.14fr) minmax(390px, .86fr);
+    gap: 15px 18px;
+  }
+
+  .profile-v2-insights-column .profile-v2-bookshelf-books {
+    min-height: 178px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .profile-summary-anilist {
+    grid-template-columns: minmax(0, 1.06fr) minmax(340px, .94fr);
+    gap: 12px;
+  }
+
+  .profile-v2-insights-column .profile-v2-module {
+    padding: 17px;
+  }
+
+  .profile-v2-insights-column .profile-v2-bookshelf-books {
+    min-height: 145px;
+    gap: 9px;
+  }
+}
+
+@media (max-width: 900px) {
+  .profile-summary-anilist {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "insights"
+      "stats"
+      "activity";
+    gap: 8px;
+  }
+
+  .profile-v2-insights-column,
+  .profile-v2-summary-stats {
+    gap: 8px;
+  }
+
+  .profile-v2-insights-column .profile-v2-module,
+  .profile-v2-summary-stats > .profile-v2-module {
+    padding: 14px;
+  }
+
+  .profile-v2-insights-column .profile-v2-bookshelf-books {
+    min-height: 122px;
+  }
+}
