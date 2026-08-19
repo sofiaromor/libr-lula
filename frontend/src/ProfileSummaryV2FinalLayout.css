@@ -116,6 +116,7 @@
 .profile-v2-feed {
   display: grid;
   grid-template-columns: 1fr !important;
+  grid-auto-flow: row;
   min-width: 0;
 }
 
