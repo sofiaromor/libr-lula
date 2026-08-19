@@ -7,6 +7,8 @@ import GuestAccessGuard from "./GuestAccessGuard.jsx";
 import "./MobileNavRefinement.css";
 import "./GuestNavFix.css";
 import "./MobilePolish.css";
+import "./CozyDockIcons.css";
+import "./CozyDockPreview.css";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

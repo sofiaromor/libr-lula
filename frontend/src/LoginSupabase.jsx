@@ -1,7 +1,32 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { publicUrl } from "./api.js";
 import { signInSupabase, signUpSupabase } from "./lib/session.js";
 import "./LoginSupabase.css";
+
+const hasSupabaseConfig = Boolean(
+  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
+);
+
+function friendlyAuthError(error, fallback) {
+  const message = String(error?.message || "").trim();
+
+  if (/failed to fetch|fetch failed|networkerror/i.test(message)) {
+    return hasSupabaseConfig
+      ? "No pudimos conectar con Librélula. Comprueba tu conexión e inténtalo de nuevo en unos segundos."
+      : "Este preview no ha recibido la configuración de Supabase. Necesita un nuevo despliegue de Preview con las variables habilitadas.";
+  }
+
+  return message || fallback;
+}
+
+function goHomeAfterAuth() {
+  window.setTimeout(() => {
+    const homeButton = [...document.querySelectorAll(".site-nav-links button")].find(
+      (button) => button.textContent?.trim() === "Inicio",
+    );
+    homeButton?.click();
+  }, 0);
+}
 
 export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
   const [activePanel, setActivePanel] = useState("login");
@@ -32,9 +57,13 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
       });
 
       onLoginSuccess?.(session);
+      goHomeAfterAuth();
     } catch (error) {
       setErrorMessage(
-        error.message || "No se pudo iniciar sesión. Revisa el email y la contraseña.",
+        friendlyAuthError(
+          error,
+          "No se pudo iniciar sesión. Revisa el email y la contraseña.",
+        ),
       );
     } finally {
       setSubmitting(false);
@@ -64,9 +93,13 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
       }
 
       onLoginSuccess?.(session);
+      goHomeAfterAuth();
     } catch (error) {
       setErrorMessage(
-        error.message || "No se pudo crear la cuenta. Revisa los datos e inténtalo otra vez.",
+        friendlyAuthError(
+          error,
+          "No se pudo crear la cuenta. Revisa los datos e inténtalo otra vez.",
+        ),
       );
     } finally {
       setSubmitting(false);
