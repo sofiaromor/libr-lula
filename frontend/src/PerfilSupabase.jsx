@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import "./ProfileV2.css";
+import "./ProfileV2Identity.css";
 
 const PerfilSupabaseImpl = lazy(() => import("./PerfilSupabaseImpl.jsx"));
 
