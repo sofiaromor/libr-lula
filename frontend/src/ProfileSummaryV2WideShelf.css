@@ -1,40 +1,37 @@
-/* Perfil V2 · ajuste de jerarquía: identidad lectora amplia y estantería arrastrable. */
+/* Perfil V2 · equilibrio editorial entre identidad lectora y feed social. */
 
 /* Esta capa usa mayor especificidad porque ProfileSummaryV2.css se carga de forma lazy. */
 .profile-summary-page-v2 .profile-summary-anilist {
-  grid-template-columns: minmax(0, 1.45fr) minmax(350px, .55fr);
+  grid-template-columns: minmax(390px, .82fr) minmax(0, 1.08fr);
   grid-template-areas:
     "insights stats"
     "insights activity";
   gap: 14px 16px;
 }
 
-.profile-summary-page-v2 .profile-v2-insights-column {
-  min-width: 0;
-}
-
+.profile-summary-page-v2 .profile-v2-insights-column,
 .profile-summary-page-v2 .profile-v2-summary-stats,
 .profile-summary-page-v2 .profile-v2-activity-column {
   min-width: 0;
 }
 
-/* Favoritos: portadas grandes, sin alto reservado, sobre una balda horizontal desplazable. */
+/* Favoritos: grandes, compactos en alto y sobre una balda horizontal desplazable. */
 .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-shelf-module {
   overflow: hidden;
 }
 
 .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf {
-  margin-top: 16px;
-  padding: 3px 0 13px;
+  margin-top: 15px;
+  padding: 2px 0 12px;
 }
 
 .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books {
   display: flex;
   align-items: flex-end;
-  gap: 16px;
+  gap: 14px;
   width: 100%;
   min-height: 0;
-  padding: 5px 5px 8px 3px;
+  padding: 4px 5px 7px 3px;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x proximity;
@@ -57,9 +54,9 @@
 .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button,
 .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button:nth-child(n + 6) {
   display: block;
-  flex: 0 0 126px;
-  width: 126px;
-  min-width: 126px;
+  flex: 0 0 116px;
+  width: 116px;
+  min-width: 116px;
   scroll-snap-align: start;
 }
 
@@ -67,30 +64,30 @@
   width: 100%;
   aspect-ratio: 2 / 3;
   border-radius: 7px 7px 3px 3px;
-  box-shadow: 0 10px 20px rgba(55, 34, 22, .2);
+  box-shadow: 0 9px 18px rgba(55, 34, 22, .18);
   pointer-events: none;
 }
 
 .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-wood {
   width: 100%;
-  height: 12px;
+  height: 11px;
   margin: -1px 0 0;
 }
 
-/* Con más aire a la izquierda, los géneros dejan de sentirse apelotonados. */
+/* Géneros con aire suficiente sin sobredimensionar la columna. */
 .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list {
-  gap: 13px;
+  gap: 11px;
 }
 
 .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list strong {
-  min-height: 40px;
-  padding-inline: 9px;
+  min-height: 38px;
+  padding-inline: 8px;
 }
 
-/* Derecha más compacta sin romper la fila doble de Objetivo + Racha. */
+/* Derecha: métricas compactas, feed con el ancho principal. */
 .profile-summary-page-v2 .profile-v2-summary-stats {
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 9px;
+  gap: 10px;
 }
 
 .profile-summary-page-v2 .profile-v2-summary-stats > .profile-v2-module {
@@ -98,38 +95,38 @@
 }
 
 .profile-summary-page-v2 .profile-v2-activity-title {
-  padding: 16px 17px 13px;
+  padding: 16px 18px 13px;
 }
 
 .profile-summary-page-v2 .profile-v2-feed-item {
-  padding-inline: 17px;
+  padding-inline: 18px;
 }
 
 @media (min-width: 1280px) {
   .profile-summary-page-v2 .profile-summary-anilist {
-    grid-template-columns: minmax(0, 1.52fr) minmax(360px, .48fr);
+    grid-template-columns: minmax(420px, .88fr) minmax(0, 1.12fr);
     gap: 15px 18px;
   }
 
   .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button,
   .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button:nth-child(n + 6) {
-    flex-basis: 132px;
-    width: 132px;
-    min-width: 132px;
+    flex-basis: 120px;
+    width: 120px;
+    min-width: 120px;
   }
 }
 
 @media (max-width: 1100px) {
   .profile-summary-page-v2 .profile-summary-anilist {
-    grid-template-columns: minmax(0, 1.18fr) minmax(340px, .82fr);
+    grid-template-columns: minmax(360px, .92fr) minmax(0, 1.08fr);
     gap: 12px;
   }
 
   .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button,
   .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button:nth-child(n + 6) {
-    flex-basis: 112px;
-    width: 112px;
-    min-width: 112px;
+    flex-basis: 108px;
+    width: 108px;
+    min-width: 108px;
   }
 }
 
