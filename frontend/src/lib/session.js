@@ -6,15 +6,38 @@ export const EMPTY_SUPABASE_SESSION = {
   user: null,
 };
 
-export async function getSupabaseAppSession() {
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+const SESSION_PROFILE_CACHE_TTL = 30_000;
+let sessionProfileCache = null;
 
-  if (userError || !user) {
+function clearSessionProfileCache() {
+  sessionProfileCache = null;
+}
+
+function cachedSessionFor(userId) {
+  if (!sessionProfileCache || sessionProfileCache.userId !== userId) return null;
+  if (Date.now() - sessionProfileCache.savedAt > SESSION_PROFILE_CACHE_TTL) {
+    clearSessionProfileCache();
+    return null;
+  }
+  return sessionProfileCache.value;
+}
+
+export async function getSupabaseAppSession() {
+  // La sesión persistida ya contiene el usuario autenticado y se obtiene localmente.
+  // Las consultas posteriores siguen protegidas por RLS en Supabase.
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  const user = session?.user || null;
+  if (sessionError || !user) {
+    clearSessionProfileCache();
     return EMPTY_SUPABASE_SESSION;
   }
+
+  const cached = cachedSessionFor(user.id);
+  if (cached) return cached;
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -26,7 +49,7 @@ export async function getSupabaseAppSession() {
     throw profileError;
   }
 
-  return {
+  const value = {
     authenticated: true,
     is_admin: Boolean(profile?.is_admin),
     user: {
@@ -38,6 +61,14 @@ export async function getSupabaseAppSession() {
       bio: profile?.bio || "",
     },
   };
+
+  sessionProfileCache = {
+    userId: user.id,
+    savedAt: Date.now(),
+    value,
+  };
+
+  return value;
 }
 
 export function onSupabaseAuthChange(callback) {
@@ -45,7 +76,11 @@ export function onSupabaseAuthChange(callback) {
 
   const {
     data: { subscription },
-  } = supabase.auth.onAuthStateChange(() => {
+  } = supabase.auth.onAuthStateChange((event) => {
+    if (["SIGNED_OUT", "USER_UPDATED", "PASSWORD_RECOVERY"].includes(event)) {
+      clearSessionProfileCache();
+    }
+
     window.setTimeout(async () => {
       try {
         const session = await getSupabaseAppSession();
@@ -76,6 +111,7 @@ function getAuthRedirectUrl() {
 }
 
 export async function signInSupabase({ email, password }) {
+  clearSessionProfileCache();
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -104,6 +140,7 @@ export async function signUpSupabase({ email, password, username }) {
     throw new Error("La contraseña debe tener al menos 6 caracteres.");
   }
 
+  clearSessionProfileCache();
   const { data, error } = await supabase.auth.signUp({
     email: cleanEmail,
     password,
@@ -131,5 +168,6 @@ export async function signUpSupabase({ email, password, username }) {
 }
 
 export async function signOutSupabase() {
+  clearSessionProfileCache();
   await supabase.auth.signOut();
 }
