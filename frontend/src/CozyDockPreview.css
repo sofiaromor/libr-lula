@@ -1,0 +1,8 @@
+/* Solo para revisar visualmente el PR de iconos. Se eliminará antes del merge. */
+@media (max-width: 900px) {
+  body.is-reader-guest .mobile-reader-dock {
+    display: grid !important;
+    opacity: 1;
+    pointer-events: none;
+  }
+}
