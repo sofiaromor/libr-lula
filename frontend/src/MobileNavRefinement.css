@@ -1,6 +1,86 @@
-/* Ajustes de navegación móvil sobre la cabecera y el dock persistente. */
+/* Ajustes de navegación sobre la cabecera y el dock persistente. */
+
+/* En la portada pública dejamos respirar la marca: la navegación aparece al iniciar sesión. */
+.site-nav:has(.btn-signin) .site-nav-links,
+.site-nav:has(.btn-signin) .site-nav-book-search {
+  display: none !important;
+}
+
+.site-nav:has(.btn-signin) .site-nav-panel {
+  justify-content: flex-end;
+}
+
+/* El dock pertenece al espacio lector: no aparece antes de iniciar sesión. */
+#root:not(:has(.user-btn)) .mobile-reader-dock,
+#root:not(:has(.user-btn)) .mobile-reader-toast {
+  display: none !important;
+}
+
+/* Iconografía propia: libros, pluma, café y libélula. */
+.mobile-reader-dock > button:nth-child(1) > svg,
+.mobile-reader-dock > button:nth-child(2) > svg,
+.mobile-reader-dock > button:nth-child(4) > svg,
+.mobile-reader-dock > button:nth-child(5) > svg,
+.mobile-reader-create-circle > svg {
+  display: none !important;
+}
+
+.mobile-reader-dock > button:nth-child(1)::before,
+.mobile-reader-dock > button:nth-child(2)::before,
+.mobile-reader-dock > button:nth-child(4)::before,
+.mobile-reader-dock > button:nth-child(5)::before,
+.mobile-reader-create-circle::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  display: block;
+  flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+
+/* Inicio · libro abierto con una chispa. */
+.mobile-reader-dock > button:nth-child(1)::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.7%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M3.5%206.5c3.2-.8%205.9-.3%208.5%201.6v11c-2.6-1.9-5.3-2.4-8.5-1.6z%27%2F%3E%3Cpath%20d%3D%27M20.5%206.5c-3.2-.8-5.9-.3-8.5%201.6v11c2.6-1.9%205.3-2.4%208.5-1.6z%27%2F%3E%3Cpath%20d%3D%27M7%204.2v2.5M5.8%205.45h2.4%27%2F%3E%3C%2Fsvg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.7%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M3.5%206.5c3.2-.8%205.9-.3%208.5%201.6v11c-2.6-1.9-5.3-2.4-8.5-1.6z%27%2F%3E%3Cpath%20d%3D%27M20.5%206.5c-3.2-.8-5.9-.3-8.5%201.6v11c2.6-1.9%205.3-2.4%208.5-1.6z%27%2F%3E%3Cpath%20d%3D%27M7%204.2v2.5M5.8%205.45h2.4%27%2F%3E%3C%2Fsvg%3E");
+}
+
+/* Catálogo · pequeña pila de libros y lupa. */
+.mobile-reader-dock > button:nth-child(2)::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.7%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5%205.5h11.5a1.5%201.5%200%200%201%200%203H5z%27%2F%3E%3Cpath%20d%3D%27M7%2010.5h10.5a1.5%201.5%200%200%201%200%203H7z%27%2F%3E%3Cpath%20d%3D%27M4.5%2015.5H15a1.5%201.5%200%200%201%200%203H4.5z%27%2F%3E%3Ccircle%20cx%3D%2718.2%27%20cy%3D%2717.8%27%20r%3D%272.7%27%2F%3E%3Cpath%20d%3D%27m20.2%2019.8%201.8%201.8%27%2F%3E%3C%2Fsvg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.7%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5%205.5h11.5a1.5%201.5%200%200%201%200%203H5z%27%2F%3E%3Cpath%20d%3D%27M7%2010.5h10.5a1.5%201.5%200%200%201%200%203H7z%27%2F%3E%3Cpath%20d%3D%27M4.5%2015.5H15a1.5%201.5%200%200%201%200%203H4.5z%27%2F%3E%3Ccircle%20cx%3D%2718.2%27%20cy%3D%2717.8%27%20r%3D%272.7%27%2F%3E%3Cpath%20d%3D%27m20.2%2019.8%201.8%201.8%27%2F%3E%3C%2Fsvg%3E");
+}
+
+/* Crear · pluma con un pequeño +, más editorial que el símbolo genérico. */
+.mobile-reader-create-circle::before {
+  width: 25px;
+  height: 25px;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.7%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5%2019c4.8-.7%208.4-3.3%2011.4-8.2%201.2-2%201.8-4.2%201.7-6.8-2.5.3-4.6%201.2-6.4%202.7C7.4%2010.3%205.3%2014.4%205%2019Z%27%2F%3E%3Cpath%20d%3D%27M5%2019c2.8-2.7%205.8-5.2%209.3-7.5%27%2F%3E%3Cpath%20d%3D%27M18.5%2015.5v4M16.5%2017.5h4%27%2F%3E%3C%2Fsvg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.7%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5%2019c4.8-.7%208.4-3.3%2011.4-8.2%201.2-2%201.8-4.2%201.7-6.8-2.5.3-4.6%201.2-6.4%202.7C7.4%2010.3%205.3%2014.4%205%2019Z%27%2F%3E%3Cpath%20d%3D%27M5%2019c2.8-2.7%205.8-5.2%209.3-7.5%27%2F%3E%3Cpath%20d%3D%27M18.5%2015.5v4M16.5%2017.5h4%27%2F%3E%3C%2Fsvg%3E");
+}
+
+/* Clubes · una taza humeante para el rincón de lectura compartida. */
+.mobile-reader-dock > button:nth-child(4)::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.7%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M4%208.5h11v6.2a4.3%204.3%200%200%201-4.3%204.3H8.3A4.3%204.3%200%200%201%204%2014.7Z%27%2F%3E%3Cpath%20d%3D%27M15%2010h2.3a2.2%202.2%200%200%201%200%204.4H15%27%2F%3E%3Cpath%20d%3D%27M6.5%205.2c0%201%201%201.2%201%202.2M10%205.2c0%201%201%201.2%201%202.2%27%2F%3E%3Cpath%20d%3D%27M3%2021h17%27%2F%3E%3C%2Fsvg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.7%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M4%208.5h11v6.2a4.3%204.3%200%200%201-4.3%204.3H8.3A4.3%204.3%200%200%201%204%2014.7Z%27%2F%3E%3Cpath%20d%3D%27M15%2010h2.3a2.2%202.2%200%200%201%200%204.4H15%27%2F%3E%3Cpath%20d%3D%27M6.5%205.2c0%201%201%201.2%201%202.2M10%205.2c0%201%201%201.2%201%202.2%27%2F%3E%3Cpath%20d%3D%27M3%2021h17%27%2F%3E%3C%2Fsvg%3E");
+}
+
+/* Perfil · la libélula se convierte en firma visual de la app. */
+.mobile-reader-dock > button:nth-child(5)::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.6%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%205v14%27%2F%3E%3Cpath%20d%3D%27M9.2%208.2C6.8%204.3%203.7%204.1%203.5%207.1c-.2%202.8%202.5%204.4%205.7%204.4%27%2F%3E%3Cpath%20d%3D%27M14.8%208.2c2.4-3.9%205.5-4.1%205.7-1.1.2%202.8-2.5%204.4-5.7%204.4%27%2F%3E%3Cpath%20d%3D%27M9.2%2014.2c-2.4%203.9-5.5%204.1-5.7%201.1-.2-2.8%202.5-4.4%205.7-4.4%27%2F%3E%3Cpath%20d%3D%27M14.8%2014.2c2.4%203.9%205.5%204.1%205.7%201.1.2-2.8-2.5-4.4-5.7-4.4%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%273.5%27%20r%3D%271.3%27%2F%3E%3C%2Fsvg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.6%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%205v14%27%2F%3E%3Cpath%20d%3D%27M9.2%208.2C6.8%204.3%203.7%204.1%203.5%207.1c-.2%202.8%202.5%204.4%205.7%204.4%27%2F%3E%3Cpath%20d%3D%27M14.8%208.2c2.4-3.9%205.5-4.1%205.7-1.1.2%202.8-2.5%204.4-5.7%204.4%27%2F%3E%3Cpath%20d%3D%27M9.2%2014.2c-2.4%203.9-5.5%204.1-5.7%201.1-.2-2.8%202.5-4.4%205.7-4.4%27%2F%3E%3Cpath%20d%3D%27M14.8%2014.2c2.4%203.9%205.5%204.1%205.7%201.1.2-2.8-2.5%204.4-5.7-4.4%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%273.5%27%20r%3D%271.3%27%2F%3E%3C%2Fsvg%3E");
+}
 
 @media (max-width: 900px) {
+  body:not(:has(.user-btn)) {
+    padding-bottom: 0;
+  }
+
   .site-header {
     padding: 8px 10px 0;
   }
@@ -13,14 +93,18 @@
     border-radius: 18px;
   }
 
-  /* La navegación principal ya vive en el dock inferior. */
+  /* La navegación principal ya vive en el dock inferior al iniciar sesión. */
   .site-brand,
   .site-nav-toggle,
   .site-nav-links {
     display: none !important;
   }
 
-  /* Arriba quedan únicamente búsqueda + sesión/perfil. */
+  /* En la portada pública conservamos la marca y solo mostramos el acceso. */
+  .site-nav:has(.btn-signin) .site-brand {
+    display: inline-flex !important;
+  }
+
   .site-nav-panel,
   .site-nav-panel.is-open {
     width: 100%;
@@ -32,6 +116,10 @@
     gap: 8px;
     padding: 0;
     border-top: 0;
+  }
+
+  .site-nav:has(.btn-signin) .site-nav-panel {
+    justify-content: flex-end;
   }
 
   .site-nav-book-search {
