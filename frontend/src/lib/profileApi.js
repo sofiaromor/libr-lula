@@ -21,6 +21,11 @@ const EMPTY_PROFILE_DATA = {
   isOwner: true,
 };
 
+const PROFILE_CACHE_TTL = 45_000;
+const profileOverviewCache = new Map();
+const profileOverviewInflight = new Map();
+const bookCache = new Map();
+
 function apiError(message, status = 500) {
   const error = new Error(message);
   error.status = status;
@@ -91,12 +96,15 @@ function buildBookMap(books) {
 }
 
 async function getCurrentProfile() {
+  // getSession usa la sesión persistida del cliente y evita una verificación de red
+  // redundante; las consultas posteriores siguen protegidas por RLS en Supabase.
   const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
 
-  if (userError || !user) return null;
+  const user = session?.user || null;
+  if (sessionError || !user) return null;
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -162,13 +170,17 @@ async function getClubAchievements(profileId) {
       .eq("user_id", profileId)
       .order("awarded_at", { ascending: false })
       .limit(12);
+
     if (error || !rows?.length) return [];
 
-    const clubIds = [...new Set(rows.map((row) => row.club_id))];
+    const clubIds = [...new Set(rows.map((row) => row.club_id).filter(Boolean))];
+    if (!clubIds.length) return rows;
+
     const { data: clubs } = await supabase
       .from("reading_clubs")
       .select("id, name, icon_url")
       .in("id", clubIds);
+
     const clubMap = new Map((clubs || []).map((club) => [String(club.id), club]));
     return rows.map((row) => ({ ...row, club: clubMap.get(String(row.club_id)) || null }));
   } catch {
@@ -204,29 +216,39 @@ async function getBooksByIds(bookIds) {
   const uniqueIds = [...new Set((bookIds || []).map(String).filter(Boolean))];
   if (!uniqueIds.length) return [];
 
+  const cached = [];
+  const missingIds = [];
+
+  for (const id of uniqueIds) {
+    const book = bookCache.get(id);
+    if (book) cached.push(book);
+    else missingIds.push(id);
+  }
+
+  if (!missingIds.length) return cached;
+
   const { data, error } = await supabase
     .from("books")
     .select("id, title, author, synopsis, cover, genre, year, pages, saga_name, saga_number, created_at")
-    .in("id", uniqueIds);
+    .in("id", missingIds);
 
   if (error) throw apiError("No se pudieron cargar los libros del perfil.");
-  return data || [];
+
+  for (const book of data || []) {
+    bookCache.set(String(book.id), book);
+  }
+
+  return [...cached, ...(data || [])];
 }
 
-async function getFavoriteBooks(legacyUserId) {
-  const { data: rows, error } = await supabase
+async function getFavoriteBookRows(legacyUserId) {
+  const { data, error } = await supabase
     .from("profile_favorite_books")
     .select("book_id, sort_order")
     .eq("legacy_user_id", legacyUserId)
     .order("sort_order", { ascending: true });
 
-  if (error) return [];
-  const books = await getBooksByIds((rows || []).map((row) => row.book_id));
-  const booksById = buildBookMap(books);
-  return (rows || [])
-    .map((row) => booksById.get(String(row.book_id)))
-    .filter(Boolean)
-    .slice(0, 9);
+  return error ? [] : data || [];
 }
 
 async function getFavoriteAuthors(legacyUserId) {
@@ -261,7 +283,8 @@ async function getReaderCircle(profileId) {
     .limit(6);
 
   if (followsError || !follows?.length) return [];
-  const ids = follows.map((follow) => follow.following_id);
+  const ids = follows.map((follow) => follow.following_id).filter(Boolean);
+  if (!ids.length) return [];
 
   const { data: profiles, error: profileError } = await supabase
     .from("profiles")
@@ -420,7 +443,9 @@ function buildActivityDays(userBooks) {
   for (const row of userBooks || []) {
     const rawDate = activityDateFor(row);
     if (!rawDate) continue;
-    const key = new Date(rawDate).toISOString().slice(0, 10);
+    const date = new Date(rawDate);
+    if (!Number.isFinite(date.getTime())) continue;
+    const key = date.toISOString().slice(0, 10);
     pointsByDate.set(key, (pointsByDate.get(key) || 0) + 1);
   }
 
@@ -450,18 +475,29 @@ function buildActivityDays(userBooks) {
   return { activityDays: days, streak };
 }
 
-export async function getProfileOverview(profileId = null) {
-  const { viewer, profile } = await getProfileById(profileId);
-  if (!viewer || !profile) return EMPTY_PROFILE_DATA;
+function pickFavoriteBooks(rows, booksById) {
+  return (rows || [])
+    .map((row) => booksById.get(String(row.book_id)))
+    .filter(Boolean)
+    .slice(0, 9);
+}
 
+async function buildProfileOverview(viewer, profile) {
   const isOwner = viewer.id === profile.id;
-  const [social, readerCircle, clubAchievements] = await Promise.all([
-    getSocialCounts(profile.id),
-    getReaderCircle(profile.id),
-    getClubAchievements(profile.id),
-  ]);
+
+  // Todo lo independiente arranca en la misma tanda. Antes Perfil esperaba a que
+  // social/círculo/logros terminasen para empezar a consultar la biblioteca.
+  const socialPromise = getSocialCounts(profile.id);
+  const readerCirclePromise = getReaderCircle(profile.id);
+  const clubAchievementsPromise = getClubAchievements(profile.id);
 
   if (!profile.legacy_id) {
+    const [social, readerCircle, clubAchievements] = await Promise.all([
+      socialPromise,
+      readerCirclePromise,
+      clubAchievementsPromise,
+    ]);
+
     return {
       ...EMPTY_PROFILE_DATA,
       authenticated: true,
@@ -474,16 +510,27 @@ export async function getProfileOverview(profileId = null) {
   }
 
   const legacyUserId = profile.legacy_id;
-  const userBooks = await getUserBooks(legacyUserId);
-  const books = await getBooksByIds(userBooks.map((row) => row.book_id));
+  const userBooksPromise = getUserBooks(legacyUserId);
+  const favoriteRowsPromise = getFavoriteBookRows(legacyUserId);
+  const favoriteAuthorsPromise = getFavoriteAuthors(legacyUserId);
+
+  const [social, readerCircle, clubAchievements, userBooks, favoriteRows, favoriteAuthors] = await Promise.all([
+    socialPromise,
+    readerCirclePromise,
+    clubAchievementsPromise,
+    userBooksPromise,
+    favoriteRowsPromise,
+    favoriteAuthorsPromise,
+  ]);
+
+  // Una sola consulta de books abastece estantería y favoritos.
+  const books = await getBooksByIds([
+    ...userBooks.map((row) => row.book_id),
+    ...favoriteRows.map((row) => row.book_id),
+  ]);
   const booksById = buildBookMap(books);
   const shelfBooks = mapShelfBooks(userBooks, booksById);
   const activity = buildActivityDays(userBooks);
-
-  const [favoriteBooks, favoriteAuthors] = await Promise.all([
-    getFavoriteBooks(legacyUserId),
-    getFavoriteAuthors(legacyUserId),
-  ]);
 
   return {
     authenticated: true,
@@ -492,7 +539,7 @@ export async function getProfileOverview(profileId = null) {
     shelfCounts: buildShelfCounts(userBooks),
     shelfBooks,
     latestAdditions: shelfBooks.slice(0, 6),
-    favoriteBooks,
+    favoriteBooks: pickFavoriteBooks(favoriteRows, booksById),
     favoriteAuthors,
     currentReadingBooks: buildCurrentReadingBooks(shelfBooks),
     recentActivity: buildRecentActivity(shelfBooks),
@@ -505,6 +552,40 @@ export async function getProfileOverview(profileId = null) {
     clubAchievements,
     isOwner,
   };
+}
+
+export async function getProfileOverview(profileId = null) {
+  const { viewer, profile } = await getProfileById(profileId);
+  if (!viewer || !profile) return EMPTY_PROFILE_DATA;
+
+  const cacheKey = String(profile.id);
+  const cached = profileOverviewCache.get(cacheKey);
+  if (cached && Date.now() - cached.savedAt < PROFILE_CACHE_TTL) {
+    return cached.data;
+  }
+
+  const inflight = profileOverviewInflight.get(cacheKey);
+  if (inflight) return inflight;
+
+  const request = buildProfileOverview(viewer, profile)
+    .then((data) => {
+      profileOverviewCache.set(cacheKey, { savedAt: Date.now(), data });
+      return data;
+    })
+    .finally(() => {
+      profileOverviewInflight.delete(cacheKey);
+    });
+
+  profileOverviewInflight.set(cacheKey, request);
+  return request;
+}
+
+export function invalidateProfileOverview(profileId = null) {
+  if (profileId) {
+    profileOverviewCache.delete(String(profileId));
+    return;
+  }
+  profileOverviewCache.clear();
 }
 
 export async function uploadProfileCover(file) {
@@ -554,5 +635,6 @@ export async function uploadProfileCover(file) {
     throw apiError(updateError.message || "No se pudo guardar la portada en tu perfil.");
   }
 
+  invalidateProfileOverview(user.id);
   return publicUrlValue;
 }
