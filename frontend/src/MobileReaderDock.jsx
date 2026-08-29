@@ -58,7 +58,6 @@ function scrollToCatalogBooks(attempt = 0) {
 }
 
 export default function MobileReaderDock() {
-  const [signedIn, setSignedIn] = useState(false);
   const [activeItem, setActiveItem] = useState("home");
   const [composerOpen, setComposerOpen] = useState(false);
   const [draft, setDraft] = useState("");
@@ -75,10 +74,10 @@ export default function MobileReaderDock() {
   const [toast, setToast] = useState("");
   const textareaRef = useRef(null);
   const imageInputRef = useRef(null);
+  const imagePreviewUrlRef = useRef("");
 
   useEffect(() => {
     function syncNavigationState() {
-      setSignedIn(Boolean(document.querySelector(".user-btn")));
 
       const activeButton = document.querySelector(".site-nav-links button.is-active");
       const activeLabel = activeButton?.textContent?.trim();
@@ -113,22 +112,15 @@ export default function MobileReaderDock() {
     };
   }, [composerOpen, publishing]);
 
-  useEffect(() => {
-    if (!imageFile) {
-      setImagePreview("");
-      return undefined;
+  useEffect(() => () => {
+    if (imagePreviewUrlRef.current) {
+      URL.revokeObjectURL(imagePreviewUrlRef.current);
     }
-
-    const nextPreview = URL.createObjectURL(imageFile);
-    setImagePreview(nextPreview);
-    return () => URL.revokeObjectURL(nextPreview);
-  }, [imageFile]);
+  }, []);
 
   useEffect(() => {
     const cleanSearch = bookSearch.trim();
     if (!bookPickerOpen || cleanSearch.length < 2) {
-      setBookResults([]);
-      setBookSearching(false);
       return undefined;
     }
 
@@ -194,6 +186,28 @@ export default function MobileReaderDock() {
     setComposerOpen(true);
   }
 
+  function setSelectedImage(nextFile) {
+    if (imagePreviewUrlRef.current) {
+      URL.revokeObjectURL(imagePreviewUrlRef.current);
+    }
+
+    const nextPreview = nextFile ? URL.createObjectURL(nextFile) : "";
+    imagePreviewUrlRef.current = nextPreview;
+    setImageFile(nextFile);
+    setImagePreview(nextPreview);
+
+    if (!nextFile && imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
+  }
+
+  function toggleBookPicker() {
+    if (bookPickerOpen) {
+      setBookSearching(false);
+    }
+    setBookPickerOpen(!bookPickerOpen);
+  }
+
   function resetComposer() {
     setDraft("");
     setSpoiler(false);
@@ -201,7 +215,8 @@ export default function MobileReaderDock() {
     setBookPickerOpen(false);
     setBookSearch("");
     setBookResults([]);
-    setImageFile(null);
+    setBookSearching(false);
+    setSelectedImage(null);
     setMessage("");
     if (imageInputRef.current) imageInputRef.current.value = "";
   }
@@ -288,7 +303,7 @@ export default function MobileReaderDock() {
                   {imagePreview && (
                     <div className="mobile-post-image-preview">
                       <img src={imagePreview} alt="Vista previa de la imagen" />
-                      <button type="button" aria-label="Quitar imagen" onClick={() => setImageFile(null)}>
+                      <button type="button" aria-label="Quitar imagen" onClick={() => setSelectedImage(null)}>
                         <DockIcon name="close" />
                       </button>
                     </div>
@@ -306,7 +321,14 @@ export default function MobileReaderDock() {
                     <input
                       type="search"
                       value={bookSearch}
-                      onChange={(event) => setBookSearch(event.target.value)}
+                      onChange={(event) => {
+                        const nextSearch = event.target.value;
+                        setBookSearch(nextSearch);
+                        if (nextSearch.trim().length < 2) {
+                          setBookResults([]);
+                          setBookSearching(false);
+                        }
+                      }}
                       placeholder="Buscar un libro del catálogo…"
                       autoFocus
                     />
@@ -327,6 +349,7 @@ export default function MobileReaderDock() {
                             setBookPickerOpen(false);
                             setBookSearch("");
                             setBookResults([]);
+                            setBookSearching(false);
                           }}
                         >
                           {result.cover ? <img src={result.cover} alt="" /> : <span aria-hidden="true">⌑</span>}
@@ -348,7 +371,7 @@ export default function MobileReaderDock() {
                   <button
                     type="button"
                     className={bookPickerOpen ? "is-active" : ""}
-                    onClick={() => setBookPickerOpen((current) => !current)}
+                    onClick={toggleBookPicker}
                     aria-label="Asociar un libro"
                   >
                     <DockIcon name="book" />
@@ -361,7 +384,7 @@ export default function MobileReaderDock() {
                     className="mobile-post-file-input"
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif"
-                    onChange={(event) => setImageFile(event.target.files?.[0] || null)}
+                    onChange={(event) => setSelectedImage(event.target.files?.[0] || null)}
                   />
                   <label className="mobile-post-spoiler">
                     <input type="checkbox" checked={spoiler} onChange={(event) => setSpoiler(event.target.checked)} />
