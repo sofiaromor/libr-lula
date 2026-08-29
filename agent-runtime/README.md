@@ -26,7 +26,20 @@ The current implementation intentionally starts small: it defines deterministic 
 - record reload with ID consistency checks
 - deterministic task listing
 
-Both modules use only Node built-ins and are covered by the normal automated test suite.
+`scripts/agent-task.mjs` is the first local operator CLI. It can create, inspect, start, resume, block, validate, mark review-ready, and cancel active tasks. It intentionally exposes no command for human-only approval, completion, merge, or `main` operations.
+
+Both runtime modules and the CLI behavior are covered by the normal automated test suite.
+
+## Example
+
+```text
+node scripts/agent-task.mjs create DEV-0042 "Fix mobile rating control" low
+node scripts/agent-task.mjs start DEV-0042
+node scripts/agent-task.mjs validation DEV-0042 passed
+node scripts/agent-task.mjs review-ready DEV-0042
+```
+
+These commands manage task state only. They do not yet create branches, worktrees, run models, execute code changes, push branches, or merge anything.
 
 ## Local runtime data
 
