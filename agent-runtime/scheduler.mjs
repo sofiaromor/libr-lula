@@ -10,6 +10,7 @@ function normalizeScopePath(value) {
   let path = String(value ?? "").trim().replaceAll("\\", "/");
   if (!path) throw new Error("task scope entries must be non-empty");
   path = path.replace(/^\.\//u, "").replace(/\/+$/u, "");
+  if (path === ".") return ".";
   if (
     !path ||
     path.startsWith("/") ||
@@ -18,7 +19,10 @@ function normalizeScopePath(value) {
   ) {
     throw new Error(`task scope must stay repository-relative: ${value}`);
   }
-  return path;
+
+  // Librélula's primary development host is Windows. Treat scope paths
+  // case-insensitively so tasks cannot race on the same file with casing variants.
+  return path.toLowerCase();
 }
 
 export function normalizeTaskScope(task) {
@@ -31,7 +35,13 @@ export function normalizeTaskScope(task) {
 export function scopesConflict(left, right) {
   for (const a of left) {
     for (const b of right) {
-      if (a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`)) {
+      if (
+        a === "." ||
+        b === "." ||
+        a === b ||
+        a.startsWith(`${b}/`) ||
+        b.startsWith(`${a}/`)
+      ) {
         return true;
       }
     }
