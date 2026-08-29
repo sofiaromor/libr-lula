@@ -2,7 +2,7 @@
 
 This directory is the executable foundation for Librélula's local multi-agent runtime.
 
-The runtime is intentionally layered: task state, shared local persistence, startup policy, isolated Git worktrees, constrained command execution, and append-only audit metadata are built separately so later orchestration does not bypass safety controls.
+The runtime is intentionally layered: task state, shared local persistence, startup policy, isolated Git worktrees, constrained command execution, append-only audit metadata, and deterministic scheduling are built separately so later orchestration does not bypass safety controls.
 
 ## What exists now
 
@@ -79,6 +79,19 @@ Initial approved operations are:
 - visible failure on malformed stored events instead of silently skipping corrupt lines
 - no external transmission or production telemetry
 
+`scheduler.mjs` provides the first deterministic orchestrator planning layer:
+
+- bounded maximum parallelism
+- running / validation-failed tasks consume capacity
+- deterministic queued-task ordering
+- high-risk queued tasks are never selected autonomously
+- tasks without explicit scope are never selected autonomously
+- unknown scope on an active task blocks new starts
+- repository-relative scope normalization rejects traversal and absolute paths
+- parent/child file-directory scope overlap is treated as a conflict
+- selected tasks can be represented as audit-safe scheduler events
+- planning is side-effect free and does not mutate task state
+
 `scripts/agent-task.mjs` manages task state. It can create, inspect, start, resume, block, validate, mark review-ready, and cancel active tasks. It intentionally exposes no command for human-only approval, completion, merge, or `main` operations.
 
 `scripts/agent-preflight.mjs` gathers the current Git/Node/repository state and runs the preflight evaluator without modifying the repository.
@@ -88,6 +101,8 @@ Initial approved operations are:
 `scripts/agent-run.mjs` exposes only the approved command-runner operations for an existing local task record. It does not accept arbitrary executable names or free-form arguments.
 
 `scripts/agent-events.mjs` is a read-only operator view over recent audit events. Runtime modules, not the operator CLI, own event creation.
+
+`scripts/agent-orchestrator.mjs` currently exposes a read-only schedule planner. It does not start models, execute commands, transition task state, approve work, or merge branches.
 
 The runtime modules and CLI behavior are covered by the normal automated test suite.
 
@@ -104,6 +119,7 @@ node scripts/agent-run.mjs run DEV-0042 validate
 node scripts/agent-task.mjs validation DEV-0042 passed
 node scripts/agent-task.mjs review-ready DEV-0042
 node scripts/agent-events.mjs list DEV-0042 50
+node scripts/agent-orchestrator.mjs plan 2
 ```
 
 ## Local runtime data
@@ -135,7 +151,7 @@ Planned layers should build on this core rather than duplicating lifecycle or sa
 
 1. operating-system/container execution sandbox
 2. local model/coding-agent adapter
-3. orchestrator queue and scheduler
+3. orchestrator executor / queue loop built on the scheduler planner
 4. local HTTP/WebSocket control API
 5. Librélula Dev Control PWA
 
