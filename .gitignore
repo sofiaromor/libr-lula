@@ -24,3 +24,6 @@ Thumbs.db
 *.bak
 *.antes_*.bak
 database/librelula.db
+
+# Runtime local de agentes
+.agent/
