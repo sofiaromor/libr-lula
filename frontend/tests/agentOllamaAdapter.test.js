@@ -216,3 +216,21 @@ test("requests time out and response size is bounded", async () => {
     },
   );
 });
+
+test("chunked Ollama responses are bounded while streaming", async () => {
+  await withServer(
+    (req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.write('{"version":"');
+      res.write("x".repeat(128));
+      res.end('"}');
+    },
+    async (baseUrl) => {
+      const adapter = createOllamaAdapter({
+        baseUrl,
+        maxResponseBytes: 64,
+      });
+      await assert.rejects(() => adapter.version(), /size limit/u);
+    },
+  );
+});
