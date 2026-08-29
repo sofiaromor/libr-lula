@@ -122,6 +122,42 @@ function normalizeAllowedModels(values = []) {
   return new Set(values.map(validateModelName));
 }
 
+async function readResponseTextLimited(response, limit, declaredLength) {
+  if (response.body && typeof response.body.getReader === "function") {
+    const reader = response.body.getReader();
+    const chunks = [];
+    let total = 0;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = Buffer.from(value);
+        total += chunk.length;
+        if (total > limit) {
+          await reader.cancel().catch(() => {});
+          throw new Error("Ollama response exceeds the configured size limit");
+        }
+        chunks.push(chunk);
+      }
+    } finally {
+      reader.releaseLock?.();
+    }
+
+    return Buffer.concat(chunks, total).toString("utf8");
+  }
+
+  if (!Number.isFinite(declaredLength)) {
+    throw new Error("Ollama response cannot be safely size-bounded");
+  }
+
+  const text = await response.text();
+  if (Buffer.byteLength(text, "utf8") > limit) {
+    throw new Error("Ollama response exceeds the configured size limit");
+  }
+  return text;
+}
+
 export function createOllamaAdapter({
   baseUrl = DEFAULT_BASE_URL,
   allowedModels = [],
@@ -159,10 +195,11 @@ export function createOllamaAdapter({
       if (Number.isFinite(declaredLength) && declaredLength > responseLimit) {
         throw new Error("Ollama response exceeds the configured size limit");
       }
-      const text = await response.text();
-      if (Buffer.byteLength(text, "utf8") > responseLimit) {
-        throw new Error("Ollama response exceeds the configured size limit");
-      }
+      const text = await readResponseTextLimited(
+        response,
+        responseLimit,
+        declaredLength,
+      );
       try {
         return JSON.parse(text);
       } catch {
