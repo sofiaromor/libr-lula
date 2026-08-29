@@ -138,6 +138,7 @@ test("audit event excludes command output and local filesystem paths", () => {
 
   assert.equal(event.type, "agent.command.completed");
   assert.equal(event.taskId, "DEV-899");
-  assert.equal(event.stdout, undefined);
-  assert.equal(event.cwd, undefined);
+  assert.equal(event.details.operation, "validate");
+  assert.equal(event.details.stdout, undefined);
+  assert.equal(event.details.cwd, undefined);
 });

@@ -189,14 +189,16 @@ export function toCommandAuditEvent(result) {
   return {
     type: "agent.command.completed",
     taskId: normalizedText(result.taskId, "task id"),
-    operation: normalizedText(result.operation, "operation"),
-    ok: Boolean(result.ok),
-    exitCode: result.exitCode ?? null,
-    signal: result.signal ?? null,
-    timedOut: Boolean(result.timedOut),
-    outputLimitExceeded: Boolean(result.outputLimitExceeded),
-    durationMs: Number(result.durationMs ?? 0),
-    startedAt: result.startedAt ?? null,
-    finishedAt: result.finishedAt ?? null,
+    details: {
+      operation: normalizedText(result.operation, "operation"),
+      ok: Boolean(result.ok),
+      exitCode: result.exitCode ?? null,
+      signal: result.signal ?? null,
+      timedOut: Boolean(result.timedOut),
+      outputLimitExceeded: Boolean(result.outputLimitExceeded),
+      durationMs: Number(result.durationMs ?? 0),
+      startedAt: result.startedAt ?? null,
+      finishedAt: result.finishedAt ?? null,
+    },
   };
 }

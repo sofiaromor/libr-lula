@@ -2,7 +2,7 @@
 
 This directory is the executable foundation for Librélula's local multi-agent runtime.
 
-The runtime is intentionally layered: task state, shared local persistence, startup policy, isolated Git worktrees, and a constrained command-execution layer are built separately so later orchestration does not bypass safety controls.
+The runtime is intentionally layered: task state, shared local persistence, startup policy, isolated Git worktrees, constrained command execution, and append-only audit metadata are built separately so later orchestration does not bypass safety controls.
 
 ## What exists now
 
@@ -57,7 +57,7 @@ The runtime is intentionally layered: task state, shared local persistence, star
 - a small inherited environment allowlist rather than forwarding the complete host environment
 - npm user configuration disabled for automated npm operations
 - `npm ci --ignore-scripts` as the conservative automated dependency-install operation
-- output-free audit event summaries for future persistent logging
+- output-free audit summaries compatible with the persistent audit log
 
 Initial approved operations are:
 
@@ -69,6 +69,16 @@ Initial approved operations are:
 - `test`
 - `validate`
 
+`audit-log.mjs` provides local append-only runtime audit metadata:
+
+- JSONL persistence under `.agent/audit/events.jsonl`
+- stable event IDs, timestamps, event type, task ID, actor, and bounded details
+- rejection of raw command output and obvious secret-bearing keys such as tokens, passwords, authorization data, cookies, full environments, and private keys
+- a 16 KiB maximum serialized event size plus bounded strings/collections
+- newest-N reads and optional task filtering
+- visible failure on malformed stored events instead of silently skipping corrupt lines
+- no external transmission or production telemetry
+
 `scripts/agent-task.mjs` manages task state. It can create, inspect, start, resume, block, validate, mark review-ready, and cancel active tasks. It intentionally exposes no command for human-only approval, completion, merge, or `main` operations.
 
 `scripts/agent-preflight.mjs` gathers the current Git/Node/repository state and runs the preflight evaluator without modifying the repository.
@@ -76,6 +86,8 @@ Initial approved operations are:
 `scripts/agent-worktree.mjs` can prepare or inspect the isolated worktree assigned to a task. It intentionally cannot remove worktrees, delete branches, merge PRs, or modify `main`.
 
 `scripts/agent-run.mjs` exposes only the approved command-runner operations for an existing local task record. It does not accept arbitrary executable names or free-form arguments.
+
+`scripts/agent-events.mjs` is a read-only operator view over recent audit events. Runtime modules, not the operator CLI, own event creation.
 
 The runtime modules and CLI behavior are covered by the normal automated test suite.
 
@@ -91,6 +103,7 @@ node scripts/agent-run.mjs run DEV-0042 install
 node scripts/agent-run.mjs run DEV-0042 validate
 node scripts/agent-task.mjs validation DEV-0042 passed
 node scripts/agent-task.mjs review-ready DEV-0042
+node scripts/agent-events.mjs list DEV-0042 50
 ```
 
 ## Local runtime data
@@ -99,7 +112,9 @@ Runtime state lives under:
 
 `.agent/`
 
-That directory is intentionally ignored by Git. It may contain task records, worktree metadata, process state, caches, and local logs. It must never contain secrets or private user data.
+That directory is intentionally ignored by Git. It may contain task records, worktree metadata, process state, caches, and local audit logs. It must never contain secrets or private user data.
+
+Audit events intentionally store small structured metadata rather than command stdout/stderr or complete host environments.
 
 ## Important sandbox limitation
 
@@ -121,9 +136,8 @@ Planned layers should build on this core rather than duplicating lifecycle or sa
 1. operating-system/container execution sandbox
 2. local model/coding-agent adapter
 3. orchestrator queue and scheduler
-4. persistent audit/event log
-5. local HTTP/WebSocket control API
-6. Librélula Dev Control PWA
+4. local HTTP/WebSocket control API
+5. Librélula Dev Control PWA
 
 ## Safety boundary
 
