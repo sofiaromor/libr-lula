@@ -2,7 +2,7 @@
 
 This directory is the first executable foundation for Librélula's local multi-agent runtime.
 
-The current implementation intentionally starts small: it defines a deterministic task-record state machine that the future orchestrator, local coding agents, and Dev Control UI can share.
+The current implementation intentionally starts small: it defines deterministic task state and local persistence that the future orchestrator, coding agents, and Dev Control UI can share.
 
 ## What exists now
 
@@ -18,28 +18,35 @@ The current implementation intentionally starts small: it defines a deterministi
 - blocker recording
 - terminal `done` and `cancelled` states
 
-The module has no external dependencies and is covered by the normal Node test suite.
+`task-store.mjs` provides:
+
+- UTF-8 JSON persistence under `.agent/tasks/`
+- safe task-ID validation to prevent path traversal
+- atomic-style temp-file writes followed by rename
+- record reload with ID consistency checks
+- deterministic task listing
+
+Both modules use only Node built-ins and are covered by the normal automated test suite.
 
 ## Local runtime data
 
-Runtime state will live under:
+Runtime state lives under:
 
 `.agent/`
 
-That directory is intentionally ignored by Git. It may eventually contain task records, worktree metadata, process state, and local logs. It must never contain secrets or private user data.
+That directory is intentionally ignored by Git. It may contain task records, worktree metadata, process state, and local logs. It must never contain secrets or private user data.
 
 ## Next runtime layers
 
 Planned layers should build on this core rather than duplicating task lifecycle logic:
 
-1. task persistence (`.agent/tasks/*.json`)
-2. worktree manager
-3. local model/coding-agent adapter
-4. command execution sandbox
-5. orchestrator queue and scheduler
-6. audit/event log
-7. local HTTP/WebSocket control API
-8. Librélula Dev Control PWA
+1. worktree manager
+2. local model/coding-agent adapter
+3. command execution sandbox
+4. orchestrator queue and scheduler
+5. audit/event log
+6. local HTTP/WebSocket control API
+7. Librélula Dev Control PWA
 
 ## Safety boundary
 
