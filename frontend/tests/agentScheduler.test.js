@@ -21,14 +21,14 @@ function task(id, overrides = {}) {
   };
 }
 
-test("scope normalization is repository-relative and deterministic", () => {
+test("scope normalization is repository-relative, case-insensitive and deterministic", () => {
   assert.deepEqual(
     normalizeTaskScope(
       task("DEV-1", {
-        scope: ["./frontend\\src\\A.jsx", "frontend/src/A.jsx"],
+        scope: ["./frontend\\src\\A.jsx", "frontend/src/a.jsx"],
       }),
     ),
-    ["frontend/src/A.jsx"],
+    ["frontend/src/a.jsx"],
   );
   assert.throws(
     () => normalizeTaskScope(task("DEV-1", { scope: ["../outside"] })),
@@ -36,13 +36,18 @@ test("scope normalization is repository-relative and deterministic", () => {
   );
 });
 
-test("scope conflict detects parent and child paths", () => {
+test("scope conflict detects parent, child, root and casing variants", () => {
   assert.equal(
-    scopesConflict(["frontend/src"], ["frontend/src/App.jsx"]),
+    scopesConflict(["frontend/src"], ["frontend/src/app.jsx"]),
+    true,
+  );
+  assert.equal(scopesConflict(["."], ["frontend/src/app.jsx"]), true);
+  assert.equal(
+    scopesConflict(["frontend/src/app.jsx"], ["frontend/src/app.jsx"]),
     true,
   );
   assert.equal(
-    scopesConflict(["frontend/src/A.jsx"], ["frontend/src/B.jsx"]),
+    scopesConflict(["frontend/src/a.jsx"], ["frontend/src/b.jsx"]),
     false,
   );
 });
@@ -77,6 +82,21 @@ test("scheduler defers overlapping scopes", () => {
       scope: ["frontend/src/profile"],
     }),
     task("DEV-2", { scope: ["frontend/src/profile/Profile.jsx"] }),
+  ]);
+  assert.deepEqual(plan.start, []);
+  assert.deepEqual(plan.deferred, [
+    {
+      id: "DEV-2",
+      reason: "scope_conflict",
+      conflictsWith: ["DEV-1"],
+    },
+  ]);
+});
+
+test("scheduler treats repository root scope as conflicting with all work", () => {
+  const plan = planAgentSchedule([
+    task("DEV-1", { status: "running", scope: ["."] }),
+    task("DEV-2", { scope: ["frontend/src/Feature.jsx"] }),
   ]);
   assert.deepEqual(plan.start, []);
   assert.deepEqual(plan.deferred, [
