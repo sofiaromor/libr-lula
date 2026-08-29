@@ -1,8 +1,8 @@
 # Agent Runtime Core
 
-This directory is the first executable foundation for Librélula's local multi-agent runtime.
+This directory is the executable foundation for Librélula's local multi-agent runtime.
 
-The current implementation intentionally starts small: it defines deterministic task state, local persistence, and read-only startup safety checks that the future orchestrator, coding agents, and Dev Control UI can share.
+The runtime is intentionally layered: task state, shared local persistence, startup policy, isolated Git worktrees, and a constrained command-execution layer are built separately so later orchestration does not bypass safety controls.
 
 ## What exists now
 
@@ -34,29 +34,64 @@ The current implementation intentionally starts small: it defines deterministic 
 - requiring Node 24+
 - requiring core repository policy files
 
-`scripts/agent-task.mjs` is the first local operator CLI. It can create, inspect, start, resume, block, validate, mark review-ready, and cancel active tasks. It intentionally exposes no command for human-only approval, completion, merge, or `main` operations.
+`repository-context.mjs` resolves the primary repository root even when code is running from a linked worktree. Runtime task records and managed worktrees therefore remain anchored to the primary checkout rather than being duplicated inside each linked workspace.
+
+`worktree-manager.mjs` provides:
+
+- one isolated Git worktree per task
+- enforced `agent/*` branches
+- worktree paths constrained to `.agent/worktrees/`
+- detection of path and branch conflicts
+- post-create branch verification
+- read-only worktree inspection/listing
+- no worktree deletion or branch deletion capability
+
+`command-runner.mjs` provides a constrained process-policy layer for agents:
+
+- `shell: false` process execution
+- a fixed operation allowlist instead of arbitrary commands/arguments
+- execution only inside the registered worktree for the expected agent branch
+- task-state gating (`running` / `validation_failed`)
+- fixed timeouts
+- a 1 MiB stdout/stderr capture limit
+- a small inherited environment allowlist rather than forwarding the complete host environment
+- npm user configuration disabled for automated npm operations
+- `npm ci --ignore-scripts` as the conservative automated dependency-install operation
+- output-free audit event summaries for future persistent logging
+
+Initial approved operations are:
+
+- `preflight`
+- `git-status`
+- `git-diff-check`
+- `install`
+- `lint`
+- `test`
+- `validate`
+
+`scripts/agent-task.mjs` manages task state. It can create, inspect, start, resume, block, validate, mark review-ready, and cancel active tasks. It intentionally exposes no command for human-only approval, completion, merge, or `main` operations.
 
 `scripts/agent-preflight.mjs` gathers the current Git/Node/repository state and runs the preflight evaluator without modifying the repository.
 
-The runtime modules and CLI/preflight behavior are covered by the normal automated test suite.
+`scripts/agent-worktree.mjs` can prepare or inspect the isolated worktree assigned to a task. It intentionally cannot remove worktrees, delete branches, merge PRs, or modify `main`.
+
+`scripts/agent-run.mjs` exposes only the approved command-runner operations for an existing local task record. It does not accept arbitrary executable names or free-form arguments.
+
+The runtime modules and CLI behavior are covered by the normal automated test suite.
 
 ## Example
 
 ```text
-node scripts/agent-preflight.mjs
+node scripts/agent-preflight.mjs --allow-non-agent-branch
 node scripts/agent-task.mjs create DEV-0042 "Fix mobile rating control" low
+node scripts/agent-worktree.mjs prepare DEV-0042 HEAD
 node scripts/agent-task.mjs start DEV-0042
+node scripts/agent-run.mjs run DEV-0042 preflight
+node scripts/agent-run.mjs run DEV-0042 install
+node scripts/agent-run.mjs run DEV-0042 validate
 node scripts/agent-task.mjs validation DEV-0042 passed
 node scripts/agent-task.mjs review-ready DEV-0042
 ```
-
-For explicit inspection from a human-controlled setup branch, preflight supports:
-
-```text
-node scripts/agent-preflight.mjs --allow-non-agent-branch
-```
-
-These commands manage and inspect task state only. They do not yet create branches, worktrees, run models, execute code changes, push branches, or merge anything.
 
 ## Local runtime data
 
@@ -64,19 +99,31 @@ Runtime state lives under:
 
 `.agent/`
 
-That directory is intentionally ignored by Git. It may contain task records, worktree metadata, process state, and local logs. It must never contain secrets or private user data.
+That directory is intentionally ignored by Git. It may contain task records, worktree metadata, process state, caches, and local logs. It must never contain secrets or private user data.
+
+## Important sandbox limitation
+
+The command runner is an **accidental-safety and policy boundary**, not an operating-system security sandbox.
+
+Commands such as lint, test, and validate execute versioned repository code. A malicious or compromised codebase could therefore still execute code with the permissions of the host user. The runtime must not claim host isolation until a later layer executes agents/commands in a container, restricted OS account, VM, or equivalent low-privilege boundary.
+
+Until that layer exists:
+
+- do not treat arbitrary third-party code as trusted
+- keep sensitive credentials out of the process environment
+- keep production credentials out of agent workspaces
+- preserve the human approval gates in `AGENTS.md`
 
 ## Next runtime layers
 
-Planned layers should build on this core rather than duplicating task lifecycle logic:
+Planned layers should build on this core rather than duplicating lifecycle or safety logic:
 
-1. worktree manager
+1. operating-system/container execution sandbox
 2. local model/coding-agent adapter
-3. command execution sandbox
-4. orchestrator queue and scheduler
-5. audit/event log
-6. local HTTP/WebSocket control API
-7. Librélula Dev Control PWA
+3. orchestrator queue and scheduler
+4. persistent audit/event log
+5. local HTTP/WebSocket control API
+6. Librélula Dev Control PWA
 
 ## Safety boundary
 
