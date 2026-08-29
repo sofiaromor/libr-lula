@@ -2,7 +2,7 @@
 
 This directory is the first executable foundation for Librélula's local multi-agent runtime.
 
-The current implementation intentionally starts small: it defines deterministic task state and local persistence that the future orchestrator, coding agents, and Dev Control UI can share.
+The current implementation intentionally starts small: it defines deterministic task state, local persistence, and read-only startup safety checks that the future orchestrator, coding agents, and Dev Control UI can share.
 
 ## What exists now
 
@@ -26,20 +26,37 @@ The current implementation intentionally starts small: it defines deterministic 
 - record reload with ID consistency checks
 - deterministic task listing
 
+`preflight.mjs` provides a reusable, side-effect-free startup policy evaluator for:
+
+- refusing `main`
+- requiring an `agent/*` task branch for agent runtime work
+- requiring a clean working tree
+- requiring Node 24+
+- requiring core repository policy files
+
 `scripts/agent-task.mjs` is the first local operator CLI. It can create, inspect, start, resume, block, validate, mark review-ready, and cancel active tasks. It intentionally exposes no command for human-only approval, completion, merge, or `main` operations.
 
-Both runtime modules and the CLI behavior are covered by the normal automated test suite.
+`scripts/agent-preflight.mjs` gathers the current Git/Node/repository state and runs the preflight evaluator without modifying the repository.
+
+The runtime modules and CLI/preflight behavior are covered by the normal automated test suite.
 
 ## Example
 
 ```text
+node scripts/agent-preflight.mjs
 node scripts/agent-task.mjs create DEV-0042 "Fix mobile rating control" low
 node scripts/agent-task.mjs start DEV-0042
 node scripts/agent-task.mjs validation DEV-0042 passed
 node scripts/agent-task.mjs review-ready DEV-0042
 ```
 
-These commands manage task state only. They do not yet create branches, worktrees, run models, execute code changes, push branches, or merge anything.
+For explicit inspection from a human-controlled setup branch, preflight supports:
+
+```text
+node scripts/agent-preflight.mjs --allow-non-agent-branch
+```
+
+These commands manage and inspect task state only. They do not yet create branches, worktrees, run models, execute code changes, push branches, or merge anything.
 
 ## Local runtime data
 
