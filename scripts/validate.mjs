@@ -47,6 +47,7 @@ try {
   console.log("Librélula validation starting...");
 
   runNpm(["run", "lint"]);
+  runNpm(["run", "test"]);
 
   runNpm([
     "run",

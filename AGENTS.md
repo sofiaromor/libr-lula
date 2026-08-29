@@ -87,28 +87,29 @@ Lint:
 
 Tests:
 
-Automated tests are not yet configured.
+`npm --prefix frontend run test`
 
-Until tests exist, an agent must never claim that "all tests pass".
-
-Instead report:
-
-`Automated test suite not yet configured.`
+The automated test suite uses Node's built-in test runner.
 
 ---
 
 ## 6. Mandatory validation
 
-Before declaring a code task complete, agents must run at minimum:
+Before declaring a code task complete, agents must run:
 
-1. `npm --prefix frontend run lint`
-2. `npm --prefix frontend run build`
-3. `git diff --check`
-4. `git status`
+`npm --prefix frontend run validate`
 
-When tests are added, the test suite becomes mandatory as well.
+This is the canonical validation gate. It currently runs:
 
-A task is not complete when build or lint fails.
+1. ESLint.
+2. The automated test suite.
+3. A production Vite build into a temporary directory.
+4. `git diff --check HEAD`.
+5. `git status --short`.
+
+Agents may run the individual commands while debugging, but the complete validation gate must pass before a task is declared complete.
+
+A task is not complete when lint, tests, build, or diff validation fails.
 
 ---
 
