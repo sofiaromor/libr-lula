@@ -1,0 +1,95 @@
+name: Agent task
+description: Define a scoped task for an autonomous or semi-autonomous coding agent
+title: "[Agent task] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to create a task that can be executed safely by a coding agent. Keep the scope explicit and reviewable.
+
+  - type: input
+    id: task_id
+    attributes:
+      label: Task ID
+      description: Use the issue number after creation or an orchestrator ID such as DEV-0042.
+      placeholder: DEV-0042
+    validations:
+      required: false
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What outcome should the agent achieve?
+      placeholder: Describe the requested behavior or fix.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable conditions that must be true for the task to be considered complete.
+      placeholder: |
+        - The mobile rating control can be changed.
+        - Desktop behavior is unchanged.
+        - Validation passes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Allowed scope
+      description: Files, modules, or areas the agent may modify. If unknown, describe the narrowest functional area.
+      placeholder: frontend/src/components/RatingControl.jsx
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk level
+      description: High-risk work requires explicit human approval before risky actions.
+      options:
+        - Low
+        - Medium
+        - High
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: sensitive_areas
+    attributes:
+      label: Sensitive areas involved
+      description: Check every category that applies.
+      options:
+        - label: Supabase migration or production schema
+        - label: Authentication or authorization
+        - label: RLS or permissions
+        - label: Dependency changes
+        - label: Deployment or production infrastructure
+        - label: Sensitive data or secrets
+        - label: None of the above
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints and non-goals
+      description: State anything the agent must not change or any compatibility requirements.
+      placeholder: Do not redesign unrelated components or update dependencies.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / references
+      description: Add relevant issue links, screenshots, expected behavior, or implementation notes.
+
+  - type: checkboxes
+    id: approval
+    attributes:
+      label: Human-control acknowledgement
+      options:
+        - label: I understand the agent may create commits and a PR, but a human must approve merge to main.
+          required: true
