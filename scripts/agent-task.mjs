@@ -1,3 +1,5 @@
+import process from "node:process";
+
 import {
   createTaskRecord,
   markTaskValidation,
@@ -8,6 +10,7 @@ import {
   loadTaskRecord,
   saveTaskRecord,
 } from "../agent-runtime/task-store.mjs";
+import { resolveRepositoryContext } from "../agent-runtime/repository-context.mjs";
 
 function usage() {
   console.log(`Librélula agent task CLI
@@ -36,10 +39,20 @@ function print(value) {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
+function resolveTaskStoreDir() {
+  try {
+    return resolveRepositoryContext().taskStoreDir;
+  } catch {
+    return ".agent/tasks";
+  }
+}
+
+const storeDir = resolveTaskStoreDir();
+
 async function mutate(id, operation) {
-  const record = await loadTaskRecord(required(id, "id"));
+  const record = await loadTaskRecord(required(id, "id"), { storeDir });
   const next = await operation(record);
-  await saveTaskRecord(next);
+  await saveTaskRecord(next, { storeDir });
   print(next);
 }
 
@@ -56,17 +69,17 @@ async function main(args = process.argv.slice(2)) {
         scope: [],
         acceptance_criteria: [],
       });
-      await saveTaskRecord(record);
+      await saveTaskRecord(record, { storeDir });
       print(record);
       return;
     }
 
     case "list":
-      print(await listTaskRecords());
+      print(await listTaskRecords({ storeDir }));
       return;
 
     case "show":
-      print(await loadTaskRecord(required(rest[0], "id")));
+      print(await loadTaskRecord(required(rest[0], "id"), { storeDir }));
       return;
 
     case "start":
