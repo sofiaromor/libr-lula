@@ -23,3 +23,4 @@ Thumbs.db
 # Backups temporales
 *.bak
 *.antes_*.bak
+database/librelula.db
