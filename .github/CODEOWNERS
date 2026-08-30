@@ -1,0 +1,15 @@
+# Default ownership
+* @sofiaromor
+
+# Agent governance and safety controls
+/AGENTS.md @sofiaromor
+/docs/AGENT_TASK_PROTOCOL.md @sofiaromor
+/docs/REPOSITORY_PROTECTION.md @sofiaromor
+/.github/ @sofiaromor
+/scripts/check-pr-policy.mjs @sofiaromor
+
+# Production-sensitive areas
+/supabase/ @sofiaromor
+/vercel.json @sofiaromor
+/frontend/package.json @sofiaromor
+/frontend/package-lock.json @sofiaromor
