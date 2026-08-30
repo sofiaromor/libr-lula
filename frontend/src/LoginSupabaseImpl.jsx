@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { publicUrl } from "./api.js";
-import { signInSupabase, signUpSupabase } from "./lib/session.js";
+import {
+  getAuthRedirectUrl,
+  resendSignupConfirmation,
+  signInSupabase,
+  signUpSupabase,
+} from "./lib/session.js";
 import { supabase } from "./lib/supabase.js";
 import "./LoginSupabase.css";
 
@@ -30,8 +35,7 @@ function goHomeAfterAuth() {
 }
 
 function getRecoveryRedirectUrl() {
-  if (typeof window === "undefined") return undefined;
-  const url = new URL(window.location.origin);
+  const url = new URL(getAuthRedirectUrl());
   url.searchParams.set("auth", "recovery");
   return url.toString();
 }
@@ -41,12 +45,14 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [signupUsername, setSignupUsername] = useState("");
+  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   function switchPanel(panel) {
     setActivePanel(panel);
+    setPendingConfirmationEmail("");
     setErrorMessage("");
     setSuccessMessage("");
   }
@@ -84,6 +90,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
     setSubmitting(true);
     setErrorMessage("");
     setSuccessMessage("");
+    setPendingConfirmationEmail("");
 
     try {
       const session = await signUpSupabase({
@@ -93,8 +100,9 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
       });
 
       if (session?.needsEmailConfirmation) {
+        setPendingConfirmationEmail(session.email || email.trim().toLowerCase());
         setSuccessMessage(
-          "Cuenta creada. Te hemos enviado un correo para confirmar tu email antes de iniciar sesión.",
+          "Tu cuenta está pendiente de confirmar. Revisa tu correo y la carpeta de spam. Si no recibes el mensaje, puedes reenviarlo desde aquí.",
         );
         setActivePanel("login");
         return;
@@ -114,6 +122,35 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
     }
   }
 
+  async function handleResendConfirmation(event) {
+    event.preventDefault();
+    const confirmationEmail = pendingConfirmationEmail || email.trim().toLowerCase();
+
+    if (!confirmationEmail) {
+      setErrorMessage("Escribe el correo electrónico de tu cuenta.");
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      await resendSignupConfirmation(confirmationEmail);
+      setSuccessMessage(
+        "Hemos solicitado un nuevo correo de verificación. Revisa tu bandeja de entrada y spam; por seguridad, los reenvíos pueden tener un pequeño límite de frecuencia.",
+      );
+    } catch (error) {
+      setErrorMessage(
+        friendlyAuthError(
+          error,
+          "No pudimos reenviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
+        ),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleForgotPassword(event) {
     event.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
@@ -126,6 +163,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
     setSubmitting(true);
     setErrorMessage("");
     setSuccessMessage("");
+    setPendingConfirmationEmail("");
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
@@ -198,6 +236,13 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
           {successMessage && (
             <div className="lg-note">
               <p>{successMessage}</p>
+              {pendingConfirmationEmail && (
+                <p>
+                  <a href="#" onClick={handleResendConfirmation}>
+                    {submitting ? "Reenviando…" : "Reenviar correo de verificación"}
+                  </a>
+                </p>
+              )}
             </div>
           )}
 
