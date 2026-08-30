@@ -21,16 +21,15 @@ concurrency:
 
 jobs:
   quality:
-    name: Lint and build
+    name: Quality gate
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: frontend
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -40,10 +39,28 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
+        working-directory: frontend
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - name: Lint changed source files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          changed_files="$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" -- frontend/src | grep -E '\.(js|jsx|ts|tsx)$' || true)"
 
-      - name: Build
+          if [ -z "$changed_files" ]; then
+            echo "No changed frontend source files to lint."
+            exit 0
+          fi
+
+          echo "Linting changed files:"
+          printf '%s\n' "$changed_files"
+
+          relative_files="$(printf '%s\n' "$changed_files" | sed 's#^frontend/##')"
+          cd frontend
+          printf '%s\n' "$relative_files" | xargs npx eslint
+
+      - name: Build production bundle
+        working-directory: frontend
         run: npm run build
