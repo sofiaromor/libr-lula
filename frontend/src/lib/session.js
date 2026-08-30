@@ -9,6 +9,7 @@ export const EMPTY_SUPABASE_SESSION = {
 const SESSION_PROFILE_CACHE_TTL = 30_000;
 const PERSISTED_SESSION_CACHE_TTL = 5 * 60_000;
 const SESSION_PROFILE_STORAGE_KEY = "librelula:app-session:v1";
+const DEFAULT_AUTH_SITE_URL = "https://librelula.vercel.app";
 const HOME_STORAGE_KEYS = [
   "librelula:home-dashboard:v1",
   "librelula:home-reading:v1",
@@ -173,12 +174,23 @@ export function onSupabaseAuthChange(callback) {
   };
 }
 
-function getAuthRedirectUrl() {
-  if (typeof window === "undefined") {
-    return undefined;
+export function getAuthRedirectUrl() {
+  const configuredSiteUrl = String(import.meta.env.VITE_SITE_URL || "")
+    .trim()
+    .replace(/\/+$/, "");
+
+  if (configuredSiteUrl) {
+    return configuredSiteUrl;
   }
 
-  return window.location.origin;
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return window.location.origin;
+    }
+  }
+
+  return DEFAULT_AUTH_SITE_URL;
 }
 
 export async function signInSupabase({ email, password }) {
@@ -236,6 +248,26 @@ export async function signUpSupabase({ email, password, username }) {
     needsEmailConfirmation: true,
     email: cleanEmail,
   };
+}
+
+export async function resendSignupConfirmation(email) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+
+  if (!cleanEmail) {
+    throw new Error("Escribe el correo electrónico de tu cuenta.");
+  }
+
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: cleanEmail,
+    options: {
+      emailRedirectTo: getAuthRedirectUrl(),
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
 }
 
 export async function signOutSupabase() {
