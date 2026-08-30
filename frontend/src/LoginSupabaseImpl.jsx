@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { publicUrl } from "./api.js";
 import { signInSupabase, signUpSupabase } from "./lib/session.js";
+import { supabase } from "./lib/supabase.js";
 import "./LoginSupabase.css";
 
 const hasSupabaseConfig = Boolean(
@@ -26,6 +27,13 @@ function goHomeAfterAuth() {
     );
     homeButton?.click();
   }, 0);
+}
+
+function getRecoveryRedirectUrl() {
+  if (typeof window === "undefined") return undefined;
+  const url = new URL(window.location.origin);
+  url.searchParams.set("auth", "recovery");
+  return url.toString();
 }
 
 export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
@@ -99,6 +107,41 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
         friendlyAuthError(
           error,
           "No se pudo crear la cuenta. Revisa los datos e inténtalo otra vez.",
+        ),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleForgotPassword(event) {
+    event.preventDefault();
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      setErrorMessage("Escribe el correo electrónico de tu cuenta.");
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: getRecoveryRedirectUrl(),
+      });
+
+      if (error) throw error;
+
+      setSuccessMessage(
+        "Si existe una cuenta con ese correo, recibirás un enlace para cambiar tu contraseña. Revisa también spam y correo no deseado.",
+      );
+    } catch (error) {
+      setErrorMessage(
+        friendlyAuthError(
+          error,
+          "No pudimos enviar el correo de recuperación. Inténtalo de nuevo en unos minutos.",
         ),
       );
     } finally {
@@ -198,7 +241,16 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
               <div className="lg-check">
                 <input type="checkbox" id="remember" />
                 <label htmlFor="remember">
-                  Recordarme · <a href="#" onClick={(event) => event.preventDefault()}>¿Olvidaste tu contraseña?</a>
+                  Recordarme ·{" "}
+                  <a
+                    href="#"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      switchPanel("forgot");
+                    }}
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </a>
                 </label>
               </div>
 
@@ -288,6 +340,49 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
                 }}
               >
                 Inicia sesión
+              </a>
+            </div>
+          </section>
+
+          <section className={`lg-panel${activePanel === "forgot" ? " active" : ""}`}>
+            <div className="lg-title">
+              Recupera tu <em>contraseña</em>
+            </div>
+            <div className="lg-sub">
+              Te enviaremos un enlace seguro para elegir una contraseña nueva.
+            </div>
+
+            <form onSubmit={handleForgotPassword}>
+              <div className="lg-fields">
+                <div className="lg-field">
+                  <label htmlFor="recovery-email">Correo electrónico</label>
+                  <input
+                    type="email"
+                    id="recovery-email"
+                    name="recovery-email"
+                    placeholder="tu@correo.com"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="lg-btn" disabled={submitting}>
+                {submitting ? "Enviando…" : "Enviar enlace de recuperación"}
+              </button>
+            </form>
+
+            <div className="lg-switch">
+              <a
+                href="#"
+                onClick={(event) => {
+                  event.preventDefault();
+                  switchPanel("login");
+                }}
+              >
+                Volver a iniciar sesión
               </a>
             </div>
           </section>
