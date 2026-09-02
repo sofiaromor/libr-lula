@@ -1,16 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { COLLECTION_ACCENT_OPTIONS } from "../src/lib/libraryCollections.js";
+import {
+  collectionBookLabel,
+  collectionFollowerLabel,
+  normalizeCollectionVisibility,
+} from "../src/lib/collectionPresentation.js";
 
-test("collection accent palette is finite and uses hex colors", () => {
-  assert.ok(COLLECTION_ACCENT_OPTIONS.length >= 6);
-  assert.equal(new Set(COLLECTION_ACCENT_OPTIONS).size, COLLECTION_ACCENT_OPTIONS.length);
-  for (const color of COLLECTION_ACCENT_OPTIONS) {
-    assert.match(color, /^#[0-9a-fA-F]{6}$/);
-  }
+test("collection visibility fails closed to private", () => {
+  assert.equal(normalizeCollectionVisibility("public"), "public");
+  assert.equal(normalizeCollectionVisibility("private"), "private");
+  assert.equal(normalizeCollectionVisibility("anything"), "private");
 });
 
-test("collection palette keeps Librélula default accent first", () => {
-  assert.equal(COLLECTION_ACCENT_OPTIONS[0], "#b8896a");
+test("collection counters use singular and plural labels", () => {
+  assert.equal(collectionBookLabel(1), "1 libro");
+  assert.equal(collectionBookLabel(3), "3 libros");
+  assert.equal(collectionFollowerLabel(1), "1 seguidor");
+  assert.equal(collectionFollowerLabel(8), "8 seguidores");
 });
