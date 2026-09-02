@@ -1,0 +1,13 @@
+.profile-collections-standalone-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: -58px auto 96px;
+  position: relative;
+  z-index: 2;
+}
+
+@media (max-width: 650px) {
+  .profile-collections-standalone-shell {
+    width: calc(100% - 20px);
+    margin: -78px auto 122px;
+  }
+}
