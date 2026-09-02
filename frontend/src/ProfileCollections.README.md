@@ -1,0 +1,1 @@
+`ProfileCollections.jsx` is intentionally self-contained so the social collection surface can evolve independently from the existing profile implementation. Production persistence remains gated behind `supabase/library-collections-v18.sql`.
