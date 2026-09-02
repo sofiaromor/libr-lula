@@ -1,0 +1,1 @@
+This is a stacked follow-up to `feature/library-spine-view`. Keep its production migration disabled until the private library redesign has been accepted and the collection RLS policies have been verified with separate accounts.
