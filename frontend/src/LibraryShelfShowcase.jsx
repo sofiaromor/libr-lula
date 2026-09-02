@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "./LibraryShelfShowcase.css";
+import "./LibraryShelfActions.css";
 
 function coverUrl(cover) {
   const value = String(cover || "").trim();
@@ -54,7 +55,15 @@ function CoverTile({ item, photoMode, onSelectBook }) {
   if (photoMode) {
     return (
       <div className="library-showcase-cover-card is-photo" title={book.title || "Libro"}>
-        <img src={coverUrl(book.cover)} alt="" loading="lazy" />
+        <img
+          src={coverUrl(book.cover)}
+          alt=""
+          loading="lazy"
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.src = "/images/librelula.png";
+          }}
+        />
       </div>
     );
   }
@@ -66,7 +75,15 @@ function CoverTile({ item, photoMode, onSelectBook }) {
       onClick={() => onSelectBook?.(book)}
       aria-label={`Abrir ficha de ${book.title || "este libro"}`}
     >
-      <img src={coverUrl(book.cover)} alt={`Portada de ${book.title || "libro"}`} loading="lazy" />
+      <img
+        src={coverUrl(book.cover)}
+        alt={`Portada de ${book.title || "libro"}`}
+        loading="lazy"
+        onError={(event) => {
+          event.currentTarget.onerror = null;
+          event.currentTarget.src = "/images/librelula.png";
+        }}
+      />
       <span>
         <strong>{book.title || "Libro sin título"}</strong>
         <small>{book.author || "Autor desconocido"}</small>
@@ -87,6 +104,10 @@ function SpineTile({ item, photoMode, onSelectBook }) {
         src={src}
         alt=""
         loading="lazy"
+        onError={(event) => {
+          event.currentTarget.onerror = null;
+          event.currentTarget.src = "/images/librelula.png";
+        }}
         style={personalUrl ? {
           objectPosition: `${crop.x}% ${crop.y}%`,
           transform: `scale(${crop.zoom})`,
@@ -186,7 +207,12 @@ export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "
               <button type="button" aria-pressed={mode === "covers"} onClick={() => setMode("covers")} aria-label="Ver portadas"><CoverViewIcon /></button>
               <button type="button" aria-pressed={mode === "spines"} onClick={() => setMode("spines")} aria-label="Ver lomos"><SpineViewIcon /></button>
             </div>
-            <button type="button" className="library-showcase-photo-button" onClick={() => setPhotoMode(true)}>
+            <button
+              type="button"
+              className="library-showcase-photo-button"
+              onClick={() => setPhotoMode(true)}
+              title="Oculta los controles; toca cualquier punto para volver"
+            >
               ◫ Modo foto
             </button>
           </div>
@@ -222,8 +248,6 @@ export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "
             </div>
           ))}
         </div>
-
-        {photoMode ? <span className="library-showcase-photo-exit-hint">Toca la pantalla para volver</span> : null}
       </div>
     </div>
   );
