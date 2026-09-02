@@ -19,6 +19,7 @@ export default function ProfileCollectionsStandalone({ profileId, onSelectBook }
         const isOwner = Boolean(viewerId && (!profileId || profileId === viewerId));
         let shelfBooks = [];
 
+        // Only the owner needs the private library payload used by the editor.
         if (isOwner) {
           const library = await getMyLibrary();
           shelfBooks = (library.items || [])
