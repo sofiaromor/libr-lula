@@ -239,9 +239,15 @@ export async function saveLibraryCollection(draft) {
     return data.id;
   } catch (error) {
     if (collectionUnavailable(error)) {
-      throw new Error("Las colecciones todavía no están activadas en Librélula.");
+      throw new Error(
+        "Las colecciones todavía no están activadas en Librélula.",
+        { cause: error },
+      );
     }
-    throw new Error(error?.message || "No se pudo guardar la colección.");
+    throw new Error(
+      error?.message || "No se pudo guardar la colección.",
+      { cause: error },
+    );
   }
 }
 
