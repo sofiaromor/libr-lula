@@ -1,0 +1,5 @@
+- UI build/lint must pass.
+- Migration remains unapplied until explicit approval.
+- Verify public/private visibility with separate users after migration.
+- Verify follow/unfollow and owner edit/delete.
+- Retarget to main only after parent library PR is merged.
