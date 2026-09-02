@@ -1,0 +1,1 @@
+Components introduced by the collections follow-up: `ProfileCollections.jsx`, `ProfileCollectionsStandalone.jsx`, and their scoped styles. Data access lives in `lib/libraryCollections.js`; small pure presentation helpers live in `lib/collectionPresentation.js`.
