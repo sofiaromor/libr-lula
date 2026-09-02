@@ -1,0 +1,1 @@
+Stack base marker for the public collections follow-up.
