@@ -17,7 +17,8 @@ function initialCrop(value = {}) {
 }
 
 export default function SpineCropEditor({
-  file,
+  file = null,
+  imageSrc = "",
   book,
   initialValue,
   onCancel,
@@ -26,11 +27,12 @@ export default function SpineCropEditor({
   const [crop, setCrop] = useState(() => initialCrop(initialValue));
   const [drag, setDrag] = useState(null);
   const previewRef = useRef(null);
-  const imageUrl = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
+  const objectUrl = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
+  const previewUrl = objectUrl || String(imageSrc || "").trim();
 
   useEffect(() => () => {
-    if (imageUrl) URL.revokeObjectURL(imageUrl);
-  }, [imageUrl]);
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  }, [objectUrl]);
 
   function startDrag(event) {
     const point = event.touches?.[0] || event;
@@ -62,7 +64,7 @@ export default function SpineCropEditor({
     setDrag(null);
   }
 
-  if (!file) return null;
+  if (!previewUrl) return null;
 
   return (
     <div className="spine-crop-backdrop" role="presentation" onMouseUp={stopDrag} onTouchEnd={stopDrag}>
@@ -87,7 +89,7 @@ export default function SpineCropEditor({
             onTouchMove={moveDrag}
           >
             <img
-              src={imageUrl}
+              src={previewUrl}
               alt="Vista previa del recorte del lomo"
               draggable="false"
               style={{
