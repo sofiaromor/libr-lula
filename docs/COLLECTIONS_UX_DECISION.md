@@ -1,0 +1,1 @@
+Decision: collections are a public/profile curation surface, while reading statuses remain private-library organization. This prevents social curation from becoming coupled to reading workflow state.
