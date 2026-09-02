@@ -1,1 +1,0 @@
-This branch contains the starting point for the public collections follow-up. The implementation should be reviewed separately from the private library/spine experience and must not be deployed to production until its RLS migration has explicit human approval.
