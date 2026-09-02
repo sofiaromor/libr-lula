@@ -1,0 +1,1 @@
+Public collections use RLS as the authorization boundary. Private collection metadata and book membership are owner-only; public collection metadata/book membership can be read by authenticated viewers. Only the collection owner may mutate collection contents. Follow rows may only be created/deleted by the authenticated follower.
