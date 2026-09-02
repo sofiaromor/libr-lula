@@ -240,12 +240,12 @@ export async function saveLibraryCollection(draft) {
     return savedId;
   } catch (error) {
     if (collectionUnavailable(error)) {
-      throw new Error("Las colecciones todavía no están activadas en Librélula.");
+      throw new Error("Las colecciones todavía no están activadas en Librélula.", { cause: error });
     }
     if (text(error?.code) === "23505") {
-      throw new Error("Ya tienes una colección con ese nombre.");
+      throw new Error("Ya tienes una colección con ese nombre.", { cause: error });
     }
-    throw new Error(error?.message || "No se pudo guardar la colección.");
+    throw new Error(error?.message || "No se pudo guardar la colección.", { cause: error });
   }
 }
 
