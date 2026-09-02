@@ -1,0 +1,1 @@
+Before the collection migration is active, the profile intentionally shows a designed preview/activation state rather than failing. This allows visual review without writing production data.
