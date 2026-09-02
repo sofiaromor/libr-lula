@@ -1,0 +1,621 @@
+.profile-collections-view {
+  display: grid;
+  gap: 20px;
+}
+
+.profile-collections-intro {
+  padding: clamp(20px, 4vw, 30px);
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(184,137,106,.15), transparent 34%),
+    rgba(255,253,249,.96);
+  box-shadow: 0 12px 32px rgba(67,44,27,.06);
+}
+
+.profile-collections-intro h2 {
+  margin: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.7rem, 4vw, 2.5rem);
+}
+
+.profile-collections-intro p {
+  max-width: 650px;
+  margin: 7px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.profile-collections-intro-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-collections-intro-actions > span {
+  color: var(--muted);
+  font-size: .82rem;
+  white-space: nowrap;
+}
+
+.profile-collections-intro-actions button,
+.profile-collections-empty button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.profile-collections-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.profile-collection-card {
+  --collection-accent: #b8896a;
+  position: relative;
+  padding: 20px 20px 16px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--collection-accent) 44%, #e9ddcf);
+  border-radius: 24px;
+  background: #fffdfa;
+  box-shadow: 0 13px 34px rgba(67,44,27,.07);
+}
+
+.profile-collection-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  background: var(--collection-accent);
+}
+
+.profile-collection-card > header {
+  min-height: 105px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.profile-collection-visibility {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--collection-accent) 12%, white);
+  color: color-mix(in srgb, var(--collection-accent) 75%, #443225);
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.profile-collection-card h3 {
+  margin: 8px 0 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.35rem;
+}
+
+.profile-collection-card header p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: .86rem;
+  line-height: 1.4;
+}
+
+.profile-collection-owner-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.profile-collection-owner-actions button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: white;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+}
+
+.profile-collection-preview {
+  position: relative;
+  min-height: 180px;
+  margin-top: 8px;
+  padding: 10px 8px 25px;
+  display: flex;
+  align-items: end;
+  overflow: hidden;
+  border-radius: 17px;
+  background: linear-gradient(180deg, #faf6ef, #f3e9dc);
+}
+
+.profile-collection-books {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: 7px;
+}
+
+.profile-collection-book {
+  width: min(76px, 18%);
+  aspect-ratio: 2 / 3;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 5px 5px 2px 2px;
+  background: #eee3d6;
+  box-shadow: 0 7px 14px rgba(67,44,27,.16);
+  cursor: pointer;
+  transform: translateY(calc((var(--collection-book-index, 0) % 2) * -3px));
+  transition: transform .16s ease;
+}
+
+.profile-collection-book:hover {
+  transform: translateY(-7px);
+}
+
+.profile-collection-book img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.profile-collection-wood {
+  position: absolute;
+  z-index: 1;
+  right: 6px;
+  bottom: 8px;
+  left: 6px;
+  height: 14px;
+  border-radius: 4px 4px 7px 7px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--collection-accent) 65%, #d8b18d), color-mix(in srgb, var(--collection-accent) 70%, #765039));
+  box-shadow: 0 6px 10px rgba(67,44,27,.16);
+}
+
+.profile-collection-empty-books {
+  min-height: 130px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.profile-collection-empty-books > span {
+  color: var(--collection-accent);
+  font-size: 1.7rem;
+}
+
+.profile-collection-card > footer {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.profile-collection-card > footer > div {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--muted);
+  font-size: .74rem;
+}
+
+.profile-collection-card footer strong {
+  color: var(--ink);
+}
+
+.profile-collection-card footer i {
+  margin: 0 2px;
+  font-style: normal;
+}
+
+.profile-collection-follow {
+  min-height: 35px;
+  padding: 0 13px;
+  border: 1px solid var(--collection-accent);
+  border-radius: 999px;
+  background: var(--collection-accent);
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.profile-collection-follow.is-following {
+  background: transparent;
+  color: var(--collection-accent);
+}
+
+.profile-collections-empty,
+.profile-collections-loading {
+  padding: 50px 22px;
+  border: 1px dashed var(--line);
+  border-radius: 24px;
+  background: rgba(255,253,249,.72);
+  color: var(--muted);
+  text-align: center;
+}
+
+.profile-collections-empty > span {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 2rem;
+}
+
+.profile-collections-empty h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.45rem;
+}
+
+.profile-collections-empty p {
+  max-width: 520px;
+  margin: 8px auto 18px;
+  line-height: 1.45;
+}
+
+.profile-collections-empty.is-preview {
+  border-style: solid;
+  background: linear-gradient(145deg, #fffdfa, #f8eee3);
+}
+
+.profile-collections-message {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--cream);
+}
+
+.profile-collections-message.is-error {
+  color: #8d4e47;
+}
+
+.profile-collections-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.profile-collections-loading > span {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #ddcbb8;
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: profile-collection-spin .7s linear infinite;
+}
+
+@keyframes profile-collection-spin {
+  to { transform: rotate(360deg); }
+}
+
+.collection-editor-backdrop {
+  position: fixed;
+  z-index: 1450;
+  inset: 0;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+  background: rgba(45,31,20,.42);
+  backdrop-filter: blur(12px);
+}
+
+.collection-editor {
+  width: min(760px, 100%);
+  max-height: min(820px, calc(100vh - 48px));
+  padding: 24px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: #fffdf9;
+  box-shadow: 0 28px 80px rgba(45,31,20,.22);
+}
+
+.collection-editor > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.collection-editor h2 {
+  margin: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+}
+
+.collection-editor header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.collection-editor > header > button {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.3rem;
+}
+
+.collection-editor-fields {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.collection-editor-fields label,
+.collection-color-field {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.collection-editor-fields label.is-wide {
+  grid-column: 1 / -1;
+}
+
+.collection-editor-fields label > span,
+.collection-color-field legend {
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.collection-editor input,
+.collection-editor textarea,
+.collection-editor select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  outline: 0;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+}
+
+.collection-editor textarea {
+  resize: vertical;
+}
+
+.collection-editor input:focus,
+.collection-editor textarea:focus,
+.collection-editor select:focus {
+  border-color: rgba(169,111,76,.55);
+  box-shadow: 0 0 0 3px rgba(169,111,76,.1);
+}
+
+.collection-color-field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.collection-color-field > div {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collection-color-field button {
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: 0 0 0 1px #d8c8b8;
+  cursor: pointer;
+}
+
+.collection-color-field button.is-selected {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+.collection-book-picker {
+  margin-top: 22px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fcf8f2;
+}
+
+.collection-book-picker-heading {
+  padding: 13px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.collection-book-picker-heading > div {
+  display: grid;
+}
+
+.collection-book-picker-heading small {
+  color: var(--muted);
+}
+
+.collection-book-picker-heading input {
+  width: min(300px, 55%);
+  min-height: 38px;
+  padding-block: 7px;
+  background: #fffdfa;
+}
+
+.collection-book-options {
+  max-height: 300px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  overflow: auto;
+}
+
+.collection-book-options > button {
+  min-width: 0;
+  padding: 7px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.collection-book-options > button:hover,
+.collection-book-options > button.is-selected {
+  border-color: var(--line);
+  background: white;
+}
+
+.collection-book-options img {
+  width: 42px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.collection-book-options button > span {
+  min-width: 0;
+  display: grid;
+}
+
+.collection-book-options button strong,
+.collection-book-options button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collection-book-options button small {
+  color: var(--muted);
+}
+
+.collection-book-options button > i {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cream);
+  color: var(--accent-dark);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.collection-book-options > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 28px 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.collection-editor > footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+@media (max-width: 800px) {
+  .profile-collections-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .profile-collections-intro {
+    align-items: flex-start;
+    flex-direction: column;
+    border-radius: 20px;
+  }
+
+  .profile-collections-intro-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .profile-collection-card {
+    padding: 17px 15px 14px;
+    border-radius: 20px;
+  }
+
+  .profile-collection-preview {
+    min-height: 165px;
+  }
+
+  .collection-editor-backdrop {
+    padding: 0;
+    place-items: end stretch;
+  }
+
+  .collection-editor {
+    width: 100%;
+    max-height: 92vh;
+    padding: 20px 17px calc(18px + env(safe-area-inset-bottom));
+    border-radius: 28px 28px 0 0;
+  }
+
+  .collection-editor-fields,
+  .collection-book-options {
+    grid-template-columns: 1fr;
+  }
+
+  .collection-editor-fields label.is-wide {
+    grid-column: auto;
+  }
+
+  .collection-book-picker-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .collection-book-picker-heading input {
+    width: 100%;
+  }
+
+  .collection-editor > footer {
+    display: grid;
+    grid-template-columns: 1fr 1.25fr;
+  }
+}
