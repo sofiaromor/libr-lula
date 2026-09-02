@@ -6,11 +6,20 @@ create table if not exists public.user_book_spines (
   user_id uuid not null references auth.users(id) on delete cascade,
   book_id text not null references public.books(id) on delete cascade,
   storage_path text not null,
+  crop_x numeric(6,3) not null default 50,
+  crop_y numeric(6,3) not null default 50,
+  crop_zoom numeric(5,3) not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (user_id, book_id),
   constraint user_book_spines_storage_path_length
-    check (char_length(storage_path) between 1 and 512)
+    check (char_length(storage_path) between 1 and 512),
+  constraint user_book_spines_crop_x_range
+    check (crop_x >= 0 and crop_x <= 100),
+  constraint user_book_spines_crop_y_range
+    check (crop_y >= 0 and crop_y <= 100),
+  constraint user_book_spines_crop_zoom_range
+    check (crop_zoom >= 1 and crop_zoom <= 3)
 );
 
 alter table public.user_book_spines enable row level security;
