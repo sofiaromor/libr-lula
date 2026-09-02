@@ -26,6 +26,19 @@ export const LIBRARY_STATUS_BADGES = {
   dropped: ["Abandonado", "is-dropped"],
 };
 
+function normalizeCrop(crop = {}) {
+  const clamp = (value, min, max, fallback) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+  };
+
+  return {
+    x: clamp(crop.x, 0, 100, 50),
+    y: clamp(crop.y, 0, 100, 50),
+    zoom: clamp(crop.zoom, 1, 3, 1),
+  };
+}
+
 export function getLibraryStatus(status) {
   return LIBRARY_STATUS_BADGES[status] || ["Sin estado", ""];
 }
@@ -53,14 +66,12 @@ export async function getCurrentProfile() {
 async function attachPersonalSpines(items) {
   const bookIds = [...new Set((items || []).map((item) => item.book_id).filter(Boolean))];
 
-  if (!bookIds.length) {
-    return items || [];
-  }
+  if (!bookIds.length) return items || [];
 
   try {
     const { data: rows, error } = await supabase
       .from("user_book_spines")
-      .select("book_id, storage_path")
+      .select("book_id, storage_path, crop_x, crop_y, crop_zoom")
       .in("book_id", bookIds);
 
     if (error || !rows?.length) {
@@ -68,13 +79,19 @@ async function attachPersonalSpines(items) {
         ...item,
         personal_spine_path: "",
         personal_spine_url: "",
+        personal_spine_crop: normalizeCrop(),
       }));
     }
 
     const signedEntries = await Promise.all(
       rows.map(async (row) => {
         const path = String(row.storage_path || "").trim();
-        if (!path) return [String(row.book_id), { path: "", url: "" }];
+        const crop = normalizeCrop({
+          x: row.crop_x,
+          y: row.crop_y,
+          zoom: row.crop_zoom,
+        });
+        if (!path) return [String(row.book_id), { path: "", url: "", crop }];
 
         const { data, error: signedError } = await supabase.storage
           .from(LIBRARY_SPINE_BUCKET)
@@ -85,6 +102,7 @@ async function attachPersonalSpines(items) {
           {
             path,
             url: signedError ? "" : data?.signedUrl || "",
+            crop,
           },
         ];
       }),
@@ -98,15 +116,15 @@ async function attachPersonalSpines(items) {
         ...item,
         personal_spine_path: spine?.path || "",
         personal_spine_url: spine?.url || "",
+        personal_spine_crop: spine?.crop || normalizeCrop(),
       };
     });
   } catch {
-    // Backwards-compatible rollout: generated spines still work before the
-    // personal-spine migration is activated in Supabase.
     return (items || []).map((item) => ({
       ...item,
       personal_spine_path: "",
       personal_spine_url: "",
+      personal_spine_crop: normalizeCrop(),
     }));
   }
 }
@@ -134,6 +152,7 @@ export async function getMyLibrary() {
       notes,
       started_at,
       finished_at,
+      added_at,
       books (
         id,
         title,
@@ -175,9 +194,7 @@ export function buildLibraryCounts(items) {
   for (const item of items || []) {
     const status = item?.status || "planned";
     counts.all += 1;
-    if (Object.prototype.hasOwnProperty.call(counts, status)) {
-      counts[status] += 1;
-    }
+    if (Object.prototype.hasOwnProperty.call(counts, status)) counts[status] += 1;
   }
 
   return counts;
@@ -199,21 +216,20 @@ export async function updateLibraryScore({ legacyUserId, bookId, score }) {
   if (error) throw error;
 }
 
-export async function uploadPersonalSpine({ bookId, file }) {
+export async function uploadPersonalSpine({ bookId, file, crop }) {
   const cleanBookId = String(bookId || "").trim();
   if (!cleanBookId) throw new Error("No se pudo identificar el libro.");
 
   const validation = validateSpineImageFile(file);
   if (!validation.valid) throw new Error(validation.error);
+  const safeCrop = normalizeCrop(crop);
 
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    throw new Error("Inicia sesión para guardar un lomo personal.");
-  }
+  if (userError || !user) throw new Error("Inicia sesión para guardar un lomo personal.");
 
   const { data: existing, error: existingError } = await supabase
     .from("user_book_spines")
@@ -221,9 +237,7 @@ export async function uploadPersonalSpine({ bookId, file }) {
     .eq("book_id", cleanBookId)
     .maybeSingle();
 
-  if (existingError) {
-    throw new Error("Los lomos personales todavía no están disponibles.");
-  }
+  if (existingError) throw new Error("Los lomos personales todavía no están disponibles.");
 
   const storagePath = buildSpineStoragePath({
     userId: user.id,
@@ -239,9 +253,7 @@ export async function uploadPersonalSpine({ bookId, file }) {
       upsert: false,
     });
 
-  if (uploadError) {
-    throw new Error("No se pudo subir la foto del lomo.");
-  }
+  if (uploadError) throw new Error("No se pudo subir la foto del lomo.");
 
   const { error: saveError } = await supabase
     .from("user_book_spines")
@@ -250,6 +262,9 @@ export async function uploadPersonalSpine({ bookId, file }) {
         user_id: user.id,
         book_id: cleanBookId,
         storage_path: storagePath,
+        crop_x: safeCrop.x,
+        crop_y: safeCrop.y,
+        crop_zoom: safeCrop.zoom,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,book_id" },
@@ -276,7 +291,27 @@ export async function uploadPersonalSpine({ bookId, file }) {
   return {
     path: storagePath,
     url: signed.signedUrl,
+    crop: safeCrop,
   };
+}
+
+export async function updatePersonalSpineCrop({ bookId, crop }) {
+  const cleanBookId = String(bookId || "").trim();
+  if (!cleanBookId) throw new Error("No se pudo identificar el libro.");
+  const safeCrop = normalizeCrop(crop);
+
+  const { error } = await supabase
+    .from("user_book_spines")
+    .update({
+      crop_x: safeCrop.x,
+      crop_y: safeCrop.y,
+      crop_zoom: safeCrop.zoom,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("book_id", cleanBookId);
+
+  if (error) throw new Error("No se pudo guardar el recorte del lomo.");
+  return safeCrop;
 }
 
 export async function removePersonalSpine({ bookId, storagePath }) {
@@ -288,14 +323,10 @@ export async function removePersonalSpine({ bookId, storagePath }) {
     .delete()
     .eq("book_id", cleanBookId);
 
-  if (error) {
-    throw new Error("No se pudo quitar el lomo personal.");
-  }
+  if (error) throw new Error("No se pudo quitar el lomo personal.");
 
   const path = String(storagePath || "").trim();
   if (path) {
-    // A failed object cleanup should not restore a database association that
-    // the user already removed. The private orphan can be cleaned later.
     await supabase.storage.from(LIBRARY_SPINE_BUCKET).remove([path]);
   }
 }
