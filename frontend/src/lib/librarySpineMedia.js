@@ -21,8 +21,8 @@ function safePathPart(value, fallback) {
   const clean = cleanText(value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/gu, "")
-    .replace(/[^a-zA-Z0-9._-]+/gu, "-")
-    .replace(/^-+|-+$/gu, "")
+    .replace(/[^a-zA-Z0-9_-]+/gu, "-")
+    .replace(/^[-_]+|[-_]+$/gu, "")
     .slice(0, 120);
 
   return clean || fallback;
