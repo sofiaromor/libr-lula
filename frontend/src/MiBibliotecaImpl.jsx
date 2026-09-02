@@ -406,10 +406,6 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
     }
   }, [viewMode]);
 
-  useEffect(() => {
-    setPages({});
-  }, [viewMode, searchQuery, statusFilter, ratingFilter, genreFilter, yearFilter, sortOrder, pageSize]);
-
   const genreOptions = useMemo(() => {
     const genres = library.items.flatMap((item) => genreValues(item.book?.genre));
     return [...new Set(genres)].sort((left, right) => left.localeCompare(right, "es", { sensitivity: "base" }));
