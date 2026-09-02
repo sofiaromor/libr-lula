@@ -1,8 +1,9 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./MiBiblioteca.css";
 import "./MiBibliotecaSpines.css";
 import "./MiBibliotecaV2.css";
 import SpineCropEditor from "./SpineCropEditor.jsx";
+import LibraryShelfShowcase from "./LibraryShelfShowcase.jsx";
 import {
   getLibraryStatus,
   getMyLibrary,
@@ -21,8 +22,8 @@ const SYSTEM_SHELVES = [
   {
     id: "reading",
     title: "Leyendo ahora",
-    subtitle: "Tus lecturas activas, relecturas y pausas.",
-    statuses: ["reading", "rereading", "paused"],
+    subtitle: "Tus lecturas activas y relecturas.",
+    statuses: ["reading", "rereading"],
   },
   {
     id: "completed",
@@ -35,6 +36,18 @@ const SYSTEM_SHELVES = [
     title: "Pendientes",
     subtitle: "Los próximos libros de tu pila.",
     statuses: ["planned"],
+  },
+  {
+    id: "paused",
+    title: "En pausa",
+    subtitle: "Los libros que has dejado descansar un poco.",
+    statuses: ["paused"],
+  },
+  {
+    id: "dropped",
+    title: "Abandonados",
+    subtitle: "Los que decidiste dejar atrás, sin culpa.",
+    statuses: ["dropped"],
   },
 ];
 
@@ -294,6 +307,7 @@ function ShelfSection({
   pageSize,
   page,
   onPage,
+  onShowAll,
   onSelectBook,
   onScoreChange,
   savingBookId,
@@ -316,7 +330,12 @@ function ShelfSection({
           <h2>{shelf.title}</h2>
           <p>{shelf.subtitle}</p>
         </div>
-        <span>{items.length} {items.length === 1 ? "libro" : "libros"}</span>
+        <div className="library-v2-shelf-meta">
+          <span>{items.length} {items.length === 1 ? "libro" : "libros"}</span>
+          {onShowAll ? (
+            <button type="button" onClick={onShowAll}>Ver todos ↗</button>
+          ) : null}
+        </div>
       </header>
 
       <div className={`library-v2-visual-row is-${viewMode}`}>
@@ -371,6 +390,7 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
     }
   });
   const [pages, setPages] = useState({});
+  const [showcaseShelfId, setShowcaseShelfId] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingBookId, setSavingBookId] = useState("");
   const [savingSpineBookId, setSavingSpineBookId] = useState("");
@@ -478,6 +498,11 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
       ),
     })).filter((shelf) => shelf.items.length > 0);
   }, [filteredItems, isSearchMode, library.items]);
+
+  const showcaseShelf = useMemo(
+    () => shelfRows.find((shelf) => shelf.id === showcaseShelfId) || null,
+    [shelfRows, showcaseShelfId],
+  );
 
   function clearFilters() {
     setStatusFilter("all");
@@ -664,6 +689,7 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
               pageSize={pageSize}
               page={pages[shelf.id] || 1}
               onPage={(page) => setPages((current) => ({ ...current, [shelf.id]: page }))}
+              onShowAll={!isSearchMode ? () => setShowcaseShelfId(shelf.id) : null}
               onSelectBook={onSelectBook}
               onScoreChange={handleScoreChange}
               savingBookId={savingBookId}
@@ -674,6 +700,16 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
             />
           ))}
         </div>
+      ) : null}
+
+      {showcaseShelf ? (
+        <LibraryShelfShowcase
+          shelf={showcaseShelf}
+          items={showcaseShelf.items}
+          initialViewMode={viewMode}
+          onClose={() => setShowcaseShelfId("")}
+          onSelectBook={onSelectBook}
+        />
       ) : null}
 
       {filtersOpen ? (
