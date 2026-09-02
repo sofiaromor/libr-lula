@@ -1,12 +1,15 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import "./MiBiblioteca.css";
 import "./MiBibliotecaSpines.css";
+import "./MiBibliotecaV2.css";
+import SpineCropEditor from "./SpineCropEditor.jsx";
 import {
   getLibraryStatus,
   getMyLibrary,
   LIBRARY_STATUS_LABELS,
   removePersonalSpine,
   updateLibraryScore,
+  updatePersonalSpineCrop,
   uploadPersonalSpine,
 } from "./lib/library.js";
 import {
@@ -14,48 +17,32 @@ import {
   normalizeLibraryViewMode,
 } from "./lib/librarySpineMedia.js";
 
+const SYSTEM_SHELVES = [
+  {
+    id: "reading",
+    title: "Leyendo ahora",
+    subtitle: "Tus lecturas activas, relecturas y pausas.",
+    statuses: ["reading", "rereading", "paused"],
+  },
+  {
+    id: "completed",
+    title: "Leídos",
+    subtitle: "Ordenados de mejor puntuación a menor.",
+    statuses: ["completed"],
+  },
+  {
+    id: "planned",
+    title: "Pendientes",
+    subtitle: "Los próximos libros de tu pila.",
+    statuses: ["planned"],
+  },
+];
+
 function coverUrl(cover) {
   const value = String(cover || "").trim();
-
   if (!value) return "";
-
-  if (/^https?:\/\//i.test(value)) {
-    return value;
-  }
-
+  if (/^https?:\/\//i.test(value)) return value;
   return `/${value.replace(/^\/+/, "")}`;
-}
-
-function handleCoverError(event) {
-  const image = event.currentTarget;
-
-  image.onerror = null;
-  image.src = "/images/librelula.png";
-  image.alt = "Portada no disponible";
-  image.classList.add("is-fallback");
-}
-
-function handleSpineImageError(event) {
-  event.currentTarget.style.display = "none";
-}
-
-function clipText(text, maxLength = 130) {
-  const value = String(text || "").trim();
-
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  return `${value.slice(0, maxLength).trim()}…`;
-}
-
-function starValues(score) {
-  const value = Math.max(0, Math.min(5, Number(score) || 0));
-
-  return [1, 2, 3, 4, 5].map((star) => ({
-    value: star,
-    filled: star <= value,
-  }));
 }
 
 function normalizeText(value) {
@@ -71,6 +58,30 @@ function genreValues(value) {
     .split(/[,;|]/)
     .map((genre) => genre.trim())
     .filter(Boolean);
+}
+
+function starValues(score) {
+  const value = Math.max(0, Math.min(5, Number(score) || 0));
+  return [1, 2, 3, 4, 5].map((star) => ({ value: star, filled: star <= value }));
+}
+
+function dateValue(value) {
+  const time = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+}
+
+function sortShelfItems(items, shelfId) {
+  const rows = [...(items || [])];
+
+  if (shelfId === "completed") {
+    return rows.sort((left, right) => {
+      const scoreDelta = Number(right.score || 0) - Number(left.score || 0);
+      if (scoreDelta !== 0) return scoreDelta;
+      return dateValue(right.finished_at || right.added_at) - dateValue(left.finished_at || left.added_at);
+    });
+  }
+
+  return rows.sort((left, right) => Number(right.id || 0) - Number(left.id || 0));
 }
 
 function spineVariation(value) {
@@ -101,6 +112,14 @@ function SpineViewIcon() {
   );
 }
 
+function FilterIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M4 7h16M7 12h10M10 17h4" />
+    </svg>
+  );
+}
+
 function CameraIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -110,19 +129,231 @@ function CameraIcon() {
   );
 }
 
+function useShelfPageSize(viewMode) {
+  const [width, setWidth] = useState(() => (typeof window === "undefined" ? 1200 : window.innerWidth));
+
+  useEffect(() => {
+    function handleResize() {
+      setWidth(window.innerWidth);
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  if (viewMode === "spines") {
+    if (width <= 420) return 7;
+    if (width <= 650) return 8;
+    if (width <= 950) return 11;
+    return 15;
+  }
+
+  if (width <= 420) return 2;
+  if (width <= 650) return 3;
+  if (width <= 950) return 4;
+  return 6;
+}
+
+function CoverBook({ item, onSelectBook, onScoreChange, savingBookId }) {
+  const book = item.book || {};
+  const cover = coverUrl(book.cover);
+  const [statusLabel, statusClass] = getLibraryStatus(item.status);
+
+  return (
+    <article className="library-v2-cover-card">
+      <button
+        type="button"
+        className="library-v2-cover-image"
+        onClick={() => onSelectBook?.(book)}
+        aria-label={`Abrir ficha de ${book.title || "este libro"}`}
+      >
+        {cover ? (
+          <img
+            src={cover}
+            alt={`Portada de ${book.title || "libro"}`}
+            loading="lazy"
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = "/images/librelula.png";
+            }}
+          />
+        ) : (
+          <img className="is-fallback" src="/images/librelula.png" alt="Portada no disponible" />
+        )}
+        <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
+      </button>
+
+      <div className="library-v2-cover-copy">
+        <strong>{book.title || "Libro sin título"}</strong>
+        <small>{book.author || "Autor desconocido"}</small>
+        {["reading", "rereading", "paused"].includes(item.status) ? (
+          <div className="library-v2-progress" aria-label={`${Number(item.progress || 0)}% leído`}>
+            <span style={{ width: `${Math.max(0, Math.min(100, Number(item.progress || 0)))}%` }} />
+          </div>
+        ) : null}
+        <div className="library-v2-score" aria-label={`Puntuación de ${book.title || "libro"}`}>
+          {starValues(item.score).map((star) => (
+            <button
+              type="button"
+              key={star.value}
+              className={star.filled ? "is-filled" : ""}
+              disabled={savingBookId === item.book_id}
+              onClick={() => onScoreChange(item, star.value)}
+              aria-label={`Puntuar con ${star.value} ${star.value === 1 ? "estrella" : "estrellas"}`}
+            >
+              ★
+            </button>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function SpineBook({
+  item,
+  onSelectBook,
+  onChooseFile,
+  onEditCrop,
+  onRemove,
+  busy,
+}) {
+  const book = item.book || {};
+  const generatedCover = coverUrl(book.cover);
+  const personalUrl = String(item.personal_spine_url || "").trim();
+  const crop = item.personal_spine_crop || { x: 50, y: 50, zoom: 1 };
+
+  return (
+    <article
+      className={`library-spine-item ${busy ? "is-busy" : ""}`}
+      style={{ "--spine-variation": spineVariation(item.book_id) }}
+    >
+      <button
+        type="button"
+        className={`library-spine ${personalUrl ? "is-personal" : "is-generated"}`}
+        onClick={() => onSelectBook?.(book)}
+        title={`${book.title || "Libro"} · ${book.author || ""}`}
+      >
+        {personalUrl ? (
+          <img
+            src={personalUrl}
+            alt={`Lomo personal de ${book.title || "libro"}`}
+            loading="lazy"
+            style={{
+              objectPosition: `${crop.x}% ${crop.y}%`,
+              transform: `scale(${crop.zoom})`,
+            }}
+          />
+        ) : generatedCover ? (
+          <img src={generatedCover} alt="" loading="lazy" />
+        ) : (
+          <span className="library-spine-fallback">
+            <img src="/images/librelula.png" alt="" />
+          </span>
+        )}
+        <span className="library-spine-overlay" />
+        <span className="library-spine-title">{book.title || "Libro"}</span>
+        {personalUrl ? <span className="library-spine-personal-badge">Personal</span> : null}
+      </button>
+
+      <label className="library-spine-media-action" title={personalUrl ? "Cambiar foto" : "Añadir foto"}>
+        <CameraIcon />
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          capture="environment"
+          onChange={(event) => onChooseFile(item, event)}
+        />
+      </label>
+
+      {personalUrl ? (
+        <>
+          <button type="button" className="library-spine-edit-action" onClick={() => onEditCrop(item)} aria-label={`Ajustar foto de ${book.title || "libro"}`}>⌖</button>
+          <button type="button" className="library-spine-remove-action" onClick={() => onRemove(item)} aria-label={`Quitar lomo personal de ${book.title || "libro"}`}>×</button>
+        </>
+      ) : null}
+    </article>
+  );
+}
+
+function ShelfPagination({ page, totalPages, onPage }) {
+  if (totalPages <= 1) return null;
+
+  return (
+    <nav className="library-v2-pagination" aria-label="Páginas de esta estantería">
+      <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Página anterior">‹</button>
+      <span>{page} / {totalPages}</span>
+      <button type="button" disabled={page >= totalPages} onClick={() => onPage(page + 1)} aria-label="Página siguiente">›</button>
+    </nav>
+  );
+}
+
+function ShelfSection({
+  shelf,
+  items,
+  viewMode,
+  pageSize,
+  page,
+  onPage,
+  onSelectBook,
+  onScoreChange,
+  savingBookId,
+  onChooseFile,
+  onEditCrop,
+  onRemoveSpine,
+  savingSpineBookId,
+}) {
+  if (!items.length) return null;
+
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(totalPages, Math.max(1, page || 1));
+  const visible = items.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  return (
+    <section className="library-v2-shelf-section">
+      <header className="library-v2-shelf-heading">
+        <div>
+          <span className="profile-kicker">Estantería</span>
+          <h2>{shelf.title}</h2>
+          <p>{shelf.subtitle}</p>
+        </div>
+        <span>{items.length} {items.length === 1 ? "libro" : "libros"}</span>
+      </header>
+
+      <div className={`library-v2-visual-row is-${viewMode}`}>
+        {viewMode === "covers"
+          ? visible.map((item) => (
+              <CoverBook
+                key={`${shelf.id}-${item.book_id}`}
+                item={item}
+                onSelectBook={onSelectBook}
+                onScoreChange={onScoreChange}
+                savingBookId={savingBookId}
+              />
+            ))
+          : visible.map((item) => (
+              <SpineBook
+                key={`${shelf.id}-${item.book_id}`}
+                item={item}
+                onSelectBook={onSelectBook}
+                onChooseFile={onChooseFile}
+                onEditCrop={onEditCrop}
+                onRemove={onRemoveSpine}
+                busy={savingSpineBookId === item.book_id}
+              />
+            ))}
+        <div className="library-v2-wood-rail" aria-hidden="true" />
+      </div>
+
+      <ShelfPagination page={safePage} totalPages={totalPages} onPage={onPage} />
+    </section>
+  );
+}
+
 export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
   const [library, setLibrary] = useState({
     profile: null,
     items: [],
-    counts: {
-      all: 0,
-      reading: 0,
-      rereading: 0,
-      paused: 0,
-      completed: 0,
-      planned: 0,
-      dropped: 0,
-    },
+    counts: { all: 0, reading: 0, rereading: 0, paused: 0, completed: 0, planned: 0, dropped: 0 },
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -130,21 +361,22 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
   const [genreFilter, setGenreFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("recent");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState(() => {
     if (typeof window === "undefined") return "covers";
-
     try {
-      return normalizeLibraryViewMode(
-        window.localStorage.getItem(LIBRARY_SPINE_VIEW_STORAGE_KEY),
-      );
+      return normalizeLibraryViewMode(window.localStorage.getItem(LIBRARY_SPINE_VIEW_STORAGE_KEY));
     } catch {
       return "covers";
     }
   });
+  const [pages, setPages] = useState({});
   const [loading, setLoading] = useState(true);
   const [savingBookId, setSavingBookId] = useState("");
   const [savingSpineBookId, setSavingSpineBookId] = useState("");
+  const [cropEditor, setCropEditor] = useState(null);
   const [message, setMessage] = useState(null);
+  const pageSize = useShelfPageSize(viewMode);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,59 +384,58 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
     async function loadLibrary() {
       setLoading(true);
       setMessage(null);
-
       try {
         const data = await getMyLibrary();
-
-        if (!cancelled) {
-          setLibrary(data);
-        }
+        if (!cancelled) setLibrary(data);
       } catch (error) {
-        if (!cancelled) {
-          setMessage({
-            type: "error",
-            text: error.message || "No se pudo cargar tu biblioteca.",
-          });
-        }
+        if (!cancelled) setMessage({ type: "error", text: error.message || "No se pudo cargar tu biblioteca." });
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
     loadLibrary();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     try {
       window.localStorage.setItem(LIBRARY_SPINE_VIEW_STORAGE_KEY, viewMode);
     } catch {
-      // Local storage is only a convenience; the library remains usable without it.
+      // Optional preference only.
     }
   }, [viewMode]);
 
-  const genreOptions = useMemo(() => {
-    const genres = library.items.flatMap((item) =>
-      genreValues(item.book?.genre),
-    );
+  useEffect(() => {
+    setPages({});
+  }, [viewMode, searchQuery, statusFilter, ratingFilter, genreFilter, yearFilter, sortOrder, pageSize]);
 
-    return [...new Set(genres)].sort((left, right) =>
-      left.localeCompare(right, "es", { sensitivity: "base" }),
-    );
+  const genreOptions = useMemo(() => {
+    const genres = library.items.flatMap((item) => genreValues(item.book?.genre));
+    return [...new Set(genres)].sort((left, right) => left.localeCompare(right, "es", { sensitivity: "base" }));
   }, [library.items]);
 
   const yearOptions = useMemo(() => {
     const years = library.items
       .map((item) => Number(item.book?.year))
       .filter((year) => Number.isInteger(year) && year > 0);
-
     return [...new Set(years)].sort((left, right) => right - left);
   }, [library.items]);
+
+  const hasAdvancedFilters =
+    statusFilter !== "all" ||
+    ratingFilter !== "all" ||
+    genreFilter !== "all" ||
+    yearFilter !== "all" ||
+    sortOrder !== "recent";
+  const isSearchMode = searchQuery.trim() !== "" || hasAdvancedFilters;
+  const activeFilterCount = [
+    statusFilter !== "all",
+    ratingFilter !== "all",
+    genreFilter !== "all",
+    yearFilter !== "all",
+    sortOrder !== "recent",
+  ].filter(Boolean).length;
 
   const filteredItems = useMemo(() => {
     const query = normalizeText(searchQuery);
@@ -213,77 +444,46 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
     const matches = library.items.filter((item) => {
       const book = item.book || {};
       const score = Number(item.score || 0);
-
-      if (query) {
-        const searchable = normalizeText(`${book.title || ""} ${book.author || ""}`);
-
-        if (!searchable.includes(query)) return false;
-      }
-
+      if (query && !normalizeText(`${book.title || ""} ${book.author || ""}`).includes(query)) return false;
       if (statusFilter !== "all" && item.status !== statusFilter) return false;
-
       if (ratingFilter === "unrated" && score !== 0) return false;
-
-      if (
-        !["all", "unrated"].includes(ratingFilter) &&
-        score !== Number(ratingFilter)
-      ) return false;
-
-      if (
-        genreFilter !== "all" &&
-        !genreValues(book.genre).includes(genreFilter)
-      ) return false;
-
-      if (
-        yearFilter !== "all" &&
-        Number(book.year || 0) !== Number(yearFilter)
-      ) return false;
-
+      if (!["all", "unrated"].includes(ratingFilter) && score !== Number(ratingFilter)) return false;
+      if (genreFilter !== "all" && !genreValues(book.genre).includes(genreFilter)) return false;
+      if (yearFilter !== "all" && Number(book.year || 0) !== Number(yearFilter)) return false;
       return true;
     });
 
     return matches.sort((left, right) => {
       const leftBook = left.book || {};
       const rightBook = right.book || {};
-
-      if (sortOrder === "title") {
-        return collator.compare(leftBook.title || "", rightBook.title || "");
-      }
-
-      if (sortOrder === "author") {
-        return collator.compare(leftBook.author || "", rightBook.author || "");
-      }
-
-      if (sortOrder === "rating") {
-        return Number(right.score || 0) - Number(left.score || 0);
-      }
-
-      if (sortOrder === "year") {
-        return Number(rightBook.year || 0) - Number(leftBook.year || 0);
-      }
-
+      if (sortOrder === "title") return collator.compare(leftBook.title || "", rightBook.title || "");
+      if (sortOrder === "author") return collator.compare(leftBook.author || "", rightBook.author || "");
+      if (sortOrder === "rating") return Number(right.score || 0) - Number(left.score || 0);
+      if (sortOrder === "year") return Number(rightBook.year || 0) - Number(leftBook.year || 0);
       return Number(right.id || 0) - Number(left.id || 0);
     });
-  }, [
-    genreFilter,
-    library.items,
-    ratingFilter,
-    searchQuery,
-    sortOrder,
-    statusFilter,
-    yearFilter,
-  ]);
+  }, [genreFilter, library.items, ratingFilter, searchQuery, sortOrder, statusFilter, yearFilter]);
 
-  const hasActiveFilters =
-    searchQuery.trim() !== "" ||
-    statusFilter !== "all" ||
-    ratingFilter !== "all" ||
-    genreFilter !== "all" ||
-    yearFilter !== "all" ||
-    sortOrder !== "recent";
+  const shelfRows = useMemo(() => {
+    if (isSearchMode) {
+      return [{
+        id: "results",
+        title: "Resultados",
+        subtitle: "Tu búsqueda y filtros aplicados.",
+        items: filteredItems,
+      }];
+    }
+
+    return SYSTEM_SHELVES.map((shelf) => ({
+      ...shelf,
+      items: sortShelfItems(
+        library.items.filter((item) => shelf.statuses.includes(item.status)),
+        shelf.id,
+      ),
+    })).filter((shelf) => shelf.items.length > 0);
+  }, [filteredItems, isSearchMode, library.items]);
 
   function clearFilters() {
-    setSearchQuery("");
     setStatusFilter("all");
     setRatingFilter("all");
     setGenreFilter("all");
@@ -292,80 +492,69 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
   }
 
   async function handleScoreChange(item, score) {
-    const bookId = item.book_id;
-
-    if (!library.profile?.legacy_id || !bookId) return;
-
-    setSavingBookId(bookId);
+    if (!library.profile?.legacy_id || !item.book_id) return;
+    setSavingBookId(item.book_id);
     setMessage(null);
-
     try {
-      await updateLibraryScore({
-        legacyUserId: library.profile.legacy_id,
-        bookId,
-        score,
-      });
-
+      await updateLibraryScore({ legacyUserId: library.profile.legacy_id, bookId: item.book_id, score });
       setLibrary((current) => ({
         ...current,
-        items: current.items.map((currentItem) =>
-          currentItem.book_id === bookId
-            ? { ...currentItem, score }
-            : currentItem,
-        ),
+        items: current.items.map((currentItem) => currentItem.book_id === item.book_id ? { ...currentItem, score } : currentItem),
       }));
-
-      setMessage({
-        type: "success",
-        text: "Puntuación guardada.",
-      });
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error.message || "No se pudo guardar la puntuación.",
-      });
+      setMessage({ type: "error", text: error.message || "No se pudo guardar la puntuación." });
     } finally {
       setSavingBookId("");
     }
   }
 
-  async function handleSpineFileChange(item, event) {
+  function handleSpineFileSelected(item, event) {
     const file = event.target.files?.[0] || null;
     event.target.value = "";
+    if (!file) return;
+    setCropEditor({ mode: "upload", item, file, imageSrc: "" });
+  }
 
-    if (!file || !item.book_id) return;
+  function handleEditCrop(item) {
+    if (!item.personal_spine_url) return;
+    setCropEditor({ mode: "edit", item, file: null, imageSrc: item.personal_spine_url });
+  }
 
-    setSavingSpineBookId(item.book_id);
+  async function handleConfirmCrop(crop) {
+    const editor = cropEditor;
+    if (!editor?.item?.book_id) return;
+    const bookId = editor.item.book_id;
+    setCropEditor(null);
+    setSavingSpineBookId(bookId);
     setMessage(null);
 
     try {
-      const uploaded = await uploadPersonalSpine({
-        bookId: item.book_id,
-        file,
-      });
-
-      setLibrary((current) => ({
-        ...current,
-        items: current.items.map((currentItem) =>
-          currentItem.book_id === item.book_id
+      if (editor.mode === "upload") {
+        const uploaded = await uploadPersonalSpine({ bookId, file: editor.file, crop });
+        setLibrary((current) => ({
+          ...current,
+          items: current.items.map((item) => item.book_id === bookId
             ? {
-                ...currentItem,
+                ...item,
                 personal_spine_path: uploaded.path,
                 personal_spine_url: uploaded.url,
+                personal_spine_crop: uploaded.crop,
               }
-            : currentItem,
-        ),
-      }));
-
-      setMessage({
-        type: "success",
-        text: "Lomo personal guardado.",
-      });
+            : item),
+        }));
+        setMessage({ type: "success", text: "Lomo personal guardado." });
+      } else {
+        const savedCrop = await updatePersonalSpineCrop({ bookId, crop });
+        setLibrary((current) => ({
+          ...current,
+          items: current.items.map((item) => item.book_id === bookId
+            ? { ...item, personal_spine_crop: savedCrop }
+            : item),
+        }));
+        setMessage({ type: "success", text: "Recorte actualizado." });
+      }
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error.message || "No se pudo guardar la foto del lomo.",
-      });
+      setMessage({ type: "error", text: error.message || "No se pudo guardar el lomo personal." });
     } finally {
       setSavingSpineBookId("");
     }
@@ -373,382 +562,196 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
 
   async function handleRemovePersonalSpine(item) {
     if (!item.book_id) return;
-
     setSavingSpineBookId(item.book_id);
     setMessage(null);
-
     try {
-      await removePersonalSpine({
-        bookId: item.book_id,
-        storagePath: item.personal_spine_path,
-      });
-
+      await removePersonalSpine({ bookId: item.book_id, storagePath: item.personal_spine_path });
       setLibrary((current) => ({
         ...current,
-        items: current.items.map((currentItem) =>
-          currentItem.book_id === item.book_id
-            ? {
-                ...currentItem,
-                personal_spine_path: "",
-                personal_spine_url: "",
-              }
-            : currentItem,
-        ),
+        items: current.items.map((currentItem) => currentItem.book_id === item.book_id
+          ? {
+              ...currentItem,
+              personal_spine_path: "",
+              personal_spine_url: "",
+              personal_spine_crop: { x: 50, y: 50, zoom: 1 },
+            }
+          : currentItem),
       }));
-
-      setMessage({
-        type: "success",
-        text: "Lomo personal eliminado. Volvemos al lomo generado.",
-      });
+      setMessage({ type: "success", text: "Lomo personal eliminado." });
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error.message || "No se pudo quitar el lomo personal.",
-      });
+      setMessage({ type: "error", text: error.message || "No se pudo quitar el lomo personal." });
     } finally {
       setSavingSpineBookId("");
     }
   }
 
   return (
-    <main className="library-page">
-      <header className="library-header">
+    <main className="library-page library-v2-page">
+      <header className="library-v2-hero">
         <div>
-          <span className="profile-kicker">Colección personal</span>
+          <span className="profile-kicker">Tu rincón lector</span>
           <h1>Mi biblioteca</h1>
-          <p>Organiza tus lecturas y vuelve rápidamente a la ficha de cada libro.</p>
+          <p>Una estantería viva para tus lecturas, tus lomos reales y tus próximas historias.</p>
         </div>
-
-        <button className="profile-button primary" type="button" onClick={onOpenCatalog}>
-          Añadir desde el catálogo
-        </button>
+        <button className="profile-button primary" type="button" onClick={onOpenCatalog}>+ Añadir libro</button>
       </header>
 
-      <section className="library-layout">
-        <aside className="library-sidebar" aria-label="Filtros de Mi biblioteca">
-          <label className="library-search">
-            <span>Buscar</span>
-            <span className="library-search-field">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.4-3.4" />
-              </svg>
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Título o autor"
-              />
-            </span>
-          </label>
+      <section className="library-v2-toolbar" aria-label="Herramientas de Mi biblioteca">
+        <label className="library-v2-search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.4-3.4" />
+          </svg>
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Buscar título o autor"
+          />
+        </label>
 
-          <div className="library-sidebar-section">
-            <span className="library-sidebar-title">Mis listas</span>
-            <nav className="library-status-list" aria-label="Filtrar por estado">
-              {Object.entries(LIBRARY_STATUS_LABELS).map(([key, label]) => (
-                <button
-                  type="button"
-                  key={key}
-                  className={statusFilter === key ? "is-active" : ""}
-                  onClick={() => setStatusFilter(key)}
-                >
-                  <span>{label}</span>
-                  <small>{library.counts[key] || 0}</small>
-                </button>
-              ))}
-            </nav>
-          </div>
+        <button type="button" className={`library-v2-filter-button ${activeFilterCount ? "is-active" : ""}`} onClick={() => setFiltersOpen(true)}>
+          <FilterIcon />
+          <span>Filtros</span>
+          {activeFilterCount ? <small>{activeFilterCount}</small> : null}
+        </button>
 
-          <div className="library-sidebar-section library-select-filters">
-            <span className="library-sidebar-title">Filtros</span>
-
-            <label>
-              <span>Puntuación</span>
-              <select value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value)}>
-                <option value="all">Todas las puntuaciones</option>
-                {[5, 4, 3, 2, 1].map((score) => (
-                  <option key={score} value={String(score)}>
-                    {score} {score === 1 ? "estrella" : "estrellas"}
-                  </option>
-                ))}
-                <option value="unrated">Sin puntuar</option>
-              </select>
-            </label>
-
-            <label>
-              <span>Género</span>
-              <select value={genreFilter} onChange={(event) => setGenreFilter(event.target.value)}>
-                <option value="all">Todos los géneros</option>
-                {genreOptions.map((genre) => (
-                  <option key={genre} value={genre}>{genre}</option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              <span>Año</span>
-              <select value={yearFilter} onChange={(event) => setYearFilter(event.target.value)}>
-                <option value="all">Todos los años</option>
-                {yearOptions.map((year) => (
-                  <option key={year} value={String(year)}>{year}</option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              <span>Ordenar</span>
-              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
-                <option value="recent">Añadidos recientemente</option>
-                <option value="title">Título, de A a Z</option>
-                <option value="author">Autor, de A a Z</option>
-                <option value="rating">Mejor puntuados</option>
-                <option value="year">Año más reciente</option>
-              </select>
-            </label>
-          </div>
-
-          {hasActiveFilters && (
-            <button className="library-clear-filters" type="button" onClick={clearFilters}>
-              Limpiar filtros
-            </button>
-          )}
-        </aside>
-
-        <div className="library-results">
-          <header className="library-results-heading">
-            <div>
-              <span className="profile-kicker">Tu selección</span>
-              <h2>
-                {statusFilter === "all"
-                  ? "Todos tus libros"
-                  : LIBRARY_STATUS_LABELS[statusFilter]}
-              </h2>
-            </div>
-
-            <div className="library-results-meta">
-              <p>
-                {filteredItems.length}{" "}
-                {filteredItems.length === 1 ? "libro" : "libros"}
-              </p>
-
-              <div className="library-view-switcher" role="group" aria-label="Cambiar vista de la biblioteca">
-                <button
-                  type="button"
-                  aria-label="Ver portadas"
-                  title="Ver portadas"
-                  aria-pressed={viewMode === "covers"}
-                  onClick={() => setViewMode("covers")}
-                >
-                  <CoverViewIcon />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Ver lomos"
-                  title="Ver lomos"
-                  aria-pressed={viewMode === "spines"}
-                  onClick={() => setViewMode("spines")}
-                >
-                  <SpineViewIcon />
-                </button>
-              </div>
-            </div>
-          </header>
-
-          {message && (
-            <p className={`library-message ${message.type === "error" ? "is-error" : "is-success"}`}>
-              {message.text}
-            </p>
-          )}
-
-          {loading && (
-            <section className="profile-empty library-empty">
-              <span>📚</span>
-              <h2>Cargando tu biblioteca…</h2>
-              <p>Estamos recuperando tus libros desde Supabase.</p>
-            </section>
-          )}
-
-          {!loading && filteredItems.length > 0 && viewMode === "covers" && (
-            <section className="library-grid">
-              {filteredItems.map((item) => {
-                const book = item.book || {};
-                const [statusLabel, statusClass] = getLibraryStatus(item.status);
-                const cover = coverUrl(book.cover);
-
-                return (
-                  <article className="library-card" key={`${item.legacy_user_id}-${item.book_id}`}>
-                    <button
-                      className="library-cover"
-                      type="button"
-                      onClick={() => onSelectBook?.(book)}
-                      aria-label={`Abrir ficha de ${book.title}`}
-                    >
-                      {cover ? (
-                        <img
-                          src={cover}
-                          alt={`Portada de ${book.title}`}
-                          loading="lazy"
-                          onError={handleCoverError}
-                        />
-                      ) : (
-                        <img
-                          className="is-fallback"
-                          src="/images/librelula.png"
-                          alt="Portada no disponible"
-                        />
-                      )}
-                    </button>
-
-                    <div className="library-card-body">
-                      <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
-
-                      <h2>{book.title}</h2>
-                      <p className="library-author">{book.author}</p>
-
-                      {["reading", "rereading", "paused"].includes(item.status) && (
-                        <>
-                          <div className="progress-label">
-                            <span>Progreso</span>
-                            <strong>{Number(item.progress || 0)}%</strong>
-                          </div>
-                          <div className="progress-track">
-                            <span
-                              style={{
-                                width: `${Math.max(0, Math.min(100, Number(item.progress || 0)))}%`,
-                              }}
-                            />
-                          </div>
-                        </>
-                      )}
-
-                      <div className="library-score" aria-label={`Puntuación de ${book.title}`}>
-                        {starValues(item.score).map((star) => (
-                          <button
-                            type="button"
-                            key={star.value}
-                            className={star.filled ? "is-filled" : ""}
-                            disabled={savingBookId === item.book_id}
-                            onClick={() => handleScoreChange(item, star.value)}
-                            aria-label={`Puntuar con ${star.value} ${
-                              star.value === 1 ? "estrella" : "estrellas"
-                            }`}
-                          >
-                            ★
-                          </button>
-                        ))}
-                      </div>
-
-                      {item.notes && (
-                        <p className="library-notes">{clipText(item.notes)}</p>
-                      )}
-
-                      <button
-                        className="panel-link"
-                        type="button"
-                        onClick={() => onSelectBook?.(book)}
-                      >
-                        Abrir ficha técnica →
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </section>
-          )}
-
-          {!loading && filteredItems.length > 0 && viewMode === "spines" && (
-            <section className="library-spine-shelf" aria-label="Vista de lomos de Mi biblioteca">
-              <div className="library-spine-row">
-                {filteredItems.map((item) => {
-                  const book = item.book || {};
-                  const generatedCover = coverUrl(book.cover);
-                  const isPersonal = Boolean(item.personal_spine_url);
-                  const spineImage = item.personal_spine_url || generatedCover;
-                  const isBusy = savingSpineBookId === item.book_id;
-
-                  return (
-                    <article
-                      className={`library-spine-item${isBusy ? " is-busy" : ""}`}
-                      key={`spine-${item.legacy_user_id}-${item.book_id}`}
-                      style={{ "--spine-variation": spineVariation(item.book_id) }}
-                    >
-                      <button
-                        className={`library-spine ${isPersonal ? "is-personal" : "is-generated"}`}
-                        type="button"
-                        onClick={() => onSelectBook?.(book)}
-                        aria-label={`Abrir ficha de ${book.title}`}
-                        title={`${book.title}${book.author ? ` · ${book.author}` : ""}`}
-                      >
-                        <span className="library-spine-fallback" aria-hidden="true">
-                          <img src="/images/librelula.png" alt="" />
-                        </span>
-                        {spineImage && (
-                          <img
-                            src={spineImage}
-                            alt=""
-                            loading="lazy"
-                            onError={handleSpineImageError}
-                          />
-                        )}
-                        {!isPersonal && <span className="library-spine-overlay" aria-hidden="true" />}
-                        {!isPersonal && (
-                          <span className="library-spine-title">{book.title || "Sin título"}</span>
-                        )}
-                        {isPersonal && (
-                          <span className="library-spine-personal-badge">Personal</span>
-                        )}
-                      </button>
-
-                      <label
-                        className="library-spine-media-action"
-                        aria-label={isPersonal ? `Cambiar lomo personal de ${book.title}` : `Añadir lomo personal a ${book.title}`}
-                        title={isPersonal ? "Cambiar foto del lomo" : "Fotografiar o subir lomo"}
-                      >
-                        <CameraIcon />
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          capture="environment"
-                          disabled={isBusy}
-                          onChange={(event) => handleSpineFileChange(item, event)}
-                        />
-                      </label>
-
-                      {item.personal_spine_path && (
-                        <button
-                          className="library-spine-remove-action"
-                          type="button"
-                          aria-label={`Quitar lomo personal de ${book.title}`}
-                          title="Quitar lomo personal"
-                          disabled={isBusy}
-                          onClick={() => handleRemovePersonalSpine(item)}
-                        >
-                          ×
-                        </button>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {!loading && filteredItems.length === 0 && (
-            <section className="profile-empty library-empty">
-              <span>📚</span>
-              <h2>No hay libros en esta sección</h2>
-              <p>
-                {library.items.length === 0
-                  ? "Explora el catálogo y añade tu primera lectura."
-                  : "Prueba con otro filtro o cambia el estado de un libro desde su ficha."}
-              </p>
-              <button className="profile-button primary" type="button" onClick={onOpenCatalog}>
-                Explorar catálogo
-              </button>
-            </section>
-          )}
+        <div className="library-view-switcher" role="group" aria-label="Cambiar vista">
+          <button type="button" aria-label="Ver portadas" aria-pressed={viewMode === "covers"} onClick={() => setViewMode("covers")}><CoverViewIcon /></button>
+          <button type="button" aria-label="Ver lomos" aria-pressed={viewMode === "spines"} onClick={() => setViewMode("spines")}><SpineViewIcon /></button>
         </div>
       </section>
+
+      {isSearchMode ? (
+        <div className="library-v2-active-mode">
+          <span>{filteredItems.length} {filteredItems.length === 1 ? "resultado" : "resultados"}</span>
+          <button type="button" onClick={() => { setSearchQuery(""); clearFilters(); }}>Volver a mis estanterías</button>
+        </div>
+      ) : null}
+
+      {message ? <p className={`library-message ${message.type === "error" ? "is-error" : "is-success"}`}>{message.text}</p> : null}
+
+      {loading ? (
+        <section className="profile-empty library-empty">
+          <span>📚</span>
+          <h2>Ordenando tu biblioteca…</h2>
+          <p>Estamos colocando cada libro en su estante.</p>
+        </section>
+      ) : null}
+
+      {!loading && library.items.length === 0 ? (
+        <section className="profile-empty library-empty">
+          <span>📚</span>
+          <h2>Tu primera balda está esperando</h2>
+          <p>Añade un libro desde el catálogo y empezaremos a construir tu biblioteca.</p>
+          <button className="profile-button primary" type="button" onClick={onOpenCatalog}>Explorar catálogo</button>
+        </section>
+      ) : null}
+
+      {!loading && library.items.length > 0 && shelfRows.every((shelf) => !shelf.items.length) ? (
+        <section className="profile-empty library-empty">
+          <span>🔎</span>
+          <h2>No encontramos ese libro</h2>
+          <p>Prueba con otra búsqueda o limpia los filtros.</p>
+          <button className="profile-button secondary" type="button" onClick={() => { setSearchQuery(""); clearFilters(); }}>Limpiar búsqueda</button>
+        </section>
+      ) : null}
+
+      {!loading ? (
+        <div className="library-v2-shelves">
+          {shelfRows.map((shelf) => (
+            <ShelfSection
+              key={shelf.id}
+              shelf={shelf}
+              items={shelf.items}
+              viewMode={viewMode}
+              pageSize={pageSize}
+              page={pages[shelf.id] || 1}
+              onPage={(page) => setPages((current) => ({ ...current, [shelf.id]: page }))}
+              onSelectBook={onSelectBook}
+              onScoreChange={handleScoreChange}
+              savingBookId={savingBookId}
+              onChooseFile={handleSpineFileSelected}
+              onEditCrop={handleEditCrop}
+              onRemoveSpine={handleRemovePersonalSpine}
+              savingSpineBookId={savingSpineBookId}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {filtersOpen ? (
+        <div className="library-v2-filter-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setFiltersOpen(false);
+        }}>
+          <section className="library-v2-filter-sheet" role="dialog" aria-modal="true" aria-labelledby="library-filter-title">
+            <header>
+              <div>
+                <span className="profile-kicker">Afinar biblioteca</span>
+                <h2 id="library-filter-title">Filtros</h2>
+              </div>
+              <button type="button" onClick={() => setFiltersOpen(false)} aria-label="Cerrar filtros">×</button>
+            </header>
+
+            <div className="library-v2-filter-grid">
+              <label>
+                <span>Estado</span>
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                  {Object.entries(LIBRARY_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Puntuación</span>
+                <select value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value)}>
+                  <option value="all">Todas</option>
+                  {[5, 4, 3, 2, 1].map((score) => <option key={score} value={String(score)}>{score} estrellas</option>)}
+                  <option value="unrated">Sin puntuar</option>
+                </select>
+              </label>
+              <label>
+                <span>Género</span>
+                <select value={genreFilter} onChange={(event) => setGenreFilter(event.target.value)}>
+                  <option value="all">Todos</option>
+                  {genreOptions.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Año</span>
+                <select value={yearFilter} onChange={(event) => setYearFilter(event.target.value)}>
+                  <option value="all">Todos</option>
+                  {yearOptions.map((year) => <option key={year} value={String(year)}>{year}</option>)}
+                </select>
+              </label>
+              <label className="is-wide">
+                <span>Orden</span>
+                <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+                  <option value="recent">Añadidos recientemente</option>
+                  <option value="rating">Mejor puntuados</option>
+                  <option value="title">Título A–Z</option>
+                  <option value="author">Autor A–Z</option>
+                  <option value="year">Año más reciente</option>
+                </select>
+              </label>
+            </div>
+
+            <footer>
+              <button type="button" className="profile-button secondary" onClick={clearFilters}>Limpiar</button>
+              <button type="button" className="profile-button primary" onClick={() => setFiltersOpen(false)}>Ver biblioteca</button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+
+      {cropEditor ? (
+        <SpineCropEditor
+          file={cropEditor.file}
+          imageSrc={cropEditor.imageSrc}
+          book={cropEditor.item.book}
+          initialValue={cropEditor.item.personal_spine_crop}
+          onCancel={() => setCropEditor(null)}
+          onConfirm={handleConfirmCrop}
+        />
+      ) : null}
     </main>
   );
 }
