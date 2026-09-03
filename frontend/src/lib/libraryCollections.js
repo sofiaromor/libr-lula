@@ -260,30 +260,52 @@ export async function deleteLibraryCollection(collectionId) {
 
   if (error) {
     if (collectionUnavailable(error)) {
-      throw new Error("Las colecciones todavía no están activadas en Librélula.");
+      throw new Error("Las colecciones todavía no están activadas en Librélula.", {
+        cause: error,
+      });
     }
-    throw new Error("No se pudo eliminar la colección.");
+
+    throw new Error("No se pudo eliminar la colección.", {
+      cause: error,
+    });
   }
 }
 
 export async function setCollectionFollow(collectionId, shouldFollow) {
   const viewer = await getViewer();
+
   if (!viewer) throw new Error("Inicia sesión para seguir colecciones.");
 
   const id = text(collectionId);
+
   if (!id) throw new Error("No se pudo identificar la colección.");
 
   const request = shouldFollow
-    ? supabase.from("library_collection_follows").insert({ collection_id: id, user_id: viewer.id })
-    : supabase.from("library_collection_follows").delete().eq("collection_id", id).eq("user_id", viewer.id);
+    ? supabase
+        .from("library_collection_follows")
+        .insert({ collection_id: id, user_id: viewer.id })
+    : supabase
+        .from("library_collection_follows")
+        .delete()
+        .eq("collection_id", id)
+        .eq("user_id", viewer.id);
 
   const { error } = await request;
+
   if (error) {
     if (collectionUnavailable(error)) {
-      throw new Error("Las colecciones todavía no están activadas en Librélula.");
+      throw new Error("Las colecciones todavía no están activadas en Librélula.", {
+        cause: error,
+      });
     }
-    throw new Error(shouldFollow
-      ? "No se pudo seguir la colección."
-      : "No se pudo dejar de seguir la colección.");
+
+    throw new Error(
+      shouldFollow
+        ? "No se pudo seguir la colección."
+        : "No se pudo dejar de seguir la colección.",
+      {
+        cause: error,
+      },
+    );
   }
 }
