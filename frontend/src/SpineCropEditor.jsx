@@ -5,7 +5,7 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
 
 function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, Number(value) || 0));
+  return Math.min(min === undefined ? value : Math.max(min, Math.min(max, Number(value) || 0)), max);
 }
 
 function initialCrop(value = {}) {
@@ -13,6 +13,7 @@ function initialCrop(value = {}) {
     x: clamp(value.x ?? 50, 0, 100),
     y: clamp(value.y ?? 50, 0, 100),
     zoom: clamp(value.zoom ?? 1, MIN_ZOOM, MAX_ZOOM),
+    showText: value.showText ?? false,
   };
 }
 
@@ -100,8 +101,7 @@ export default function SpineCropEditor({
             <span className="spine-crop-glass" aria-hidden="true" />
           </div>
           <div className="spine-crop-book-copy">
-            <strong>{book?.title || "Tu libro"}</strong>
-            <small>{book?.author || ""}</small>
+            {crop.showText && <><strong>{book?.title || "Tu libro"}</strong><small>{book?.author || ""}</small></>}
           </div>
         </div>
 
@@ -115,6 +115,14 @@ export default function SpineCropEditor({
               step="0.01"
               value={crop.zoom}
               onChange={(event) => setCrop((current) => ({ ...current, zoom: Number(event.target.value) }))}
+            />
+          </label>
+          <label className="spine-text-toggle">
+            <span>Mostrar título de Librélula</span>
+            <input
+              type="checkbox"
+              checked={crop.showText}
+              onChange={(event) => setCrop((current) => ({ ...current, showText: event.target.checked }))}
             />
           </label>
           <button type="button" className="spine-crop-reset" onClick={() => setCrop(initialCrop())}>Centrar</button>
