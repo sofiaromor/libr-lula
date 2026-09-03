@@ -5,6 +5,8 @@ import {
   buildSpineStoragePath,
   LIBRARY_SPINE_MAX_BYTES,
   normalizeLibraryViewMode,
+  normalizePersonalSpineShowText,
+  shouldShowSpineTitle,
   validateSpineImageFile,
 } from "../src/lib/librarySpineMedia.js";
 
@@ -13,6 +15,20 @@ test("library view mode fails back to covers", () => {
   assert.equal(normalizeLibraryViewMode("covers"), "covers");
   assert.equal(normalizeLibraryViewMode("anything"), "covers");
   assert.equal(normalizeLibraryViewMode(null), "covers");
+});
+
+test("personal spine text defaults to hidden unless explicitly enabled", () => {
+  assert.equal(normalizePersonalSpineShowText(true), true);
+  assert.equal(normalizePersonalSpineShowText(false), false);
+  assert.equal(normalizePersonalSpineShowText("true"), false);
+  assert.equal(normalizePersonalSpineShowText(undefined), false);
+});
+
+test("generated spines always keep a title while personal photos honor the preference", () => {
+  assert.equal(shouldShowSpineTitle({ hasPersonalSpine: false, showText: false }), true);
+  assert.equal(shouldShowSpineTitle({ hasPersonalSpine: true, showText: true }), true);
+  assert.equal(shouldShowSpineTitle({ hasPersonalSpine: true, showText: false }), false);
+  assert.equal(shouldShowSpineTitle({ hasPersonalSpine: true }), false);
 });
 
 test("personal spine accepts supported image types within the size limit", () => {

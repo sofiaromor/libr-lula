@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./LibraryShelfShowcase.css";
 import "./LibraryShelfActions.css";
+import { shouldShowSpineTitle } from "./lib/librarySpineMedia.js";
 
 function coverUrl(cover) {
   const value = String(cover || "").trim();
@@ -97,6 +98,10 @@ function SpineTile({ item, photoMode, onSelectBook }) {
   const personalUrl = String(item.personal_spine_url || "").trim();
   const crop = item.personal_spine_crop || { x: 50, y: 50, zoom: 1 };
   const src = personalUrl || coverUrl(book.cover);
+  const showTitle = shouldShowSpineTitle({
+    hasPersonalSpine: Boolean(personalUrl),
+    showText: item.personal_spine_show_text,
+  });
 
   const body = (
     <>
@@ -114,7 +119,7 @@ function SpineTile({ item, photoMode, onSelectBook }) {
         } : undefined}
       />
       <span className="library-showcase-spine-shade" aria-hidden="true" />
-      <span className="library-showcase-spine-title">{book.title || "Libro"}</span>
+      {showTitle ? <span className="library-showcase-spine-title">{book.title || "Libro"}</span> : null}
     </>
   );
 

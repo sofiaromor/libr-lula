@@ -97,6 +97,29 @@
   pointer-events: none;
 }
 
+.spine-crop-title-preview {
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  bottom: 12px;
+  left: 50%;
+  max-height: calc(100% - 22px);
+  padding: 5px 3px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 248, 238, .2);
+  border-radius: 999px;
+  background: rgba(42, 28, 19, .66);
+  color: #fffaf3;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1.05;
+  text-shadow: 0 1px 2px rgba(20, 12, 8, .72);
+  writing-mode: vertical-rl;
+  transform: translateX(-50%) rotate(180deg);
+  pointer-events: none;
+}
+
 .spine-crop-book-copy {
   max-width: 300px;
   display: grid;
@@ -121,6 +144,58 @@
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--cream);
+}
+
+.spine-text-visibility {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 2px 0 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fffdf9;
+}
+
+.spine-text-visibility legend {
+  padding: 0 5px;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 700;
+}
+
+.spine-text-visibility > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #eee3d6;
+}
+
+.spine-text-visibility button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 700;
+}
+
+.spine-text-visibility button[aria-pressed="true"] {
+  background: #fffdf9;
+  color: var(--accent-dark);
+  box-shadow: 0 2px 8px rgba(67, 44, 27, .12);
+}
+
+.spine-text-visibility small {
+  display: block;
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: .76rem;
+  line-height: 1.35;
 }
 
 .spine-crop-controls label {

@@ -16,6 +16,7 @@ import {
 import {
   LIBRARY_SPINE_VIEW_STORAGE_KEY,
   normalizeLibraryViewMode,
+  shouldShowSpineTitle,
 } from "./lib/librarySpineMedia.js";
 
 const SYSTEM_SHELVES = [
@@ -234,6 +235,10 @@ function SpineBook({
   const generatedCover = coverUrl(book.cover);
   const personalUrl = String(item.personal_spine_url || "").trim();
   const crop = item.personal_spine_crop || { x: 50, y: 50, zoom: 1 };
+  const showTitle = shouldShowSpineTitle({
+    hasPersonalSpine: Boolean(personalUrl),
+    showText: item.personal_spine_show_text,
+  });
 
   return (
     <article
@@ -264,7 +269,7 @@ function SpineBook({
           </span>
         )}
         <span className="library-spine-overlay" />
-        <span className="library-spine-title">{book.title || "Libro"}</span>
+        {showTitle ? <span className="library-spine-title">{book.title || "Libro"}</span> : null}
         {personalUrl ? <span className="library-spine-personal-badge">Personal</span> : null}
       </button>
 
@@ -426,6 +431,10 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
     }
   }, [viewMode]);
 
+  useEffect(() => () => {
+    if (cropEditor?.objectUrl) URL.revokeObjectURL(cropEditor.objectUrl);
+  }, [cropEditor]);
+
   const genreOptions = useMemo(() => {
     const genres = library.items.flatMap((item) => genreValues(item.book?.genre));
     return [...new Set(genres)].sort((left, right) => left.localeCompare(right, "es", { sensitivity: "base" }));
@@ -533,7 +542,8 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
     const file = event.target.files?.[0] || null;
     event.target.value = "";
     if (!file) return;
-    setCropEditor({ mode: "upload", item, file, imageSrc: "" });
+    const objectUrl = URL.createObjectURL(file);
+    setCropEditor({ mode: "upload", item, file, imageSrc: objectUrl, objectUrl });
   }
 
   function handleEditCrop(item) {
@@ -551,7 +561,12 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
 
     try {
       if (editor.mode === "upload") {
-        const uploaded = await uploadPersonalSpine({ bookId, file: editor.file, crop });
+        const uploaded = await uploadPersonalSpine({
+          bookId,
+          file: editor.file,
+          crop,
+          showText: crop.showText,
+        });
         setLibrary((current) => ({
           ...current,
           items: current.items.map((item) => item.book_id === bookId
@@ -560,16 +575,25 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
                 personal_spine_path: uploaded.path,
                 personal_spine_url: uploaded.url,
                 personal_spine_crop: uploaded.crop,
+                personal_spine_show_text: uploaded.showText,
               }
             : item),
         }));
         setMessage({ type: "success", text: "Lomo personal guardado." });
       } else {
-        const savedCrop = await updatePersonalSpineCrop({ bookId, crop });
+        const saved = await updatePersonalSpineCrop({
+          bookId,
+          crop,
+          showText: crop.showText,
+        });
         setLibrary((current) => ({
           ...current,
           items: current.items.map((item) => item.book_id === bookId
-            ? { ...item, personal_spine_crop: savedCrop }
+            ? {
+                ...item,
+                personal_spine_crop: saved.crop,
+                personal_spine_show_text: saved.showText,
+              }
             : item),
         }));
         setMessage({ type: "success", text: "Recorte actualizado." });
@@ -586,7 +610,7 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
     setSavingSpineBookId(item.book_id);
     setMessage(null);
     try {
-      await removePersonalSpine({ bookId: item.book_id, storagePath: item.personal_spine_path });
+      await removePersonalSpine({ bookId: item.book_id });
       setLibrary((current) => ({
         ...current,
         items: current.items.map((currentItem) => currentItem.book_id === item.book_id
@@ -595,6 +619,7 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
               personal_spine_path: "",
               personal_spine_url: "",
               personal_spine_crop: { x: 50, y: 50, zoom: 1 },
+              personal_spine_show_text: false,
             }
           : currentItem),
       }));
@@ -776,10 +801,12 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
 
       {cropEditor ? (
         <SpineCropEditor
-          file={cropEditor.file}
           imageSrc={cropEditor.imageSrc}
           book={cropEditor.item.book}
-          initialValue={cropEditor.item.personal_spine_crop}
+          initialValue={{
+            ...cropEditor.item.personal_spine_crop,
+            showText: cropEditor.item.personal_spine_show_text,
+          }}
           onCancel={() => setCropEditor(null)}
           onConfirm={handleConfirmCrop}
         />

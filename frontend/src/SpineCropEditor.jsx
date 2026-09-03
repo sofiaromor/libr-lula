@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import "./SpineCropEditor.css";
 
 const MIN_ZOOM = 1;
@@ -13,11 +13,11 @@ function initialCrop(value = {}) {
     x: clamp(value.x ?? 50, 0, 100),
     y: clamp(value.y ?? 50, 0, 100),
     zoom: clamp(value.zoom ?? 1, MIN_ZOOM, MAX_ZOOM),
+    showText: value.showText === true,
   };
 }
 
 export default function SpineCropEditor({
-  file = null,
   imageSrc = "",
   book,
   initialValue,
@@ -27,12 +27,7 @@ export default function SpineCropEditor({
   const [crop, setCrop] = useState(() => initialCrop(initialValue));
   const [drag, setDrag] = useState(null);
   const previewRef = useRef(null);
-  const objectUrl = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
-  const previewUrl = objectUrl || String(imageSrc || "").trim();
-
-  useEffect(() => () => {
-    if (objectUrl) URL.revokeObjectURL(objectUrl);
-  }, [objectUrl]);
+  const previewUrl = String(imageSrc || "").trim();
 
   function startDrag(event) {
     const point = event.touches?.[0] || event;
@@ -98,6 +93,9 @@ export default function SpineCropEditor({
               }}
             />
             <span className="spine-crop-glass" aria-hidden="true" />
+            {crop.showText ? (
+              <span className="spine-crop-title-preview">{book?.title || "Tu libro"}</span>
+            ) : null}
           </div>
           <div className="spine-crop-book-copy">
             <strong>{book?.title || "Tu libro"}</strong>
@@ -117,7 +115,33 @@ export default function SpineCropEditor({
               onChange={(event) => setCrop((current) => ({ ...current, zoom: Number(event.target.value) }))}
             />
           </label>
-          <button type="button" className="spine-crop-reset" onClick={() => setCrop(initialCrop())}>Centrar</button>
+          <button
+            type="button"
+            className="spine-crop-reset"
+            onClick={() => setCrop((current) => ({ ...initialCrop(), showText: current.showText }))}
+          >
+            Centrar
+          </button>
+          <fieldset className="spine-text-visibility">
+            <legend>Texto de Librélula</legend>
+            <div role="group" aria-label="Mostrar u ocultar el título automático">
+              <button
+                type="button"
+                aria-pressed={crop.showText}
+                onClick={() => setCrop((current) => ({ ...current, showText: true }))}
+              >
+                Automático
+              </button>
+              <button
+                type="button"
+                aria-pressed={!crop.showText}
+                onClick={() => setCrop((current) => ({ ...current, showText: false }))}
+              >
+                Oculto
+              </button>
+            </div>
+            <small>Ocúltalo si el título ya aparece impreso en la foto.</small>
+          </fieldset>
         </div>
 
         <footer>

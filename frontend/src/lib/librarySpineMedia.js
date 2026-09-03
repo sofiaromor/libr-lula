@@ -32,6 +32,14 @@ export function normalizeLibraryViewMode(value) {
   return value === "spines" ? "spines" : "covers";
 }
 
+export function normalizePersonalSpineShowText(value) {
+  return value === true;
+}
+
+export function shouldShowSpineTitle({ hasPersonalSpine, showText }) {
+  return !hasPersonalSpine || normalizePersonalSpineShowText(showText);
+}
+
 export function validateSpineImageFile(file) {
   if (!file) {
     return { valid: false, error: "Selecciona una imagen para el lomo." };
