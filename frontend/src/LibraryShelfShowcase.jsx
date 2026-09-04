@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import "./LibraryShelfShowcase.css";
 import "./LibraryShelfActions.css";
 import { shouldShowSpineTitle } from "./lib/librarySpineMedia.js";
-import { filterShelfItems, formatShelfScore, normalizeShelfScore } from "./lib/libraryShelfSearch.js";
+import {
+  filterShelfItems,
+  formatShelfScore,
+  groupShelfItemsByScore,
+  normalizeShelfScore,
+} from "./lib/libraryShelfSearch.js";
 
 function coverUrl(cover) {
   const value = String(cover || "").trim();
@@ -51,6 +56,24 @@ function useRowSize(mode) {
   return 7;
 }
 
+function PhotoScoreRail({ score, horizontal = false }) {
+  const normalizedScore = normalizeShelfScore(score);
+  const scoreLabel = formatShelfScore(score);
+
+  return (
+    <span
+      className={`library-showcase-photo-score ${horizontal ? "is-horizontal" : ""}`}
+      aria-label={`Tu puntuación: ${scoreLabel}`}
+    >
+      {[1, 2, 3, 4, 5].map((star) => {
+        const fill = Math.max(0, Math.min(1, normalizedScore - (star - 1)));
+        const fillClass = fill === 1 ? "is-filled" : fill === 0.5 ? "is-half" : "";
+        return <span className={fillClass} key={star} aria-hidden="true">★</span>;
+      })}
+    </span>
+  );
+}
+
 function CoverTile({ item, photoMode, onSelectBook }) {
   const book = item.book || {};
   const scoreLabel = formatShelfScore(item.score);
@@ -67,6 +90,7 @@ function CoverTile({ item, photoMode, onSelectBook }) {
             event.currentTarget.src = "/images/librelula.png";
           }}
         />
+        <PhotoScoreRail score={item.score} />
       </div>
     );
   }
@@ -199,6 +223,13 @@ export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "
     [items, query, scoreFilter],
   );
   const rows = useMemo(() => chunk(visibleItems, rowSize), [rowSize, visibleItems]);
+  const photoCoverGroups = useMemo(
+    () => groupShelfItemsByScore(visibleItems).map((group) => ({
+      ...group,
+      rows: chunk(group.items, rowSize),
+    })),
+    [rowSize, visibleItems],
+  );
   const totalItems = Array.isArray(items) ? items.length : 0;
   const hasFilters = query.trim() !== "" || scoreFilter !== "all";
 
@@ -232,6 +263,18 @@ export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "
       aria-labelledby="library-showcase-title"
       onClick={photoMode ? () => setPhotoMode(false) : undefined}
     >
+      {photoMode ? (
+        <button
+          type="button"
+          className="library-showcase-photo-back"
+          onClick={(event) => {
+            event.stopPropagation();
+            setPhotoMode(false);
+          }}
+        >
+          ← Volver
+        </button>
+      ) : null}
       <div className="library-showcase-shell">
         <header className="library-showcase-header">
           <button type="button" className="library-showcase-back" onClick={onClose}>← Biblioteca</button>
@@ -309,7 +352,30 @@ export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "
         ) : null}
 
         <div className={`library-showcase-rows is-${mode}`}>
-          {rows.map((row, rowIndex) => (
+          {photoMode && mode === "covers" ? photoCoverGroups.map((group) => (
+            <section className="library-showcase-rating-group" key={group.score} aria-label={group.label}>
+              <header className="library-showcase-rating-divider">
+                <PhotoScoreRail score={group.score} horizontal />
+                <strong>{group.label}</strong>
+                <small>{group.items.length} {group.items.length === 1 ? "libro" : "libros"}</small>
+              </header>
+              {group.rows.map((row, rowIndex) => (
+                <div className="library-showcase-row is-covers" key={`${shelf?.id || "shelf"}-${group.score}-${rowIndex}`}>
+                  <div className="library-showcase-books">
+                    {row.map((item) => (
+                      <CoverTile
+                        key={`${group.score}-${rowIndex}-${item.book_id}`}
+                        item={item}
+                        photoMode
+                        onSelectBook={onSelectBook}
+                      />
+                    ))}
+                  </div>
+                  <div className="library-showcase-wood" aria-hidden="true" />
+                </div>
+              ))}
+            </section>
+          )) : rows.map((row, rowIndex) => (
             <div className={`library-showcase-row is-${mode}`} key={`${shelf?.id || "shelf"}-${rowIndex}`}>
               <div className="library-showcase-books">
                 {row.map((item) => mode === "covers" ? (
