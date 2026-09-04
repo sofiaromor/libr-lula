@@ -199,13 +199,17 @@
   color: var(--accent-dark);
   box-shadow: 0 4px 12px rgba(67, 44, 27, .14);
   cursor: pointer;
+  padding: 0;
+  font: inherit;
   opacity: .24;
   transition: opacity .16s ease, transform .16s ease;
 }
 
 .library-spine-media-action {
-  top: 5px;
-  right: 4px;
+  top: 3px;
+  right: 2px;
+  width: 28px;
+  height: 28px;
 }
 
 .library-spine-remove-action {
@@ -235,7 +239,7 @@
   height: 13px;
 }
 
-.library-spine-media-action input {
+.library-spine-file-input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -315,7 +319,10 @@
   }
 
   .library-spine-media-action {
-    top: 3px;
+    top: 1px;
+    right: 0;
+    width: 28px;
+    height: 28px;
   }
 
   .library-spine-remove-action {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./MiBiblioteca.css";
 import "./MiBibliotecaSpines.css";
 import "./MiBibliotecaV2.css";
@@ -231,6 +231,7 @@ function SpineBook({
   onRemove,
   busy,
 }) {
+  const fileInputRef = useRef(null);
   const book = item.book || {};
   const generatedCover = coverUrl(book.cover);
   const personalUrl = String(item.personal_spine_url || "").trim();
@@ -273,15 +274,28 @@ function SpineBook({
         {personalUrl ? <span className="library-spine-personal-badge">Personal</span> : null}
       </button>
 
-      <label className="library-spine-media-action" title={personalUrl ? "Cambiar foto" : "Añadir foto"}>
+      <button
+        type="button"
+        className="library-spine-media-action"
+        title={personalUrl ? "Cambiar foto" : "Añadir foto"}
+        aria-label={`${personalUrl ? "Cambiar" : "Añadir"} foto del lomo de ${book.title || "libro"}`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          fileInputRef.current?.click();
+        }}
+      >
         <CameraIcon />
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          capture="environment"
-          onChange={(event) => onChooseFile(item, event)}
-        />
-      </label>
+      </button>
+      <input
+        ref={fileInputRef}
+        className="library-spine-file-input"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        capture="environment"
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => onChooseFile(item, event)}
+      />
 
       {personalUrl ? (
         <>

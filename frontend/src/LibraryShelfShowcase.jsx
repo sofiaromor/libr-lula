@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./LibraryShelfShowcase.css";
 import "./LibraryShelfActions.css";
 import { shouldShowSpineTitle } from "./lib/librarySpineMedia.js";
+import { filterShelfItems, formatShelfScore, normalizeShelfScore } from "./lib/libraryShelfSearch.js";
 
 function coverUrl(cover) {
   const value = String(cover || "").trim();
@@ -52,6 +53,7 @@ function useRowSize(mode) {
 
 function CoverTile({ item, photoMode, onSelectBook }) {
   const book = item.book || {};
+  const scoreLabel = formatShelfScore(item.score);
 
   if (photoMode) {
     return (
@@ -88,6 +90,9 @@ function CoverTile({ item, photoMode, onSelectBook }) {
       <span>
         <strong>{book.title || "Libro sin título"}</strong>
         <small>{book.author || "Autor desconocido"}</small>
+        <small className="library-showcase-score" aria-label={`Tu puntuación: ${scoreLabel}`}>
+          {scoreLabel === "Sin puntuar" ? scoreLabel : `★ ${scoreLabel}`}
+        </small>
       </span>
     </button>
   );
@@ -102,6 +107,8 @@ function SpineTile({ item, photoMode, onSelectBook }) {
     hasPersonalSpine: Boolean(personalUrl),
     showText: item.personal_spine_show_text,
   });
+  const score = normalizeShelfScore(item.score);
+  const scoreLabel = formatShelfScore(item.score);
 
   const body = (
     <>
@@ -135,14 +142,19 @@ function SpineTile({ item, photoMode, onSelectBook }) {
   }
 
   return (
-    <button
-      type="button"
-      className={`library-showcase-spine is-variation-${spineVariation(item.book_id)}`}
-      onClick={() => onSelectBook?.(book)}
-      aria-label={`Abrir ficha de ${book.title || "este libro"}`}
-    >
-      {body}
-    </button>
+    <div className="library-showcase-spine-entry">
+      <button
+        type="button"
+        className={`library-showcase-spine is-variation-${spineVariation(item.book_id)}`}
+        onClick={() => onSelectBook?.(book)}
+        aria-label={`Abrir ficha de ${book.title || "este libro"}`}
+      >
+        {body}
+      </button>
+      <span className="library-showcase-spine-score" aria-label={`Tu puntuación: ${scoreLabel}`}>
+        {score ? `★${score}` : "—"}
+      </span>
+    </div>
   );
 }
 
@@ -167,11 +179,33 @@ function SpineViewIcon() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m16.5 16.5 4 4" />
+    </svg>
+  );
+}
+
 export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "covers", onClose, onSelectBook }) {
   const [mode, setMode] = useState(initialViewMode === "spines" ? "spines" : "covers");
   const [photoMode, setPhotoMode] = useState(false);
+  const [query, setQuery] = useState("");
+  const [scoreFilter, setScoreFilter] = useState("all");
   const rowSize = useRowSize(mode);
-  const rows = useMemo(() => chunk(items || [], rowSize), [items, rowSize]);
+  const visibleItems = useMemo(
+    () => filterShelfItems(items, { query, score: scoreFilter }),
+    [items, query, scoreFilter],
+  );
+  const rows = useMemo(() => chunk(visibleItems, rowSize), [rowSize, visibleItems]);
+  const totalItems = Array.isArray(items) ? items.length : 0;
+  const hasFilters = query.trim() !== "" || scoreFilter !== "all";
+
+  function clearSearch() {
+    setQuery("");
+    setScoreFilter("all");
+  }
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -205,7 +239,9 @@ export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "
             <span className="profile-kicker">Estantería completa</span>
             <h1 id="library-showcase-title">{shelf?.title || "Mis libros"}</h1>
             <p>{shelf?.subtitle || "Todos tus libros, juntos."}</p>
-            <small>{items.length} {items.length === 1 ? "libro" : "libros"}</small>
+            <small>
+              {hasFilters ? `${visibleItems.length} de ${totalItems}` : totalItems} {totalItems === 1 ? "libro" : "libros"}
+            </small>
           </div>
           <div className="library-showcase-controls">
             <div className="library-showcase-switcher" role="group" aria-label="Cambiar vista de estantería completa">
@@ -226,8 +262,51 @@ export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "
         <section className={`library-showcase-photo-heading ${photoMode ? "is-visible" : ""}`} aria-hidden={!photoMode}>
           <span>Librélula</span>
           <h1>{shelf?.title || "Mis libros"}</h1>
-          <p>{items.length} {items.length === 1 ? "libro" : "libros"}</p>
+          <p>{visibleItems.length} {visibleItems.length === 1 ? "libro" : "libros"}</p>
         </section>
+
+        <section className="library-showcase-tools" aria-label="Buscar y filtrar esta estantería">
+          <label className="library-showcase-search">
+            <SearchIcon />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar título o autor"
+              aria-label="Buscar título o autor en esta estantería"
+            />
+          </label>
+          <label className="library-showcase-score-filter">
+            <span>Puntuación</span>
+            <select
+              value={scoreFilter}
+              onChange={(event) => setScoreFilter(event.target.value)}
+              aria-label="Filtrar por puntuación"
+            >
+              <option value="all">Todas</option>
+              <option value="5">5 estrellas</option>
+              <option value="4">4 estrellas</option>
+              <option value="3">3 estrellas</option>
+              <option value="2">2 estrellas</option>
+              <option value="1">1 estrella</option>
+              <option value="unrated">Sin puntuar</option>
+            </select>
+          </label>
+          <span className="library-showcase-result-count" aria-live="polite">
+            {visibleItems.length} {visibleItems.length === 1 ? "resultado" : "resultados"}
+          </span>
+          {hasFilters ? (
+            <button type="button" className="library-showcase-clear" onClick={clearSearch}>Limpiar</button>
+          ) : null}
+        </section>
+
+        {visibleItems.length === 0 ? (
+          <section className="library-showcase-empty">
+            <h2>No encontramos ese libro</h2>
+            <p>Prueba con otro título, autor o puntuación.</p>
+            <button type="button" onClick={clearSearch}>Limpiar búsqueda</button>
+          </section>
+        ) : null}
 
         <div className={`library-showcase-rows is-${mode}`}>
           {rows.map((row, rowIndex) => (
