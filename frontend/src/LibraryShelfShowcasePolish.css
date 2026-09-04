@@ -1,0 +1,102 @@
+/* Final visual polish for the full-shelf showcase.
+   Keep mobile density while making wide layouts feel deliberately centred. */
+
+@media (min-width: 951px) {
+  .library-showcase-shell {
+    width: min(1320px, 100%);
+  }
+
+  .library-showcase-rows {
+    width: min(1160px, 100%);
+    margin-inline: auto;
+  }
+
+  .library-showcase-row {
+    width: 100%;
+    margin-inline: auto;
+  }
+
+  .library-showcase-books {
+    width: min(1080px, calc(100% - 48px));
+    margin-inline: auto;
+  }
+
+  .library-showcase-wood {
+    right: 24px;
+    left: 24px;
+  }
+
+  .library-showcase-row.is-spines .library-showcase-books {
+    justify-content: center;
+  }
+
+  .library-showcase-spine {
+    width: clamp(32px, 2.7vw, 44px);
+  }
+}
+
+/* The cover art remains visible, but the title no longer fights with it. */
+.library-showcase-spine-shade {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.12), transparent 18%, transparent 78%, rgba(34,20,12,.22)),
+    linear-gradient(180deg, rgba(31,20,13,.06), rgba(31,20,13,.16));
+}
+
+.library-showcase-spine-title {
+  top: 10px;
+  right: auto;
+  bottom: 12px;
+  left: 50%;
+  max-height: calc(100% - 22px);
+  padding: 5px 3px;
+  border: 1px solid rgba(255, 248, 238, .2);
+  border-radius: 999px;
+  background: rgba(42, 28, 19, .66);
+  box-shadow: 0 2px 7px rgba(24, 15, 10, .18);
+  color: #fffaf3;
+  font-size: clamp(.66rem, .74vw, .78rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: .01em;
+  text-shadow: 0 1px 2px rgba(20, 12, 8, .72);
+  transform: translateX(-50%) rotate(180deg);
+  backdrop-filter: blur(1.5px);
+}
+
+.library-showcase-spine:hover .library-showcase-spine-title,
+.library-showcase-spine:focus-visible .library-showcase-spine-title {
+  background: rgba(42, 28, 19, .82);
+}
+
+/* Photo mode stays cleaner: enough contrast to read titles without looking like UI. */
+.library-showcase.is-photo-mode .library-showcase-spine-title {
+  border-color: rgba(255, 248, 238, .12);
+  background: rgba(42, 28, 19, .54);
+  box-shadow: none;
+}
+
+@media (max-width: 950px) {
+  .library-showcase-spine-title {
+    padding: 4px 2px;
+    background: rgba(42, 28, 19, .58);
+    font-size: clamp(.61rem, 1.7vw, .72rem);
+  }
+}
+
+@media (max-width: 650px) {
+  .library-showcase-spine-title {
+    top: 8px;
+    bottom: 9px;
+    max-height: calc(100% - 17px);
+    padding: 3px 2px;
+    border-color: rgba(255, 248, 238, .14);
+    background: rgba(42, 28, 19, .46);
+    font-size: clamp(.58rem, 2.3vw, .68rem);
+    text-shadow: 0 1px 2px rgba(20, 12, 8, .64);
+  }
+
+  .library-showcase-wood {
+    right: 0;
+    left: 0;
+  }
+}
