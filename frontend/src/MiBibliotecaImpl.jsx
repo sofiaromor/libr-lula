@@ -4,6 +4,7 @@ import "./MiBibliotecaSpines.css";
 import "./MiBibliotecaV2.css";
 import SpineCropEditor from "./SpineCropEditor.jsx";
 import LibraryShelfShowcase from "./LibraryShelfShowcase.jsx";
+import { shelfStarFills, formatShelfScore } from "./lib/libraryShelfSearch.js";
 import {
   getLibraryStatus,
   getMyLibrary,
@@ -72,11 +73,6 @@ function genreValues(value) {
     .split(/[,;|]/)
     .map((genre) => genre.trim())
     .filter(Boolean);
-}
-
-function starValues(score) {
-  const value = Math.max(0, Math.min(5, Number(score) || 0));
-  return [1, 2, 3, 4, 5].map((star) => ({ value: star, filled: star <= value }));
 }
 
 function dateValue(value) {
@@ -167,34 +163,50 @@ function useShelfPageSize(viewMode) {
   return 6;
 }
 
-function CoverBook({ item, onSelectBook, onScoreChange, savingBookId }) {
+export function CoverBook({ item, onSelectBook, onScoreChange, savingBookId }) {
   const book = item.book || {};
   const cover = coverUrl(book.cover);
   const [statusLabel, statusClass] = getLibraryStatus(item.status);
 
   return (
     <article className="library-v2-cover-card">
-      <button
-        type="button"
-        className="library-v2-cover-image"
-        onClick={() => onSelectBook?.(book)}
-        aria-label={`Abrir ficha de ${book.title || "este libro"}`}
-      >
-        {cover ? (
-          <img
-            src={cover}
-            alt={`Portada de ${book.title || "libro"}`}
-            loading="lazy"
-            onError={(event) => {
-              event.currentTarget.onerror = null;
-              event.currentTarget.src = "/images/librelula.png";
-            }}
-          />
-        ) : (
-          <img className="is-fallback" src="/images/librelula.png" alt="Portada no disponible" />
-        )}
-        <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
-      </button>
+      <div className="library-v2-cover-visual">
+        <button
+          type="button"
+          className="library-v2-cover-image"
+          onClick={() => onSelectBook?.(book)}
+          aria-label={`Abrir ficha de ${book.title || "este libro"}`}
+        >
+          {cover ? (
+            <img
+              src={cover}
+              alt={`Portada de ${book.title || "libro"}`}
+              loading="lazy"
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src = "/images/librelula.png";
+              }}
+            />
+          ) : (
+            <img className="is-fallback" src="/images/librelula.png" alt="Portada no disponible" />
+          )}
+          <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
+        </button>
+
+        <div className="library-v2-score" role="group" aria-label={`Tu puntuación de ${book.title || "libro"}: ${formatShelfScore(item.score)}`}>
+          {shelfStarFills(item.score).map((fill, index) => (
+            <button
+              type="button"
+              key={index}
+              disabled={savingBookId === item.book_id}
+              onClick={() => onScoreChange(item, index + 1)}
+              aria-label={`Puntuar con ${index + 1} ${index === 0 ? "estrella" : "estrellas"}`}
+            >
+              <span className={fill === 1 ? "is-filled" : fill === 0.5 ? "is-half" : ""} aria-hidden="true">★</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="library-v2-cover-copy">
         <strong>{book.title || "Libro sin título"}</strong>
@@ -204,20 +216,6 @@ function CoverBook({ item, onSelectBook, onScoreChange, savingBookId }) {
             <span style={{ width: `${Math.max(0, Math.min(100, Number(item.progress || 0)))}%` }} />
           </div>
         ) : null}
-        <div className="library-v2-score" aria-label={`Puntuación de ${book.title || "libro"}`}>
-          {starValues(item.score).map((star) => (
-            <button
-              type="button"
-              key={star.value}
-              className={star.filled ? "is-filled" : ""}
-              disabled={savingBookId === item.book_id}
-              onClick={() => onScoreChange(item, star.value)}
-              aria-label={`Puntuar con ${star.value} ${star.value === 1 ? "estrella" : "estrellas"}`}
-            >
-              ★
-            </button>
-          ))}
-        </div>
       </div>
     </article>
   );

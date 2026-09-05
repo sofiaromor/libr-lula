@@ -232,6 +232,13 @@
   flex: 1 1 0;
 }
 
+.library-v2-cover-visual {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  align-items: start;
+  gap: 4px;
+}
+
 .library-v2-cover-image {
   position: relative;
   width: 100%;
@@ -318,24 +325,40 @@
 }
 
 .library-v2-score {
-  margin-top: 3px;
   display: flex;
-  gap: 1px;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
 }
 
 .library-v2-score button {
+  width: 24px;
+  min-height: 24px;
   padding: 0;
   border: 0;
   background: transparent;
   color: #d9cdbf;
   cursor: pointer;
-  font-size: .86rem;
+  font-size: 1.05rem;
   line-height: 1;
 }
 
-.library-v2-score button.is-filled,
+.library-v2-score .is-filled,
 .library-v2-score button:hover {
   color: #b88142;
+}
+
+.library-v2-score .is-half {
+  background: linear-gradient(90deg, #b88142 50%, #d9cdbf 50%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.library-v2-score button:focus-visible {
+  outline: 2px solid var(--accent-dark);
+  outline-offset: 1px;
+  border-radius: 4px;
 }
 
 .library-v2-score button:disabled {
