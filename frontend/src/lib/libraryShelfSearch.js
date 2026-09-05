@@ -17,6 +17,20 @@ export function formatShelfScore(value) {
   return score ? `${String(score).replace(".", ",")}/5` : "Sin puntuar";
 }
 
+export function shelfStarFills(value) {
+  const score = normalizeShelfScore(value);
+  return [0, 1, 2, 3, 4].map((index) => Math.max(0, Math.min(1, score - index)));
+}
+
+// Keep every book once, in source order, including on short/filter-result rows.
+export function composeSpineRow(items) {
+  const stackSize = items.length >= 8 ? 3 : 0;
+  return {
+    upright: stackSize ? items.slice(0, -stackSize) : items,
+    stack: stackSize ? items.slice(-stackSize) : [],
+  };
+}
+
 export function getShelfScoreGroup(value) {
   const score = normalizeShelfScore(value);
   return score ? Math.floor(score) : 0;

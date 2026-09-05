@@ -7,6 +7,8 @@ import {
   getShelfScoreGroup,
   groupShelfItemsByScore,
   normalizeShelfScore,
+  shelfStarFills,
+  composeSpineRow,
 } from "../src/lib/libraryShelfSearch.js";
 
 const ITEMS = [
@@ -80,4 +82,23 @@ test("photo shelves group half-star ratings with their lower whole-star band", (
       { score: 0, label: "Sin puntuar", ids: ["3"] },
     ],
   );
+});
+
+test("five stars preserve half ratings and missing scores", () => {
+  assert.deepEqual(shelfStarFills(4.5), [1, 1, 1, 1, 0.5]);
+  assert.deepEqual(shelfStarFills(4), [1, 1, 1, 1, 0]);
+  assert.deepEqual(shelfStarFills(1.5), [1, 0.5, 0, 0, 0]);
+  for (const score of [null, undefined, 0, NaN, -1, 6]) {
+    assert.deepEqual(shelfStarFills(score), [0, 0, 0, 0, 0]);
+  }
+});
+
+test("spine composition never loses, duplicates or reorders books", () => {
+  for (const size of [0, 1, 3, 7, 8, 10, 12, 15, 20]) {
+    const items = Object.freeze(Array.from({ length: size }, (_, id) => ({ book_id: id })));
+    const { upright, stack } = composeSpineRow(items);
+    assert.deepEqual([...upright, ...stack], items);
+    assert.equal(stack.length, size >= 8 ? 3 : 0);
+    assert.deepEqual(composeSpineRow(items), { upright, stack });
+  }
 });

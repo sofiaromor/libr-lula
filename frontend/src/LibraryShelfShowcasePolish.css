@@ -30,9 +30,99 @@
     justify-content: center;
   }
 
-  .library-showcase-spine {
-    width: clamp(32px, 2.7vw, 44px);
-  }
+}
+
+/* Bookcase composition: photos remain intact; missing photos get cloth spines. */
+.library-showcase-rows.is-spines .library-showcase-books {
+  gap: clamp(2px, .45vw, 6px);
+  padding-inline: 7px;
+}
+
+.library-showcase-spine.is-generated {
+  background: var(--spine-cloth, #31534d);
+}
+
+.library-showcase-spine.is-generated .library-showcase-spine-face {
+  background: linear-gradient(90deg, rgba(255,255,255,.15), transparent 16%, transparent 80%, rgba(0,0,0,.2));
+}
+
+.library-showcase-spine.is-generated .library-showcase-spine-face::before {
+  content: "";
+  position: absolute;
+  inset: 8px 3px;
+  border-block: 3px double rgba(248,222,161,.75);
+}
+
+.library-showcase-spine.is-generated .library-showcase-spine-title {
+  top: 18px;
+  bottom: 18px;
+  max-height: calc(100% - 36px);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  color: #fff3d9;
+  font-family: Georgia, serif;
+  font-size: clamp(.59rem, .95vw, .8rem);
+  letter-spacing: .035em;
+  text-shadow: 0 1px 2px rgba(0,0,0,.3);
+}
+
+.library-showcase-spine-entry.is-leaning {
+  margin-inline: 7px;
+  transform: rotate(-4deg);
+  transform-origin: bottom center;
+}
+
+.library-showcase-spine-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 3.5 1 0;
+  min-width: 0;
+  max-width: 184px;
+  margin-left: 5px;
+}
+
+.library-showcase-spine-entry.is-horizontal {
+  flex: none;
+  max-width: none;
+  width: 100%;
+}
+
+.library-showcase-spine.is-horizontal {
+  display: block;
+  height: auto;
+  aspect-ratio: 5.8;
+  border-radius: 4px;
+}
+
+.library-showcase-spine.is-horizontal .library-showcase-spine-face {
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: calc(100% / 5.8);
+  height: 580%;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.library-showcase-spine:focus-visible {
+  outline: 3px solid var(--accent-dark);
+  outline-offset: 3px;
+}
+
+.library-showcase-rows.is-spines .library-showcase-wood {
+  height: 9px;
+  bottom: 18px;
+  border-radius: 2px;
+  background: linear-gradient(#bc7854, #965134);
+  box-shadow: 0 5px 9px rgba(67,44,27,.14);
+}
+
+.library-showcase-rows.is-spines .library-showcase-wood::after {
+  display: none;
 }
 
 /* The cover art remains visible, but the title no longer fights with it. */
