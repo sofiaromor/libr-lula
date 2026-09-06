@@ -746,6 +746,10 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
           initialViewMode={viewMode}
           onClose={() => setShowcaseShelfId("")}
           onSelectBook={onSelectBook}
+          onChooseSpineFile={handleSpineFileSelected}
+          onEditSpine={handleEditCrop}
+          onRemoveSpine={handleRemovePersonalSpine}
+          savingSpineBookId={savingSpineBookId}
         />
       ) : null}
 
