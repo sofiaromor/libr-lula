@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { publicUrl } from "./api.js";
 import { supabase } from "./lib/supabase.js";
+import { friendlyAuthError } from "./lib/authErrors.js";
 import "./LoginSupabase.css";
 
 export default function ResetPasswordPage() {
@@ -9,6 +10,40 @@ export default function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [checkingRecovery, setCheckingRecovery] = useState(true);
+  const [recoveryReady, setRecoveryReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (active && session && ["INITIAL_SESSION", "PASSWORD_RECOVERY", "SIGNED_IN"].includes(event)) {
+        setRecoveryReady(true);
+        setCheckingRecovery(false);
+      }
+    });
+
+    supabase.auth
+      .getSession()
+      .then(({ data: sessionData, error }) => {
+        if (!active) return;
+        if (error) {
+          setErrorMessage(friendlyAuthError(error, "No pudimos validar el enlace de recuperación."));
+        }
+        setRecoveryReady(Boolean(sessionData?.session));
+        setCheckingRecovery(false);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setErrorMessage(friendlyAuthError(error, "No pudimos validar el enlace de recuperación."));
+        setRecoveryReady(false);
+        setCheckingRecovery(false);
+      });
+
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -28,6 +63,10 @@ export default function ResetPasswordPage() {
     setSubmitting(true);
 
     try {
+      if (!recoveryReady) {
+        throw new Error("El enlace de recuperación ha caducado o ya se ha utilizado.");
+      }
+
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
 
@@ -42,7 +81,10 @@ export default function ResetPasswordPage() {
       }, 1200);
     } catch (error) {
       setErrorMessage(
-        String(error?.message || "No pudimos actualizar la contraseña. Solicita un nuevo enlace e inténtalo otra vez."),
+        friendlyAuthError(
+          error,
+          "No pudimos actualizar la contraseña. Solicita un nuevo enlace e inténtalo otra vez.",
+        ),
       );
     } finally {
       setSubmitting(false);
@@ -74,6 +116,14 @@ export default function ResetPasswordPage() {
           </div>
 
           {errorMessage && <div className="lg-error">{errorMessage}</div>}
+          {checkingRecovery && (
+            <div className="lg-note"><p>Validando tu enlace de recuperación…</p></div>
+          )}
+          {!checkingRecovery && !recoveryReady && !errorMessage && (
+            <div className="lg-error">
+              Este enlace ya no es válido. Solicita otro desde «¿Olvidaste tu contraseña?».
+            </div>
+          )}
           {successMessage && (
             <div className="lg-note">
               <p>{successMessage}</p>
@@ -110,7 +160,7 @@ export default function ResetPasswordPage() {
                 </div>
               </div>
 
-              <button type="submit" className="lg-btn" disabled={submitting || Boolean(successMessage)}>
+              <button type="submit" className="lg-btn" disabled={checkingRecovery || !recoveryReady || submitting || Boolean(successMessage)}>
                 {submitting ? "Actualizando…" : "Guardar nueva contraseña"}
               </button>
             </form>
