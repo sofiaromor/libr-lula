@@ -34,7 +34,7 @@ SMTP transaccional externo
 Buzón del usuario
   │
   ▼
-https://libr-lula.vercel.app/?auth=recovery
+https://librelula.vercel.app/?auth=recovery
   │
   ▼
 Supabase session + updateUser(password)
@@ -46,7 +46,7 @@ Supabase session + updateUser(password)
 2. Las credenciales SMTP se configuran exclusivamente en Supabase Dashboard.
 3. Nunca exponer `service_role` en Vite ni en código cliente.
 4. La recuperación devuelve siempre un mensaje genérico para reducir enumeración de usuarios.
-5. El redirect de producción debe ser `https://libr-lula.vercel.app`.
+5. El redirect de producción debe ser `https://librelula.vercel.app`.
 6. Los cambios de Auth deben pasar lint, build, preview de Vercel y QA manual antes de producción.
 
 ## Consecuencias
