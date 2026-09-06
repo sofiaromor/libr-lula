@@ -24,7 +24,7 @@
 ## Producción
 
 - [x] Vercel production deployment READY.
-- [x] Alias canónico `https://libr-lula.vercel.app` activo.
+- [x] Alias canónico `https://librelula.vercel.app` activo.
 - [x] Flujo de recuperación implementado en frontend.
 - [x] CI con build completo y lint incremental activo.
 - [ ] SMTP externo gratuito configurado en Supabase.
