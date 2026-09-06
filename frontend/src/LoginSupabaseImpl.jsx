@@ -5,6 +5,7 @@ import {
   resendSignupConfirmation,
   signInSupabase,
   signUpSupabase,
+  verifySignupCode,
 } from "./lib/session.js";
 import { friendlyAuthError } from "./lib/authErrors.js";
 import { supabase } from "./lib/supabase.js";
@@ -35,6 +36,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
   const [password, setPassword] = useState("");
   const [signupUsername, setSignupUsername] = useState("");
   const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -42,6 +44,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
   function switchPanel(panel) {
     setActivePanel(panel);
     setPendingConfirmationEmail("");
+    setVerificationCode("");
     setErrorMessage("");
     setSuccessMessage("");
   }
@@ -91,6 +94,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
 
       if (session?.needsEmailConfirmation) {
         setPendingConfirmationEmail(session.email || email.trim().toLowerCase());
+        setVerificationCode("");
         setSuccessMessage(
           "Tu cuenta está pendiente de confirmar. Revisa tu correo y la carpeta de spam. Si no recibes el mensaje, puedes reenviarlo desde aquí.",
         );
@@ -105,6 +109,36 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
         friendlyAuthError(
           error,
           "No se pudo crear la cuenta. Revisa los datos e inténtalo otra vez.",
+          { hasSupabaseConfig },
+        ),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleVerifySignupCode(event) {
+    event.preventDefault();
+    setSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      const session = await verifySignupCode(
+        pendingConfirmationEmail || email,
+        verificationCode,
+      );
+
+      if (!session) {
+        throw new Error("No se pudo confirmar la cuenta con ese código.");
+      }
+
+      onLoginSuccess?.(session);
+      goHomeAfterAuth();
+    } catch (error) {
+      setErrorMessage(
+        friendlyAuthError(
+          error,
+          "El código no es válido o ya ha caducado. Solicita un correo nuevo e inténtalo otra vez.",
           { hasSupabaseConfig },
         ),
       );
@@ -230,11 +264,30 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
             <div className="lg-note">
               <p>{successMessage}</p>
               {pendingConfirmationEmail && (
-                <p>
-                  <a href="#" onClick={handleResendConfirmation}>
-                    {submitting ? "Reenviando…" : "Reenviar correo de verificación"}
-                  </a>
-                </p>
+                <>
+                  <form onSubmit={handleVerifySignupCode} className="lg-code-form">
+                    <label htmlFor="verification-code">Código de verificación</label>
+                    <div className="lg-code-row">
+                      <input
+                        id="verification-code"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        placeholder="123456"
+                        maxLength={6}
+                        value={verificationCode}
+                        onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, ""))}
+                      />
+                      <button type="submit" disabled={submitting || verificationCode.length !== 6}>
+                        {submitting ? "Comprobando…" : "Verificar"}
+                      </button>
+                    </div>
+                  </form>
+                  <p>
+                    <a href="#" onClick={handleResendConfirmation}>
+                      {submitting ? "Reenviando…" : "Reenviar correo de verificación"}
+                    </a>
+                  </p>
+                </>
               )}
             </div>
           )}
