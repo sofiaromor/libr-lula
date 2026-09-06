@@ -178,6 +178,47 @@
   font-style: italic;
 }
 
+.lg-code-form {
+  margin-top: 1rem;
+}
+
+.lg-code-form label {
+  display: block;
+  margin-bottom: 5px;
+  color: #9a8570;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.lg-code-row {
+  display: flex;
+  gap: 8px;
+}
+
+.lg-code-row input {
+  min-width: 0;
+  flex: 1;
+  letter-spacing: 4px;
+  text-align: center;
+}
+
+.lg-code-row button {
+  border: 0;
+  border-radius: 50px;
+  padding: 0 16px;
+  background: #b8896a;
+  color: #fffaf3;
+  cursor: pointer;
+  font-family: 'Crimson Pro', serif;
+  font-size: 14px;
+}
+
+.lg-code-row button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
 .lg-check {
   display: flex;
   align-items: center;
