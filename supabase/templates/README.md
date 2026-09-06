@@ -31,7 +31,7 @@ Ruta: **Authentication → Emails → Email Templates**.
 2. Copiar el HTML completo del archivo versionado en este directorio.
 3. Establecer el asunto recomendado.
 4. Guardar.
-5. Enviar una prueba real desde `https://libr-lula.vercel.app`.
+5. Enviar una prueba real desde `https://librelula.vercel.app`.
 6. Verificar Gmail móvil/escritorio, spam, CTA y redirect final.
 7. Para un remitente profesional, usar SMTP personalizado y configurar `Librélula` como sender name. La credencial SMTP nunca debe guardarse en GitHub.
 
