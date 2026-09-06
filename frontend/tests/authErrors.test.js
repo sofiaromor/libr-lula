@@ -28,3 +28,13 @@ test("auth errors keep the existing network troubleshooting copy", () => {
     "Este preview no ha recibido la configuración de Supabase. Necesita un nuevo despliegue de Preview con las variables habilitadas.",
   );
 });
+
+test("auth errors explain expired verification links in Spanish", () => {
+  assert.equal(
+    friendlyAuthError(
+      { message: "Email link is invalid or has expired" },
+      "No pudimos validar el enlace.",
+    ),
+    "El código o enlace no es válido o ya ha caducado. Solicita un correo nuevo e inténtalo otra vez.",
+  );
+});
