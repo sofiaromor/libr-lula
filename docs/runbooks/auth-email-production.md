@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Garantizar que registro, confirmación de email y recuperación de contraseña funcionen para usuarios externos en `https://librelula.vercel.app`.
+Garantizar que registro, confirmación de email y recuperación de contraseña funcionen para usuarios externos en `https://libr-lula.vercel.app`.
 
 ## Dependencias
 
@@ -14,8 +14,8 @@ Garantizar que registro, confirmación de email y recuperación de contraseña f
 
 ### URL configuration
 
-- Site URL: `https://librelula.vercel.app`
-- Redirect URL permitida: `https://librelula.vercel.app/**`
+- Site URL: `https://libr-lula.vercel.app`
+- Redirect URL permitida: `https://libr-lula.vercel.app/**`
 
 ### SMTP
 
@@ -32,7 +32,7 @@ Nunca guardar host, usuario, contraseña o API keys privadas en el repositorio.
 3. Verificar que la UI informa de que debe confirmar el correo.
 4. Comprobar recepción del mensaje.
 5. Abrir el enlace de confirmación.
-6. Confirmar que vuelve a `librelula.vercel.app`.
+6. Confirmar que vuelve a `libr-lula.vercel.app`.
 7. Iniciar sesión.
 8. Verificar que se crea/carga el perfil y que la sesión persiste al recargar.
 
