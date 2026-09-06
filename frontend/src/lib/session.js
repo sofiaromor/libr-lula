@@ -9,7 +9,7 @@ export const EMPTY_SUPABASE_SESSION = {
 const SESSION_PROFILE_CACHE_TTL = 30_000;
 const PERSISTED_SESSION_CACHE_TTL = 5 * 60_000;
 const SESSION_PROFILE_STORAGE_KEY = "librelula:app-session:v1";
-const DEFAULT_AUTH_SITE_URL = "https://libr-lula.vercel.app";
+const DEFAULT_AUTH_SITE_URL = "https://librelula.vercel.app";
 const HOME_STORAGE_KEYS = [
   "librelula:home-dashboard:v1",
   "librelula:home-reading:v1",
@@ -268,6 +268,31 @@ export async function resendSignupConfirmation(email) {
   if (error) {
     throw error;
   }
+}
+
+export async function verifySignupCode(email, token) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const cleanToken = String(token || "").replace(/\s+/g, "");
+
+  if (!cleanEmail) {
+    throw new Error("Escribe el correo electrónico de tu cuenta.");
+  }
+
+  if (!/^\d{6}$/.test(cleanToken)) {
+    throw new Error("El código debe tener 6 cifras.");
+  }
+
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: cleanEmail,
+    token: cleanToken,
+    type: "email",
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.session ? getSupabaseAppSession() : data?.session;
 }
 
 export async function signOutSupabase() {
