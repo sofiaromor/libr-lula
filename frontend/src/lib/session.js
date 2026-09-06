@@ -1,4 +1,4 @@
-﻿import { supabase } from "./supabase.js";
+import { supabase } from "./supabase.js";
 
 export const EMPTY_SUPABASE_SESSION = {
   authenticated: false,
@@ -9,7 +9,7 @@ export const EMPTY_SUPABASE_SESSION = {
 const SESSION_PROFILE_CACHE_TTL = 30_000;
 const PERSISTED_SESSION_CACHE_TTL = 5 * 60_000;
 const SESSION_PROFILE_STORAGE_KEY = "librelula:app-session:v1";
-const DEFAULT_AUTH_SITE_URL = "https://librelula.vercel.app";
+const DEFAULT_AUTH_SITE_URL = "https://libr-lula.vercel.app";
 const HOME_STORAGE_KEYS = [
   "librelula:home-dashboard:v1",
   "librelula:home-reading:v1",
@@ -184,9 +184,9 @@ export function getAuthRedirectUrl() {
   }
 
   if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return window.location.origin;
+    const currentOrigin = String(window.location.origin || "").replace(/\/+$/, "");
+    if (/^https?:\/\//i.test(currentOrigin)) {
+      return currentOrigin;
     }
   }
 
