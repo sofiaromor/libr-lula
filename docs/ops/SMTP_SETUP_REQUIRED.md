@@ -25,8 +25,8 @@ Authentication > Emails > SMTP Settings
 
 Después de guardar las credenciales:
 
-1. Site URL: `https://libr-lula.vercel.app`
-2. Redirect allowlist: `https://libr-lula.vercel.app/**`
+1. Site URL: `https://librelula.vercel.app`
+2. Redirect allowlist: `https://librelula.vercel.app/**`
 3. Confirm signup habilitado.
 4. Ejecutar la checklist `docs/qa/auth-email-checklist.md` con una dirección externa.
 
