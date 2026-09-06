@@ -175,19 +175,19 @@ export function onSupabaseAuthChange(callback) {
 }
 
 export function getAuthRedirectUrl() {
+  if (typeof window !== "undefined") {
+    const currentOrigin = String(window.location.origin || "").replace(/\/+$/, "");
+    if (/^https?:\/\//i.test(currentOrigin)) {
+      return currentOrigin;
+    }
+  }
+
   const configuredSiteUrl = String(import.meta.env.VITE_SITE_URL || "")
     .trim()
     .replace(/\/+$/, "");
 
   if (configuredSiteUrl) {
     return configuredSiteUrl;
-  }
-
-  if (typeof window !== "undefined") {
-    const currentOrigin = String(window.location.origin || "").replace(/\/+$/, "");
-    if (/^https?:\/\//i.test(currentOrigin)) {
-      return currentOrigin;
-    }
   }
 
   return DEFAULT_AUTH_SITE_URL;
