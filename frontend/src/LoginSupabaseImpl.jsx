@@ -6,24 +6,13 @@ import {
   signInSupabase,
   signUpSupabase,
 } from "./lib/session.js";
+import { friendlyAuthError } from "./lib/authErrors.js";
 import { supabase } from "./lib/supabase.js";
 import "./LoginSupabase.css";
 
 const hasSupabaseConfig = Boolean(
   import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
 );
-
-function friendlyAuthError(error, fallback) {
-  const message = String(error?.message || "").trim();
-
-  if (/failed to fetch|fetch failed|networkerror/i.test(message)) {
-    return hasSupabaseConfig
-      ? "No pudimos conectar con Librélula. Comprueba tu conexión e inténtalo de nuevo en unos segundos."
-      : "Este preview no ha recibido la configuración de Supabase. Necesita un nuevo despliegue de Preview con las variables habilitadas.";
-  }
-
-  return message || fallback;
-}
 
 function goHomeAfterAuth() {
   window.setTimeout(() => {
@@ -77,6 +66,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
         friendlyAuthError(
           error,
           "No se pudo iniciar sesión. Revisa el email y la contraseña.",
+          { hasSupabaseConfig },
         ),
       );
     } finally {
@@ -115,6 +105,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
         friendlyAuthError(
           error,
           "No se pudo crear la cuenta. Revisa los datos e inténtalo otra vez.",
+          { hasSupabaseConfig },
         ),
       );
     } finally {
@@ -144,6 +135,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
         friendlyAuthError(
           error,
           "No pudimos reenviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
+          { hasSupabaseConfig },
         ),
       );
     } finally {
@@ -180,6 +172,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
         friendlyAuthError(
           error,
           "No pudimos enviar el correo de recuperación. Inténtalo de nuevo en unos minutos.",
+          { hasSupabaseConfig },
         ),
       );
     } finally {
