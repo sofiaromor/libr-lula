@@ -22,6 +22,10 @@ export function friendlyAuthError(error, fallback, { hasSupabaseConfig = true } 
       : "Este preview no ha recibido la configuración de Supabase. Necesita un nuevo despliegue de Preview con las variables habilitadas.";
   }
 
+  if (/expired|invalid|otp|token|verification code|código|caducado/i.test(message)) {
+    return "El código o enlace no es válido o ya ha caducado. Solicita un correo nuevo e inténtalo otra vez.";
+  }
+
   if (/smtp|email|mail|rate limit|unexpected_failure|sending|provider|authorized/i.test(message)) {
     return "No pudimos enviar el correo ahora mismo. Revisa que Brevo tenga autorizada la IP nueva y vuelve a intentarlo en unos minutos.";
   }
